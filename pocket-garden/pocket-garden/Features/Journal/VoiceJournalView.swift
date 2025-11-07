@@ -17,10 +17,11 @@ struct VoiceJournalView: View {
     @State private var speechService = SpeechRecognitionService()
     @State private var recordingSeconds: Int = 0
     @State private var recordingTimer: Timer?
-    @State private var showingSaveSuccess = false
     @State private var showingPermissionDenied = false
     @State private var showingError = false
     @State private var isGeneratingFeedback = false
+    @State private var showMascotFeedback = false
+    @State private var savedEntry: EmotionEntry?
 
     var body: some View {
         NavigationStack {
@@ -49,12 +50,13 @@ struct VoiceJournalView: View {
                 }
             }
         }
-        .alert("Entry Saved!", isPresented: $showingSaveSuccess) {
-            Button("Done") {
-                dismiss()
+        .fullScreenCover(isPresented: $showMascotFeedback) {
+            if let entry = savedEntry {
+                MascotFeedbackView(entry: entry) {
+                    showMascotFeedback = false
+                    dismiss()
+                }
             }
-        } message: {
-            Text("Your tree is growing! 🌱")
         }
         .alert("Permission Required", isPresented: $showingPermissionDenied) {
             Button("Open Settings") {
@@ -392,7 +394,10 @@ struct VoiceJournalView: View {
 
         isGeneratingFeedback = false
         Theme.Haptics.success()
-        showingSaveSuccess = true
+
+        // Show mascot feedback screen
+        savedEntry = entry
+        showMascotFeedback = true
     }
 }
 

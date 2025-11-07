@@ -16,7 +16,12 @@ struct ForestGardenView: View {
     @State private var selectedEntry: EmotionEntry?
     @State private var showCelebration = false
     @State private var showButterflies = false
+    @State private var showAchievements = false
     @GestureState private var dragOffset: CGFloat = 0
+
+    // Achievement tracking
+    @State private var achievementService = AchievementService()
+    @State private var shakeCelebrationCount = UserDefaults.standard.integer(forKey: "shakeCelebrationCount")
 
     private let treeSpacing: CGFloat = 140
     private let treeSize = CGSize(width: 120, height: 200)
@@ -52,21 +57,62 @@ struct ForestGardenView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button(action: {
-                    withAnimation {
-                        showButterflies.toggle()
+                HStack(spacing: Spacing.sm) {
+                    Button(action: {
+                        withAnimation {
+                            showButterflies.toggle()
+                        }
+                    }) {
+                        Image(systemName: showButterflies ? "sparkles.rectangle.stack.fill" : "sparkles.rectangle.stack")
+                            .foregroundColor(.primaryGreen)
                     }
-                }) {
-                    Image(systemName: showButterflies ? "sparkles.rectangle.stack.fill" : "sparkles.rectangle.stack")
-                        .foregroundColor(.primaryGreen)
+
+                    Button(action: {
+                        showAchievements = true
+                    }) {
+                        ZStack(alignment: .topTrailing) {
+                            Image(systemName: "trophy.fill")
+                                .foregroundColor(.accentGold)
+
+                            if achievementService.unlockedCount > 0 {
+                                Circle()
+                                    .fill(Color.emotionJoy)
+                                    .frame(width: 8, height: 8)
+                                    .offset(x: 4, y: -4)
+                            }
+                        }
+                    }
                 }
             }
         }
         .sheet(item: $selectedEntry) { entry in
             EntryDetailView(entry: entry)
         }
+        .sheet(isPresented: $showAchievements) {
+            NavigationStack {
+                AchievementsOverviewView(achievements: achievementService.achievements)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarTrailing) {
+                            Button("Done") {
+                                showAchievements = false
+                            }
+                        }
+                    }
+            }
+        }
+        .fullScreenCover(isPresented: $achievementService.showUnlockNotification) {
+            if let achievement = achievementService.recentlyUnlocked {
+                AchievementUnlockView(achievement: achievement) {
+                    achievementService.showUnlockNotification = false
+                }
+            }
+        }
         .onShake {
             triggerCelebration()
+        }
+        .onAppear {
+            initializeAchievements()
+            checkAchievements()
         }
     }
 
@@ -267,11 +313,30 @@ struct ForestGardenView: View {
             showCelebration = true
         }
 
+        // Track shake celebration for achievement
+        shakeCelebrationCount += 1
+        UserDefaults.standard.set(shakeCelebrationCount, forKey: "shakeCelebrationCount")
+        achievementService.incrementShakeCelebration()
+
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             withAnimation {
                 showCelebration = false
             }
         }
+    }
+
+    private func initializeAchievements() {
+        // Initialize achievements if needed
+        if achievementService.achievements.isEmpty {
+            achievementService.achievements = Achievement.createDefaultAchievements()
+        }
+    }
+
+    private func checkAchievements() {
+        achievementService.checkAchievements(
+            entries: entries,
+            currentStreak: currentStreak
+        )
     }
 }
 
