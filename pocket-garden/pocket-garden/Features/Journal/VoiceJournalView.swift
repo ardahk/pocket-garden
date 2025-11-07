@@ -7,6 +7,7 @@
 
 import SwiftUI
 import SwiftData
+internal import Speech
 
 struct VoiceJournalView: View {
     @Environment(\.dismiss) private var dismiss

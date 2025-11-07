@@ -5,7 +5,7 @@
 //  Voice Recording and Transcription Service
 //
 
-import Speech
+internal import Speech
 import AVFoundation
 import SwiftUI
 
@@ -238,12 +238,14 @@ enum RecognitionError: LocalizedError, Identifiable {
 
     var recoverySuggestion: String? {
         switch self {
-        case .authorizationDenied, .microphoneAccessDenied:
-            return "Go to Settings > Privacy > \(self == .authorizationDenied ? "Speech Recognition" : "Microphone") and enable access for Pocket Garden."
+        case .authorizationDenied:
+            return "Go to Settings > Privacy > Speech Recognition and enable access for Pocket Garden."
+        case .microphoneAccessDenied:
+            return "Go to Settings > Privacy > Microphone and enable access for Pocket Garden."
         case .onDeviceNotSupported:
-            return "Please update to iOS 17 or later for on-device speech recognition."
+            return "Please update to iOS 18 or later for on-device speech recognition."
         default:
-            return "Please try again. If the problem persists, restart the app."
+            return "Please try again. If the problem persists, restart the app or your device."
         }
     }
 }
