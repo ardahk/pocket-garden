@@ -245,8 +245,10 @@ enum RecognitionError: LocalizedError, Identifiable {
 
     var recoverySuggestion: String? {
         switch self {
-        case .authorizationDenied, .microphoneAccessDenied:
-            return "Go to Settings > Privacy > \(self == .authorizationDenied ? "Speech Recognition" : "Microphone") and enable access for Pocket Garden."
+        case .authorizationDenied:
+            return "Go to Settings > Privacy > Speech Recognition and enable access for Pocket Garden."
+        case .microphoneAccessDenied:
+            return "Go to Settings > Privacy > Microphone and enable access for Pocket Garden."
         case .onDeviceNotSupported:
             return "Please update to iOS 17 or later for on-device speech recognition."
         default:
