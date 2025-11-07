@@ -39,6 +39,12 @@ extension Color {
     /// Sadness (1-2 rating)
     static let emotionSad = Color(hex: "8FA2C0")
 
+    /// Calm & Peace (mindfulness, meditation)
+    static let emotionCalm = Color(hex: "B8E6E1")
+
+    /// Anxious & Stressed (worry, tension)
+    static let emotionAnxious = Color(hex: "F8C4B4")
+
     // MARK: - UI Colors
 
     /// Card background with slight tint
