@@ -133,12 +133,19 @@ class SpeechRecognitionService {
             guard let self = self else { return }
 
             if let result = result {
-                // Update transcription with best result
-                self.transcription = result.bestTranscription.formattedString
+                // ALWAYS use the FULL accumulated transcription
+                // bestTranscription.formattedString contains ALL text up to this point
+                let fullText = result.bestTranscription.formattedString
 
-                // Check if result is final
+                // Update with complete accumulated text
+                DispatchQueue.main.async {
+                    self.transcription = fullText
+                }
+
+                // Check if result is final (but keep transcription!)
                 if result.isFinal {
-                    self.stopRecording()
+                    print("✅ Final transcription: \(fullText)")
+                    // Don't stop immediately - let user decide when to stop
                 }
             }
 

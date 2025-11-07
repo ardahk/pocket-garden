@@ -12,9 +12,11 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
 
+    @Binding var selectedTab: Int
     @State private var todayRating: Int = 7
     @State private var showJournalSheet = false
     @State private var hasSubmittedToday = false
+    @State private var selectedEntry: EmotionEntry?
 
     var body: some View {
         ZStack {
@@ -27,6 +29,11 @@ struct HomeView: View {
                     // Header
                     headerSection
                         .padding(.top, Spacing.md)
+
+                    // Daily Challenge Card
+                    if !hasSubmittedToday {
+                        dailyChallengeSection
+                    }
 
                     // Daily Rating Card
                     if !hasSubmittedToday {
@@ -41,6 +48,11 @@ struct HomeView: View {
                     // Stats Overview
                     statsSection
 
+                    // Weekly Insight (show if user has entries)
+                    if !entries.isEmpty {
+                        weeklyInsightSection
+                    }
+
                     // Recent Entries Preview
                     recentEntriesSection
                 }
@@ -51,6 +63,9 @@ struct HomeView: View {
         .navigationBarHidden(true)
         .sheet(isPresented: $showJournalSheet) {
             VoiceJournalView(emotionRating: todayRating)
+        }
+        .sheet(item: $selectedEntry) { entry in
+            EntryDetailView(entry: entry)
         }
         .onAppear {
             checkTodayEntry()
@@ -71,6 +86,24 @@ struct HomeView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .fadeIn()
+    }
+
+    // MARK: - Daily Challenge Section
+
+    private var dailyChallengeSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text("Daily Challenge")
+                .font(Typography.headline)
+                .foregroundColor(.textPrimary)
+
+            DailyChallengeCard(
+                challenge: DailyChallenge.todaysChallenge(),
+                hasCompletedToday: hasSubmittedToday
+            ) {
+                showJournalSheet = true
+            }
+        }
+        .slideInFromBottom(delay: 0.05)
     }
 
     // MARK: - Daily Rating Card
@@ -174,7 +207,8 @@ struct HomeView: View {
                     title: "View Garden",
                     color: .primaryGreen
                 ) {
-                    // Switch to garden tab
+                    selectedTab = 1 // Switch to garden tab
+                    Theme.Haptics.light()
                 }
 
                 QuickActionButton(
@@ -182,7 +216,8 @@ struct HomeView: View {
                     title: "Past Entries",
                     color: .secondaryTerracotta
                 ) {
-                    // Switch to history tab
+                    selectedTab = 2 // Switch to history tab
+                    Theme.Haptics.light()
                 }
             }
         }
@@ -223,6 +258,15 @@ struct HomeView: View {
         .slideInFromBottom(delay: 0.3)
     }
 
+    // MARK: - Weekly Insight Section
+
+    private var weeklyInsightSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            WeeklyInsightCard(insight: WeeklyInsight.generate(from: entries))
+        }
+        .slideInFromBottom(delay: 0.35)
+    }
+
     // MARK: - Recent Entries
 
     private var recentEntriesSection: some View {
@@ -235,7 +279,8 @@ struct HomeView: View {
                 Spacer()
 
                 Button("View All") {
-                    // Navigate to history
+                    selectedTab = 2 // Switch to history tab
+                    Theme.Haptics.light()
                 }
                 .font(Typography.callout)
                 .foregroundColor(.primaryGreen)
@@ -253,7 +298,8 @@ struct HomeView: View {
             } else {
                 ForEach(entries.prefix(3)) { entry in
                     EmotionEntryCard(entry: entry) {
-                        // Navigate to entry detail
+                        selectedEntry = entry
+                        Theme.Haptics.light()
                     }
                 }
             }
@@ -355,13 +401,17 @@ struct QuickActionButton: View {
 // MARK: - Preview
 
 #Preview("Home View") {
+    @Previewable @State var selectedTab = 0
+
     NavigationStack {
-        HomeView()
+        HomeView(selectedTab: $selectedTab)
     }
     .modelContainer(for: EmotionEntry.self, inMemory: true)
 }
 
 #Preview("Home View with Entries") {
+    @Previewable @State var selectedTab = 0
+
     let container = try! ModelContainer(
         for: EmotionEntry.self,
         configurations: ModelConfiguration(isStoredInMemoryOnly: true)
@@ -374,7 +424,7 @@ struct QuickActionButton: View {
     }
 
     return NavigationStack {
-        HomeView()
+        HomeView(selectedTab: $selectedTab)
     }
     .modelContainer(container)
 }
