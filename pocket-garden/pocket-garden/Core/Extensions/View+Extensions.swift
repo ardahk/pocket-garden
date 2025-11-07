@@ -28,7 +28,7 @@ struct PressAnimationModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .scaleEffect(isPressed ? scale : 1.0)
-            .animation(Theme.Animation.quick, value: isPressed)
+            .animation(.easeInOut(duration: Theme.Animation.quick), value: isPressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in
