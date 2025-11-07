@@ -2,7 +2,7 @@
 //  VoiceJournalView.swift
 //  pocket-garden
 //
-//  Voice Journal Entry View
+//  Voice Journal Entry View - Part 2 Implementation
 //
 
 import SwiftUI
@@ -14,9 +14,13 @@ struct VoiceJournalView: View {
 
     let emotionRating: Int
 
-    @State private var isRecording = false
-    @State private var transcription = ""
+    @State private var speechService = SpeechRecognitionService()
+    @State private var recordingSeconds: Int = 0
+    @State private var recordingTimer: Timer?
     @State private var showingSaveSuccess = false
+    @State private var showingPermissionDenied = false
+    @State private var showingError = false
+    @State private var isGeneratingFeedback = false
 
     var body: some View {
         NavigationStack {
@@ -25,25 +29,10 @@ struct VoiceJournalView: View {
                 Color.peacefulGradient
                     .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: Spacing.xxxl) {
-                        // Emotion Summary
-                        emotionSummaryCard
-
-                        // Recording Interface (Placeholder)
-                        recordingInterface
-
-                        // Transcription Display
-                        if !transcription.isEmpty {
-                            transcriptionCard
-                        }
-
-                        // Save Button
-                        if !transcription.isEmpty {
-                            saveButton
-                        }
-                    }
-                    .padding(Layout.screenPadding)
+                if speechService.needsAuthorization {
+                    permissionRequestView
+                } else {
+                    mainContentView
                 }
             }
             .navigationTitle("Voice Journal")
@@ -51,6 +40,9 @@ struct VoiceJournalView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
+                        if speechService.isRecording {
+                            speechService.cancelRecording()
+                        }
                         dismiss()
                     }
                     .foregroundColor(.primaryGreen)
@@ -58,15 +50,126 @@ struct VoiceJournalView: View {
             }
         }
         .alert("Entry Saved!", isPresented: $showingSaveSuccess) {
-            Button("View Garden") {
-                // Switch to garden tab
-                dismiss()
-            }
             Button("Done") {
                 dismiss()
             }
         } message: {
             Text("Your tree is growing! 🌱")
+        }
+        .alert("Permission Required", isPresented: $showingPermissionDenied) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {
+                dismiss()
+            }
+        } message: {
+            if let error = speechService.error {
+                Text(error.recoverySuggestion ?? error.localizedDescription)
+            }
+        }
+        .alert("Error", isPresented: $showingError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            if let error = speechService.error {
+                Text(error.localizedDescription)
+            }
+        }
+    }
+
+    // MARK: - Permission Request View
+
+    private var permissionRequestView: some View {
+        ScrollView {
+            VStack(spacing: Spacing.xxxl) {
+                Spacer()
+                    .frame(height: Spacing.xxxl)
+
+                // Icon
+                Image(systemName: "mic.circle.fill")
+                    .font(.system(size: 80))
+                    .foregroundColor(.primaryGreen)
+                    .fadeIn()
+
+                // Content
+                VStack(spacing: Spacing.lg) {
+                    Text("Voice Journaling")
+                        .font(Typography.title)
+                        .foregroundColor(.textPrimary)
+                        .multilineTextAlignment(.center)
+
+                    Text("Speak your thoughts and feelings. Your voice will be transcribed on-device for complete privacy.")
+                        .font(Typography.body)
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.lg)
+                }
+                .fadeIn(delay: 0.2)
+
+                // Privacy info cards
+                VStack(spacing: Spacing.md) {
+                    InfoCard(
+                        icon: "lock.shield.fill",
+                        title: "Private & Secure",
+                        description: "All processing happens on your device. Nothing is sent to the cloud.",
+                        iconColor: .successGreen
+                    )
+
+                    InfoCard(
+                        icon: "waveform",
+                        title: "Real-time Transcription",
+                        description: "See your words appear as you speak using Apple's Speech Recognition.",
+                        iconColor: .primaryGreen
+                    )
+                }
+                .fadeIn(delay: 0.4)
+
+                // Request button
+                PrimaryButton("Enable Voice Journaling", icon: "mic.fill") {
+                    Task {
+                        let granted = await speechService.requestAuthorization()
+                        if !granted {
+                            showingPermissionDenied = true
+                        }
+                    }
+                }
+                .padding(.horizontal, Layout.screenPadding)
+                .slideInFromBottom(delay: 0.6)
+
+                Spacer()
+            }
+            .padding(Layout.screenPadding)
+        }
+    }
+
+    // MARK: - Main Content View
+
+    private var mainContentView: some View {
+        ScrollView {
+            VStack(spacing: Spacing.xxxl) {
+                // Emotion Summary
+                emotionSummaryCard
+                    .fadeIn()
+
+                // Recording Interface
+                recordingInterface
+                    .slideInFromBottom(delay: 0.1)
+
+                // Transcription Display
+                if !speechService.transcription.isEmpty {
+                    transcriptionCard
+                        .fadeIn()
+                }
+
+                // Save Button
+                if !speechService.transcription.isEmpty && !speechService.isRecording {
+                    saveButton
+                        .slideInFromBottom()
+                }
+            }
+            .padding(Layout.screenPadding)
         }
     }
 
@@ -92,57 +195,45 @@ struct VoiceJournalView: View {
             }
             .padding(.vertical, Spacing.sm)
         }
-        .fadeIn()
     }
 
     // MARK: - Recording Interface
 
     private var recordingInterface: some View {
         VStack(spacing: Spacing.xl) {
-            Text(isRecording ? "Recording..." : "Tap to Start")
+            // Status text
+            Text(statusText)
                 .font(Typography.title3)
                 .foregroundColor(.textPrimary)
-
-            // Recording Button (Placeholder)
-            Button(action: {
-                Theme.Haptics.medium()
-                isRecording.toggle()
-
-                // Placeholder - simulate transcription after 2 seconds
-                if !isRecording {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        transcription = "This is a placeholder transcription. In Part 2, we'll implement real voice recording and transcription using the Speech framework."
-                    }
-                }
-            }) {
-                ZStack {
-                    if isRecording {
-                        Circle()
-                            .stroke(Color.errorRed.opacity(0.4), lineWidth: 4)
-                            .frame(width: 100, height: 100)
-                            .scaleEffect(isRecording ? 1.3 : 1.0)
-                            .opacity(isRecording ? 0 : 1)
-                            .animation(
-                                .easeInOut(duration: 1.5).repeatForever(autoreverses: false),
-                                value: isRecording
-                            )
-                    }
-
-                    Circle()
-                        .fill(isRecording ? Color.errorRed : Color.primaryGreen)
-                        .frame(width: 80, height: 80)
-
-                    Image(systemName: isRecording ? "stop.fill" : "mic.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(.white)
-                }
-            }
-            .pressAnimation()
-
-            Text("Voice recording will be implemented in Part 2")
-                .font(Typography.caption)
-                .foregroundColor(.textSecondary)
                 .multilineTextAlignment(.center)
+
+            // Waveform visualization
+            if speechService.isRecording {
+                CircularWaveform(isRecording: true)
+                    .transition(.scale.combined(with: .opacity))
+            }
+
+            // Recording button
+            RecordingButton(
+                isRecording: speechService.isRecording,
+                isTranscribing: speechService.isTranscribing
+            ) {
+                toggleRecording()
+            }
+
+            // Recording timer
+            if speechService.isRecording {
+                RecordingTimer(seconds: recordingSeconds)
+                    .transition(.scale.combined(with: .opacity))
+            }
+
+            // Helper text
+            if !speechService.isRecording && speechService.transcription.isEmpty {
+                Text("Tap the microphone to start recording")
+                    .font(Typography.callout)
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Spacing.xxxl)
@@ -165,39 +256,126 @@ struct VoiceJournalView: View {
                         .foregroundColor(.textPrimary)
 
                     Spacer()
+
+                    if speechService.isTranscribing {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                    }
                 }
 
-                Text(transcription)
+                Text(speechService.transcription)
                     .font(Typography.body)
                     .foregroundColor(.textPrimary)
                     .multilineTextAlignment(.leading)
+                    .textSelection(.enabled) // Allow text selection
+
+                // Word count
+                Text("\(wordCount) words")
+                    .font(Typography.caption)
+                    .foregroundColor(.textSecondary)
             }
         }
-        .fadeIn()
     }
 
     // MARK: - Save Button
 
     private var saveButton: some View {
-        PrimaryButton("Save Entry", icon: "checkmark") {
-            saveEntry()
+        VStack(spacing: Spacing.md) {
+            PrimaryButton(
+                "Save Entry",
+                icon: "checkmark",
+                isLoading: isGeneratingFeedback
+            ) {
+                Task {
+                    await saveEntry()
+                }
+            }
+
+            if !speechService.transcription.isEmpty {
+                Button("Record Again") {
+                    speechService.transcription = ""
+                    recordingSeconds = 0
+                }
+                .font(Typography.callout)
+                .foregroundColor(.primaryGreen)
+            }
         }
-        .slideInFromBottom()
+    }
+
+    // MARK: - Helper Properties
+
+    private var statusText: String {
+        if speechService.isRecording {
+            return "Recording..."
+        } else if speechService.isTranscribing {
+            return "Transcribing..."
+        } else if !speechService.transcription.isEmpty {
+            return "Recording Complete"
+        } else {
+            return "Ready to Record"
+        }
+    }
+
+    private var wordCount: Int {
+        speechService.transcription.split(separator: " ").count
     }
 
     // MARK: - Helper Methods
 
-    private func saveEntry() {
-        Theme.Haptics.success()
+    private func toggleRecording() {
+        if speechService.isRecording {
+            // Stop recording
+            stopRecording()
+        } else {
+            // Start recording
+            startRecording()
+        }
+    }
 
-        // Create new entry
+    private func startRecording() {
+        recordingSeconds = 0
+
+        Task {
+            do {
+                try await speechService.startRecording()
+
+                // Start timer
+                recordingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+                    recordingSeconds += 1
+
+                    // Auto-stop after 5 minutes
+                    if recordingSeconds >= 300 {
+                        stopRecording()
+                    }
+                }
+            } catch {
+                showingError = true
+                print("❌ Failed to start recording: \(error)")
+            }
+        }
+    }
+
+    private func stopRecording() {
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+
+        speechService.stopRecording()
+    }
+
+    private func saveEntry() async {
+        isGeneratingFeedback = true
+
+        // Create entry
         let entry = EmotionEntry(
             emotionRating: emotionRating,
-            transcription: transcription,
-            aiFeedback: generatePlaceholderFeedback()
+            transcription: speechService.transcription
         )
 
-        // Calculate tree stage based on total entries
+        // Generate AI feedback
+        let feedback = await AppleIntelligenceService.shared.generateFeedback(for: entry)
+        entry.aiFeedback = feedback
+
+        // Calculate tree stage
         let allEntries = try? modelContext.fetch(FetchDescriptor<EmotionEntry>())
         let entryCount = (allEntries?.count ?? 0) + 1
         entry.updateTreeStage(entryCount: entryCount)
@@ -205,24 +383,38 @@ struct VoiceJournalView: View {
         // Save to database
         modelContext.insert(entry)
 
-        showingSaveSuccess = true
-    }
+        // Try to save context
+        do {
+            try modelContext.save()
+        } catch {
+            print("❌ Failed to save entry: \(error)")
+        }
 
-    private func generatePlaceholderFeedback() -> String {
-        // Placeholder - AI feedback will be implemented in Part 2
-        let templates = [
-            "You're doing great! Keep nurturing these moments 🌱",
-            "Your growth is inspiring! Keep going ✨",
-            "Every day is a new opportunity to bloom 🌸",
-            "You're building something beautiful 🌳"
-        ]
-        return templates.randomElement() ?? templates[0]
+        isGeneratingFeedback = false
+        Theme.Haptics.success()
+        showingSaveSuccess = true
     }
 }
 
 // MARK: - Preview
 
-#Preview {
+#Preview("Permission Request") {
     VoiceJournalView(emotionRating: 8)
         .modelContainer(for: EmotionEntry.self, inMemory: true)
+}
+
+#Preview("Recording") {
+    struct RecordingPreview: View {
+        @State private var service = SpeechRecognitionService()
+
+        var body: some View {
+            VoiceJournalView(emotionRating: 7)
+                .modelContainer(for: EmotionEntry.self, inMemory: true)
+                .onAppear {
+                    service.authorizationStatus = .authorized
+                }
+        }
+    }
+
+    return RecordingPreview()
 }
