@@ -279,7 +279,7 @@ class AchievementService {
 
     private func checkTreeAchievements(entries: [EmotionEntry]) {
         let treeCount = entries.count
-        let bloomCount = entries.filter { $0.treeStage == TreeStage.blooming.rawValue }.count
+        let bloomCount = entries.filter { $0.treeStage == TreeStage.bloomingTree.rawValue }.count
 
         updateAchievement(id: "trees_20", progress: treeCount)
         updateAchievement(id: "trees_50", progress: treeCount)
