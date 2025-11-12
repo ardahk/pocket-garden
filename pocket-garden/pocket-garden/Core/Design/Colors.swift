@@ -10,17 +10,17 @@ import SwiftUI
 extension Color {
     // MARK: - Primary Colors (Natural Growth Theme)
 
-    /// Soft sage green - Primary brand color
-    static let primaryGreen = Color(hex: "A8C69F")
+    /// Soft sage green - Primary brand color (adaptive for dark mode)
+    static let primaryGreen = Color(light: Color(hex: "A8C69F"), dark: Color(hex: "8FAF85"))
 
-    /// Warm terracotta - Secondary brand color
-    static let secondaryTerracotta = Color(hex: "E5A888")
+    /// Warm terracotta - Secondary brand color (adaptive for dark mode)
+    static let secondaryTerracotta = Color(light: Color(hex: "E5A888"), dark: Color(hex: "D4967E"))
 
-    /// Cream white - Background color
-    static let backgroundCream = Color(hex: "FAF8F3")
+    /// Cream white - Background color (adaptive for dark mode)
+    static let backgroundCream = Color(light: Color(hex: "FAF8F3"), dark: Color(hex: "1C1C1E"))
 
-    /// Golden yellow - Accent color
-    static let accentGold = Color(hex: "F4D06F")
+    /// Golden yellow - Accent color (adaptive for dark mode)
+    static let accentGold = Color(light: Color(hex: "F4D06F"), dark: Color(hex: "E5C05F"))
 
     // MARK: - Emotion-Based Colors
 
@@ -47,49 +47,55 @@ extension Color {
 
     // MARK: - UI Colors
 
-    /// Card background with slight tint
-    static let cardBackground = Color.white.opacity(0.95)
+    /// Card background with slight tint (adaptive)
+    static let cardBackground = Color(light: Color.white.opacity(0.95), dark: Color(hex: "2C2C2E"))
 
-    /// Subtle shadow color
-    static let shadowColor = Color.black.opacity(0.08)
+    /// Subtle shadow color (adaptive)
+    static let shadowColor = Color(light: Color.black.opacity(0.08), dark: Color.black.opacity(0.3))
 
-    /// Border color for inputs
-    static let borderColor = Color.gray.opacity(0.2)
+    /// Border color for inputs (adaptive)
+    static let borderColor = Color(light: Color.gray.opacity(0.2), dark: Color.gray.opacity(0.3))
 
-    /// Text primary
-    static let textPrimary = Color(hex: "2D3436")
+    /// Text primary (adaptive)
+    static let textPrimary = Color(light: Color(hex: "2D3436"), dark: Color(hex: "F5F5F7"))
 
-    /// Text secondary
-    static let textSecondary = Color(hex: "636E72")
+    /// Text secondary (adaptive)
+    static let textSecondary = Color(light: Color(hex: "636E72"), dark: Color(hex: "98989D"))
 
-    /// Success green
-    static let successGreen = Color(hex: "00B894")
+    /// Success green (adaptive)
+    static let successGreen = Color(light: Color(hex: "00B894"), dark: Color(hex: "30D5C8"))
 
-    /// Error red
-    static let errorRed = Color(hex: "FF7675")
+    /// Error red (adaptive)
+    static let errorRed = Color(light: Color(hex: "FF7675"), dark: Color(hex: "FF6B6B"))
 
     // MARK: - Gradient Colors
 
-    /// Peaceful gradient for backgrounds
-    static let peacefulGradient = LinearGradient(
-        colors: [Color.backgroundCream, Color.primaryGreen.opacity(0.1)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    /// Peaceful gradient for backgrounds (adaptive)
+    static var peacefulGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color.backgroundCream, Color.primaryGreen.opacity(0.1)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
-    /// Energy gradient for positive emotions
-    static let energyGradient = LinearGradient(
-        colors: [Color.emotionJoy.opacity(0.3), Color.accentGold.opacity(0.2)],
-        startPoint: .top,
-        endPoint: .bottom
-    )
+    /// Energy gradient for positive emotions (adaptive)
+    static var energyGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color.emotionJoy.opacity(0.3), Color.accentGold.opacity(0.2)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
 
-    /// Calm gradient for lower emotions
-    static let calmGradient = LinearGradient(
-        colors: [Color.emotionSad.opacity(0.2), Color.emotionMelancholy.opacity(0.1)],
-        startPoint: .top,
-        endPoint: .bottom
-    )
+    /// Calm gradient for lower emotions (adaptive)
+    static var calmGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color.emotionSad.opacity(0.2), Color.emotionMelancholy.opacity(0.1)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
 
     // MARK: - Helper Functions
 
@@ -148,5 +154,25 @@ extension Color {
             blue:  Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+
+    /// Create adaptive color for light and dark mode
+    init(light: Color, dark: Color) {
+        self.init(UIColor(light: UIColor(light), dark: UIColor(dark)))
+    }
+}
+
+// MARK: - UIColor Extension for Dark Mode
+
+extension UIColor {
+    convenience init(light: UIColor, dark: UIColor) {
+        self.init { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return dark
+            default:
+                return light
+            }
+        }
     }
 }

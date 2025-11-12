@@ -209,11 +209,19 @@ struct VoiceJournalView: View {
                 .foregroundColor(.textPrimary)
                 .multilineTextAlignment(.center)
 
-            // Waveform visualization
-            if speechService.isRecording {
-                CircularWaveform(isRecording: true)
-                    .transition(.scale.combined(with: .opacity))
+            // Waveform visualization or transcribing state
+            ZStack {
+                if speechService.isRecording {
+                    CircularWaveform(isRecording: true)
+                        .transition(.scale.combined(with: .opacity))
+                } else if speechService.isTranscribing {
+                    TranscriptionLoadingView()
+                        .transition(.scale.combined(with: .opacity))
+                }
             }
+            .frame(height: speechService.isRecording || speechService.isTranscribing ? 200 : 0)
+            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: speechService.isRecording)
+            .animation(.spring(response: 0.5, dampingFraction: 0.7), value: speechService.isTranscribing)
 
             // Recording button
             RecordingButton(
@@ -222,6 +230,8 @@ struct VoiceJournalView: View {
             ) {
                 toggleRecording()
             }
+            .scaleEffect(speechService.isRecording ? 1.1 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: speechService.isRecording)
 
             // Recording timer
             if speechService.isRecording {
@@ -283,25 +293,35 @@ struct VoiceJournalView: View {
 
     private var saveButton: some View {
         VStack(spacing: Spacing.md) {
-            PrimaryButton(
-                "Save Entry",
-                icon: "checkmark",
-                isLoading: isGeneratingFeedback
-            ) {
-                Task {
-                    await saveEntry()
+            if isGeneratingFeedback {
+                // Show custom loading view when saving
+                SavingEntryLoadingView()
+                    .transition(.scale.combined(with: .opacity))
+            } else {
+                PrimaryButton(
+                    "Save Entry",
+                    icon: "checkmark",
+                    isLoading: false
+                ) {
+                    Task {
+                        await saveEntry()
+                    }
                 }
-            }
+                .transition(.scale.combined(with: .opacity))
 
-            if !speechService.transcription.isEmpty {
-                Button("Record Again") {
-                    speechService.transcription = ""
-                    recordingSeconds = 0
+                if !speechService.transcription.isEmpty {
+                    Button("Record Again") {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            speechService.transcription = ""
+                            recordingSeconds = 0
+                        }
+                    }
+                    .font(Typography.callout)
+                    .foregroundColor(.primaryGreen)
                 }
-                .font(Typography.callout)
-                .foregroundColor(.primaryGreen)
             }
         }
+        .animation(.spring(response: 0.4, dampingFraction: 0.7), value: isGeneratingFeedback)
     }
 
     // MARK: - Helper Properties

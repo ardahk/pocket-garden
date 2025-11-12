@@ -21,9 +21,9 @@ struct MainTabView: View {
             }
             .tag(0)
 
-            // Forest Tab
+            // Forest Tab - Using new expandable garden
             NavigationStack {
-                ForestGardenView()
+                ExpandableForestView()
             }
             .tabItem {
                 Label("Garden", systemImage: "leaf.fill")
