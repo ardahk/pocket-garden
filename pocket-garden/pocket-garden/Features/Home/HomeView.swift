@@ -15,6 +15,7 @@ struct HomeView: View {
     @Binding var selectedTab: Int
     @State private var todayRating: Int = 7
     @State private var showJournalSheet = false
+    @State private var showExperimentalJournalSheet = false
     @State private var hasSubmittedToday = false
     @State private var selectedEntry: EmotionEntry?
 
@@ -62,6 +63,10 @@ struct HomeView: View {
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showJournalSheet) {
+            VoiceJournalExperimentView(emotionRating: todayRating)
+        }
+        // Keep old Apple Speech version as backup
+        .sheet(isPresented: $showExperimentalJournalSheet) {
             VoiceJournalView(emotionRating: todayRating)
         }
         .sheet(item: $selectedEntry) { entry in
@@ -186,6 +191,21 @@ struct HomeView: View {
                         .padding(.horizontal, Spacing.md)
                         .background(Color.backgroundCream.opacity(0.5))
                         .cornerRadius(CornerRadius.sm)
+
+                        // Record another journal for testing or multiple entries per day
+                        PrimaryButton("Record Another Journal", icon: "mic.fill") {
+                            showJournalSheet = true
+                            Theme.Haptics.light()
+                        }
+                        .padding(.top, Spacing.sm)
+                        
+                        // Fallback to Apple Speech (for testing)
+                        Button("🔄 Use Apple Speech (Fallback)") {
+                            showExperimentalJournalSheet = true
+                            Theme.Haptics.light()
+                        }
+                        .font(Typography.caption)
+                        .foregroundColor(.textSecondary)
                     }
                 }
                 .slideInFromBottom(delay: 0.1)

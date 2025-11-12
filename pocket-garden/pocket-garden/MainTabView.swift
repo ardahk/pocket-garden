@@ -42,11 +42,9 @@ struct MainTabView: View {
         }
         .accentColor(.primaryGreen)
         .onAppear {
-            // Customize tab bar appearance
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
             appearance.backgroundColor = UIColor(Color.backgroundCream)
-
             UITabBar.appearance().standardAppearance = appearance
             UITabBar.appearance().scrollEdgeAppearance = appearance
         }

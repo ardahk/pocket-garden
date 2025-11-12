@@ -296,7 +296,7 @@ struct VoiceJournalView: View {
 
             if !speechService.transcription.isEmpty {
                 Button("Record Again") {
-                    speechService.transcription = ""
+                    speechService.cancelRecording()
                     recordingSeconds = 0
                 }
                 .font(Typography.callout)
