@@ -177,3 +177,4 @@ docs/
 
 # Xcode shared data (should be excluded)
 *.xcodeproj/project.xcworkspace/xcshareddata/
+pocket-garden/pocket-garden.xcodeproj/project.xcworkspace/xcshareddata/
