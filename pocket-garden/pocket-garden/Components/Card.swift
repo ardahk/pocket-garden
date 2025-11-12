@@ -87,7 +87,7 @@ struct EmotionEntryCard: View {
                                 .font(Typography.caption)
                                 .foregroundColor(.primaryGreen)
                                 .padding(.horizontal, Spacing.sm)
-                                .padding(.vertical: Spacing.xs)
+                                .padding(.vertical,Spacing.xs)
                                 .background(Color.primaryGreen.opacity(0.1))
                                 .cornerRadius(CornerRadius.sm)
                         }

@@ -191,7 +191,7 @@ struct AchievementCard: View {
 
                     // Progress bar
                     if !achievement.isUnlocked {
-                        VStack(alignment: .leading, spacing: Spacing.xxs) {
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
                             GeometryReader { geometry in
                                 ZStack(alignment: .leading) {
                                     // Background
@@ -488,29 +488,30 @@ struct WeeklyInsightCard: View {
 }
 
 #Preview("Achievement Card") {
-    VStack(spacing: Spacing.md) {
-        let unlocked = Achievement(
-            id: "streak_3",
-            title: "Getting Started",
-            description: "Maintain a 3-day streak",
-            emoji: "🌱",
-            targetProgress: 3,
-            category: "Streaks",
-            rarity: .common
-        )
-        unlocked.unlock()
+    let unlocked = Achievement(
+        id: "streak_3",
+        title: "Getting Started",
+        description: "Maintain a 3-day streak",
+        emoji: "🌱",
+        targetProgress: 3,
+        category: "Streaks",
+        rarity: .common
+    )
+    unlocked.unlock()
+    
+    let inProgress = Achievement(
+        id: "streak_7",
+        title: "Week Warrior",
+        description: "Maintain a 7-day streak",
+        emoji: "🔥",
+        targetProgress: 7,
+        category: "Streaks",
+        rarity: .rare
+    )
+    inProgress.progress = 4
+    
+    return VStack(spacing: Spacing.md) {
         AchievementCard(achievement: unlocked)
-
-        let inProgress = Achievement(
-            id: "streak_7",
-            title: "Week Warrior",
-            description: "Maintain a 7-day streak",
-            emoji: "🔥",
-            targetProgress: 7,
-            category: "Streaks",
-            rarity: .rare
-        )
-        inProgress.progress = 4
         AchievementCard(achievement: inProgress)
     }
     .padding()
@@ -520,7 +521,7 @@ struct WeeklyInsightCard: View {
 #Preview("Daily Challenge") {
     let challenge = DailyChallenge.todaysChallenge()
 
-    VStack(spacing: Spacing.md) {
+    return VStack(spacing: Spacing.md) {
         DailyChallengeCard(challenge: challenge, hasCompletedToday: false) {
             print("Start journaling")
         }
@@ -537,7 +538,7 @@ struct WeeklyInsightCard: View {
     let entries = EmotionEntry.sampleEntries()
     let insight = WeeklyInsight.generate(from: entries)
 
-    WeeklyInsightCard(insight: insight)
+    return WeeklyInsightCard(insight: insight)
         .padding()
         .background(Color.backgroundCream)
 }

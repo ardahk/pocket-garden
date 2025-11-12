@@ -5,7 +5,7 @@
 //  Voice Recording and Transcription Service
 //
 
-import Speech
+internal import Speech
 import AVFoundation
 import SwiftUI
 
@@ -25,6 +25,12 @@ class SpeechRecognitionService {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer: SFSpeechRecognizer?
+    
+    // Accumulate all final transcriptions
+    private var accumulatedTranscription: String = ""
+    private var observersAdded: Bool = false
+    private var lastProcessedSegmentIndex: Int = 0
+    private var restartTimer: Timer?
 
     // MARK: - Initialization
 
@@ -42,6 +48,37 @@ class SpeechRecognitionService {
 
         // Check initial authorization status
         authorizationStatus = SFSpeechRecognizer.authorizationStatus()
+    }
+
+    deinit {
+        if observersAdded {
+            NotificationCenter.default.removeObserver(self)
+        }
+    }
+
+    @objc private func handleInterruption(_ notification: Notification) {
+        guard isRecording else { return }
+        guard let info = notification.userInfo,
+              let typeValue = info[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+        switch type {
+        case .began:
+            isTranscribing = false
+        case .ended:
+            if let optionsValue = info[AVAudioSessionInterruptionOptionKey] as? UInt {
+                let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+                if options.contains(.shouldResume) {
+                    Task { try? await self.restartRecognition() }
+                }
+            }
+        @unknown default:
+            break
+        }
+    }
+
+    @objc private func handleRouteChange(_ notification: Notification) {
+        guard isRecording else { return }
+        Task { try? await self.restartRecognition() }
     }
 
     // MARK: - Authorization
@@ -62,8 +99,12 @@ class SpeechRecognitionService {
             return false
         }
 
-        // Request microphone permission
-        let micStatus = await AVAudioApplication.requestRecordPermission()
+        // Request microphone permission (iOS)
+        let micStatus = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
+            AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                cont.resume(returning: granted)
+            }
+        }
 
         guard micStatus else {
             error = .microphoneAccessDenied
@@ -98,8 +139,9 @@ class SpeechRecognitionService {
             throw RecognitionError.recognitionRequestFailed
         }
 
-        // Enable on-device recognition for privacy
-        recognitionRequest.requiresOnDeviceRecognition = true
+        // Enable on-device recognition for privacy and optimize for dictation
+        recognitionRequest.taskHint = .dictation
+        recognitionRequest.requiresOnDeviceRecognition = speechRecognizer?.supportsOnDeviceRecognition ?? false
 
         // Enable partial results for real-time transcription
         recognitionRequest.shouldReportPartialResults = true
@@ -126,41 +168,196 @@ class SpeechRecognitionService {
         // Start recognition task
         isRecording = true
         isTranscribing = true
-        transcription = ""
         error = nil
+
+        // Seed accumulated text from any existing visible transcription
+        if transcription.count > accumulatedTranscription.count {
+            accumulatedTranscription = transcription
+        }
+        lastProcessedSegmentIndex = 0
 
         recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
             guard let self = self else { return }
 
             if let result = result {
-                // ALWAYS use the FULL accumulated transcription
-                // bestTranscription.formattedString contains ALL text up to this point
-                let fullText = result.bestTranscription.formattedString
-
-                // Update with complete accumulated text
-                DispatchQueue.main.async {
-                    self.transcription = fullText
+                let transcription = result.bestTranscription
+                let total = transcription.segments.count
+                if total > self.lastProcessedSegmentIndex {
+                    let newSegs = transcription.segments[self.lastProcessedSegmentIndex..<total]
+                    var appended = ""
+                    for seg in newSegs {
+                        let s = seg.substring
+                        if [".", ",", "!", "?", ":", ";"].contains(s) {
+                            appended += s
+                        } else {
+                            appended += (appended.isEmpty && self.accumulatedTranscription.isEmpty) ? s : " " + s
+                        }
+                    }
+                    let cleaned = appended.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !cleaned.isEmpty {
+                        if self.accumulatedTranscription.isEmpty {
+                            self.accumulatedTranscription = cleaned
+                        } else {
+                            self.accumulatedTranscription += (self.accumulatedTranscription.hasSuffix(" ") || cleaned.hasPrefix(" ") ? "" : " ") + cleaned
+                        }
+                        DispatchQueue.main.async { self.transcription = self.accumulatedTranscription }
+                    }
+                    self.lastProcessedSegmentIndex = total
                 }
 
-                // Check if result is final (but keep transcription!)
                 if result.isFinal {
-                    print("✅ Final transcription: \(fullText)")
-                    // Don't stop immediately - let user decide when to stop
+                    self.isTranscribing = false
+                    print("📝 Finalized a segment. Total so far: \(self.accumulatedTranscription)")
+                    // Timer will handle restart to prevent double-restarts
                 }
             }
 
             if let error = error {
-                print("❌ Recognition error: \(error.localizedDescription)")
-                self.error = .recognitionFailed(error.localizedDescription)
+                let nsError = error as NSError
+                // Ignore transient errors during continuous recognition (timer handles restarts)
+                if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1110 {
+                    print("⚠️ No speech detected, timer will restart...")
+                    if self.isRecording {
+                        if !self.transcription.isEmpty { self.accumulatedTranscription = self.transcription }
+                    }
+                    return
+                }
+
+                // Preserve text on transient errors while recording (timer handles restarts)
+                if self.isRecording {
+                    print("⚠️ Recognition interrupted: \(nsError.localizedDescription). Timer will restart…")
+                    if !self.transcription.isEmpty { self.accumulatedTranscription = self.transcription }
+                    return
+                }
+
+                print("❌ Recognition error: \(nsError.localizedDescription)")
+                self.error = .recognitionFailed(nsError.localizedDescription)
                 self.stopRecording()
             }
         }
 
+        if !observersAdded {
+            NotificationCenter.default.addObserver(self, selector: #selector(handleInterruption(_:)), name: AVAudioSession.interruptionNotification, object: nil)
+            NotificationCenter.default.addObserver(self, selector: #selector(handleRouteChange(_:)), name: AVAudioSession.routeChangeNotification, object: nil)
+            observersAdded = true
+        }
+
+        // Start timer to proactively restart recognition every 8 seconds
+        // This prevents iOS from finalizing transcription on pauses
+        startRestartTimer()
+
         print("🎤 Recording started")
     }
 
+    /// Restart recognition task to continue capturing speech
+    private func restartRecognition() async throws {
+        guard isRecording, let audioEngine = audioEngine else { return }
+        
+        // Cancel current recognition task
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        
+        // Create new recognition request
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        
+        guard let recognitionRequest = recognitionRequest else {
+            throw RecognitionError.recognitionRequestFailed
+        }
+        
+        // Enable on-device recognition for privacy and optimize for dictation
+        recognitionRequest.taskHint = .dictation
+        recognitionRequest.requiresOnDeviceRecognition = true
+        
+        // Enable partial results for real-time transcription
+        recognitionRequest.shouldReportPartialResults = true
+        
+        if !audioEngine.isRunning {
+            audioEngine.prepare()
+            try? audioEngine.start()
+        }
+
+        // The audio engine is already running, we just need to reconnect the tap
+        // Remove old tap
+        audioEngine.inputNode.removeTap(onBus: 0)
+        
+        // Reinstall tap with new request
+        let recordingFormat = audioEngine.inputNode.outputFormat(forBus: 0)
+        audioEngine.inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { [weak self] buffer, _ in
+            self?.recognitionRequest?.append(buffer)
+        }
+        // Seed and reset segment index so we only append deltas
+        if transcription.count > accumulatedTranscription.count {
+            accumulatedTranscription = transcription
+        }
+        lastProcessedSegmentIndex = 0
+
+        // Start new recognition task
+        recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
+            guard let self = self else { return }
+            
+            if let result = result {
+                let transcription = result.bestTranscription
+                let total = transcription.segments.count
+                if total > self.lastProcessedSegmentIndex {
+                    let newSegs = transcription.segments[self.lastProcessedSegmentIndex..<total]
+                    var appended = ""
+                    for seg in newSegs {
+                        let s = seg.substring
+                        if [".", ",", "!", "?", ":", ";"].contains(s) {
+                            appended += s
+                        } else {
+                            appended += (appended.isEmpty && self.accumulatedTranscription.isEmpty) ? s : " " + s
+                        }
+                    }
+                    let cleaned = appended.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !cleaned.isEmpty {
+                        if self.accumulatedTranscription.isEmpty {
+                            self.accumulatedTranscription = cleaned
+                        } else {
+                            self.accumulatedTranscription += (self.accumulatedTranscription.hasSuffix(" ") || cleaned.hasPrefix(" ") ? "" : " ") + cleaned
+                        }
+                        DispatchQueue.main.async { self.transcription = self.accumulatedTranscription }
+                    }
+                    self.lastProcessedSegmentIndex = total
+                }
+
+                if result.isFinal {
+                    self.isTranscribing = false
+                    print("📝 Finalized a segment. Total so far: \(self.accumulatedTranscription)")
+                    // Timer will handle restart to prevent double-restarts
+                }
+            }
+            
+            if let error = error {
+                let nsError = error as NSError
+                // Ignore transient errors during continuous recognition (timer handles restarts)
+                if nsError.domain == "kAFAssistantErrorDomain" && nsError.code == 1110 {
+                    print("⚠️ No speech detected, timer will restart...")
+                    return
+                }
+                // Preserve text on transient errors while recording
+                if self.isRecording {
+                    if !self.transcription.isEmpty {
+                        self.accumulatedTranscription = self.transcription
+                    }
+                    print("⚠️ Recognition error: \(nsError.localizedDescription). Timer will restart…")
+                    return
+                }
+
+                print("❌ Recognition error: \(nsError.localizedDescription)")
+                self.error = .recognitionFailed(nsError.localizedDescription)
+                self.stopRecording()
+            }
+        }
+        
+        print("🔄 Recognition restarted")
+    }
+    
     /// Stop recording and finalize transcription
     func stopRecording() {
+        // Stop timer
+        stopRestartTimer()
+        
         // Stop audio engine
         audioEngine?.stop()
         audioEngine?.inputNode.removeTap(onBus: 0)
@@ -189,9 +386,32 @@ class SpeechRecognitionService {
 
     /// Cancel recording without saving
     func cancelRecording() {
+        stopRestartTimer()
         stopRecording()
         transcription = ""
+        accumulatedTranscription = ""
         error = nil
+    }
+    
+    // MARK: - Timer Management
+    
+    /// Start a timer to proactively restart recognition every 8 seconds
+    /// This prevents iOS from clearing transcription on pauses (iOS 18 issue)
+    private func startRestartTimer() {
+        stopRestartTimer()
+        restartTimer = Timer.scheduledTimer(withTimeInterval: 8.0, repeats: true) { [weak self] _ in
+            guard let self = self, self.isRecording else { return }
+            print("⏱️ Timer-triggered restart to maintain continuous transcription")
+            Task {
+                try? await self.restartRecognition()
+            }
+        }
+    }
+    
+    /// Stop and invalidate the restart timer
+    private func stopRestartTimer() {
+        restartTimer?.invalidate()
+        restartTimer = nil
     }
 
     // MARK: - Helper Methods
@@ -250,9 +470,9 @@ enum RecognitionError: LocalizedError, Identifiable {
         case .microphoneAccessDenied:
             return "Go to Settings > Privacy > Microphone and enable access for Pocket Garden."
         case .onDeviceNotSupported:
-            return "Please update to iOS 17 or later for on-device speech recognition."
+            return "Please update to iOS 18 or later for on-device speech recognition."
         default:
-            return "Please try again. If the problem persists, restart the app."
+            return "Please try again. If the problem persists, restart the app or your device."
         }
     }
 }
