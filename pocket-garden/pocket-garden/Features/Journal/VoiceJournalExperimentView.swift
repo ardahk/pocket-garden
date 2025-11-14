@@ -16,6 +16,7 @@ struct VoiceJournalExperimentView: View {
     @Environment(\.modelContext) private var modelContext
     
     let emotionRating: Int
+    var onComplete: (() -> Void)? = nil
     
     // Service selection - Default to Whisper only
     @State private var useWhisper = true
@@ -23,6 +24,7 @@ struct VoiceJournalExperimentView: View {
     // Services
     // @State private var speechService = SpeechRecognitionService()
     @State private var whisperService = WhisperService()
+    @State private var classificationService: Any? = nil // Will be EntryClassificationService if available
     
     // Recording state
     @State private var recordingSeconds: Int = 0
@@ -32,6 +34,7 @@ struct VoiceJournalExperimentView: View {
     @State private var isGeneratingFeedback = false
     @State private var showMascotFeedback = false
     @State private var savedEntry: EmotionEntry?
+    @State private var previousTranscription: String = "" // For appending mode
     
     
     var body: some View {
@@ -53,16 +56,76 @@ struct VoiceJournalExperimentView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Voice Journal")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Cancel") {
+            .navigationBarHidden(true)
+            .overlay(alignment: .topLeading) {
+                if !needsAuthorization() {
+                    Button(action: {
                         cancelRecording()
                         dismiss()
+                    }) {
+                        Circle()
+                            .fill(Color.white.opacity(0.9))
+                            .frame(width: 44, height: 44)
+                            .overlay(
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.textPrimary)
+                            )
                     }
-                    .foregroundColor(.primaryGreen)
+                    .padding(.leading, Layout.screenPadding)
+                    .padding(.top, 50)
                 }
+            }
+            .overlay(alignment: .top) {
+                if isRecording() && !needsAuthorization() {
+                    Text(formatTime(recordingSeconds))
+                        .font(.system(size: 18, weight: .medium))
+                        .monospacedDigit()
+                        .foregroundColor(.textPrimary)
+                        .padding(.top, 50)
+                }
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if isRecording() && !needsAuthorization() {
+                // Stop recording button with panda
+                Button(action: {
+                    Task {
+                        await stopRecording()
+                        Theme.Haptics.medium()
+                    }
+                }) {
+                    HStack(spacing: Spacing.md) {
+                        // Stop square icon
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.white)
+                            .frame(width: 24, height: 24)
+                        
+                        Text("Stop Recording")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundColor(.white)
+                        
+                        Spacer()
+                        
+                        // Panda emoji circle
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 50, height: 50)
+                            .overlay(
+                                Text("🐼")
+                                    .font(.system(size: 28))
+                            )
+                    }
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.vertical, Spacing.md)
+                    .frame(maxWidth: .infinity)
+                    .background(
+                        RoundedRectangle(cornerRadius: 50)
+                            .fill(Color.red.opacity(0.8))
+                    )
+                }
+                .padding(.horizontal, Layout.screenPadding)
+                .padding(.bottom, 40)
             }
         }
         .fullScreenCover(isPresented: $showMascotFeedback) {
@@ -70,6 +133,8 @@ struct VoiceJournalExperimentView: View {
                 MascotFeedbackView(entry: entry) {
                     showMascotFeedback = false
                     dismiss()
+                    // Call completion callback to switch to garden tab
+                    onComplete?()
                 }
             }
         }
@@ -166,6 +231,10 @@ struct VoiceJournalExperimentView: View {
     
     private var mainContentView: some View {
         VStack(spacing: Spacing.xl) {
+            // Add top spacing to avoid X button overlap
+            Spacer()
+                .frame(height: 40)
+            
             // Status
             statusView
             
@@ -179,20 +248,33 @@ struct VoiceJournalExperimentView: View {
             // Controls
             recordingControlsView
             
-            // Save button
+            // Action buttons
             if !transcription().isEmpty && !isRecording() {
-                saveButtonView
+                VStack(spacing: Spacing.md) {
+                    // Continue Adding button
+                    SecondaryButton("Continue Adding", icon: "plus.mic.fill") {
+                        // Save current transcription and start appending mode
+                        previousTranscription = transcription()
+                        startRecording()
+                        Theme.Haptics.medium()
+                    }
+                    
+                    // Save button
+                    saveButtonView
+                    
+                    // Record again text button
+                    Button("Record Again") {
+                        cancelRecording()
+                        recordingSeconds = 0
+                    }
+                    .font(Typography.callout)
+                    .foregroundColor(.primaryGreen)
+                }
             }
             
-            // Record again
-            if !transcription().isEmpty {
-                Button("Record Again") {
-                    cancelRecording()
-                    recordingSeconds = 0
-                }
-                .font(Typography.callout)
-                .foregroundColor(.primaryGreen)
-            }
+            // Bottom spacing to avoid stop button overlap
+            Spacer()
+                .frame(height: 100)
         }
         .padding()
     }
@@ -200,56 +282,25 @@ struct VoiceJournalExperimentView: View {
     // MARK: - Status View
     
     private var statusView: some View {
-        VStack(spacing: Spacing.md) {
-            // Recording indicator
-            ZStack {
-                Circle()
-                    .fill(isRecording() ? Color.red.opacity(0.1) : Color.primaryGreen.opacity(0.1))
-                    .frame(width: 120, height: 120)
-                
-                if isRecording() {
-                    Circle()
-                        .stroke(Color.red, lineWidth: 3)
-                        .frame(width: 120, height: 120)
-                        .opacity(0.8)
-                        .scaleEffect(1.1)
-                        .animation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true), value: isRecording())
-                }
-                
-                Image(systemName: isRecording() ? "waveform" : "mic.fill")
-                    .font(.system(size: 50))
-                    .foregroundColor(isRecording() ? .red : .primaryGreen)
-            }
-            
-            // Status text
-            if isRecording() {
-                VStack(spacing: Spacing.xs) {
-                    Text("Recording...")
-                        .font(Typography.title3)
-                        .fontWeight(.semibold)
+        VStack(spacing: Spacing.xl) {
+            if isTranscribing() {
+                // Thinking panda with cleaner design
+                VStack(spacing: Spacing.xl) {
+                    GardenMascot(emotion: .thinking, size: 120)
                     
-                    Text(formatTime(recordingSeconds))
-                        .font(Typography.body)
-                        .foregroundColor(.textSecondary)
-                        .monospacedDigit()
-                }
-            } else if isTranscribing() {
-                VStack(spacing: Spacing.xs) {
                     Text("Transcribing...")
-                        .font(Typography.title3)
-                        .fontWeight(.semibold)
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.textPrimary)
                     
                     if whisperService.transcriptionProgress > 0 {
                         ProgressView(value: whisperService.transcriptionProgress)
+                            .tint(.primaryGreen)
                             .frame(width: 200)
-                    } else {
-                        ProgressView()
                     }
                 }
-            } else {
-                Text("Tap to record")
-                    .font(Typography.title3)
-                    .fontWeight(.semibold)
+            } else if !isRecording() {
+                // Initial state - simple instruction
+                EmptyView()
             }
         }
     }
@@ -271,49 +322,65 @@ struct VoiceJournalExperimentView: View {
     // MARK: - Recording Controls
     
     private var recordingControlsView: some View {
-        HStack(spacing: Spacing.xl) {
-            // Stop/Cancel button
+        VStack(spacing: 0) {
             if isRecording() {
-                Button {
-                    stopRecording()
-                    Theme.Haptics.medium()
-                } label: {
-                    VStack(spacing: Spacing.xs) {
-                        Circle()
-                            .fill(Color.red)
-                            .frame(width: 60, height: 60)
-                            .overlay(
-                                Image(systemName: "stop.fill")
-                                    .foregroundColor(.white)
-                                    .font(.system(size: 24))
-                            )
-                        Text("Stop")
-                            .font(Typography.caption)
-                            .foregroundColor(.textSecondary)
-                    }
+                // Concentric circles design while recording with breathing animation
+                ZStack {
+                    // Outer circle - breathing animation
+                    Circle()
+                        .fill(Color.primaryGreen.opacity(0.08))
+                        .frame(width: 300, height: 300)
+                        .scaleEffect(isRecording() ? 1.05 : 1.0)
+                        .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: isRecording())
+                    
+                    // Middle circle - breathing animation (offset timing)
+                    Circle()
+                        .fill(Color.primaryGreen.opacity(0.15))
+                        .frame(width: 220, height: 220)
+                        .scaleEffect(isRecording() ? 1.08 : 1.0)
+                        .animation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true), value: isRecording())
+                    
+                    // Inner circle - main pulse
+                    Circle()
+                        .fill(Color.primaryGreen)
+                        .frame(width: 140, height: 140)
+                        .scaleEffect(isRecording() ? 1.1 : 1.0)
+                        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isRecording())
+                    
+                    // Center icon
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.white)
                 }
-            } else {
-                // Record button
-                Button {
+                .padding(.vertical, 30)
+            } else if !isTranscribing() && transcription().isEmpty {
+                // Initial state - concentric circles
+                ZStack {
+                    // Outer circle
+                    Circle()
+                        .fill(Color.primaryGreen.opacity(0.1))
+                        .frame(width: 300, height: 300)
+                    
+                    // Middle circle
+                    Circle()
+                        .fill(Color.primaryGreen.opacity(0.2))
+                        .frame(width: 220, height: 220)
+                    
+                    // Inner circle
+                    Circle()
+                        .fill(Color.primaryGreen)
+                        .frame(width: 140, height: 140)
+                    
+                    // Center icon
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 50))
+                        .foregroundColor(.white)
+                }
+                .padding(.vertical, 60)
+                .onTapGesture {
                     startRecording()
                     Theme.Haptics.medium()
-                } label: {
-                    VStack(spacing: Spacing.xs) {
-                        Circle()
-                            .fill(Color.primaryGreen)
-                            .frame(width: 80, height: 80)
-                            .overlay(
-                                Image(systemName: "mic.fill")
-                                    .foregroundColor(.white)
-                                    .font(.system(size: 32))
-                            )
-                        Text("Record")
-                            .font(Typography.callout)
-                            .fontWeight(.medium)
-                            .foregroundColor(.textSecondary)
-                    }
                 }
-                .disabled(isTranscribing())
             }
         }
     }
@@ -371,6 +438,12 @@ struct VoiceJournalExperimentView: View {
         
         Task {
             await whisperService.stopRecording()
+            
+            // If we were appending, combine with previous transcription
+            if !previousTranscription.isEmpty {
+                whisperService.transcription = previousTranscription + " " + whisperService.transcription
+                previousTranscription = "" // Reset
+            }
         }
     }
     
@@ -397,6 +470,11 @@ struct VoiceJournalExperimentView: View {
             try modelContext.save()
             savedEntry = entry
             
+            // Classify entry in background
+            Task {
+                await classifyEntry(entry)
+            }
+            
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 isGeneratingFeedback = false
                 showMascotFeedback = true
@@ -405,6 +483,40 @@ struct VoiceJournalExperimentView: View {
             print("Failed to save entry: \(error)")
             showingError = true
             isGeneratingFeedback = false
+        }
+    }
+    
+    private func classifyEntry(_ entry: EmotionEntry) async {
+        guard let text = entry.cleanedTranscription, !text.isEmpty else { return }
+        
+        // Try AFM classification first (iOS 26+)
+        if #available(iOS 26.0, *) {
+            if classificationService == nil {
+                classificationService = EntryClassificationService()
+            }
+            
+            if let service = classificationService as? EntryClassificationService {
+                do {
+                    let result = try await service.classifyEntry(transcription: text)
+                    await MainActor.run {
+                        entry.moodCategory = result.moodCategory
+                        entry.focusArea = result.focusArea
+                        try? modelContext.save()
+                    }
+                    return
+                } catch {
+                    print("AFM classification failed: \(error)")
+                }
+            }
+        }
+        
+        // Fallback classification
+        let fallback = FallbackClassificationService()
+        let result = fallback.classifyEntry(transcription: text, rating: entry.emotionRating)
+        await MainActor.run {
+            entry.moodCategory = result.moodCategory
+            entry.focusArea = result.focusArea
+            try? modelContext.save()
         }
     }
     

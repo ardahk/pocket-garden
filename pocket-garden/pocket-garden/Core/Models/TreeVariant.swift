@@ -244,7 +244,7 @@ enum TreeRarity: String, Codable {
 extension EmotionEntry {
     var treeVariant: TreeVariant {
         // Determine tree variant based on multiple factors
-        let calendar = Calendar.current
+        _ = Calendar.current
         let allEntries = 1 // This should be injected from context
         let isInStreak = true // This should be calculated from context
 

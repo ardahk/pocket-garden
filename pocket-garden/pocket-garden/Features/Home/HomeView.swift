@@ -11,13 +11,23 @@ import SwiftData
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
+    @Query private var allTrees: [GrowingTree]
 
     @Binding var selectedTab: Int
     @State private var todayRating: Int = 7
+    @State private var capturedRating: Int = 7
     @State private var showJournalSheet = false
     @State private var showExperimentalJournalSheet = false
     @State private var hasSubmittedToday = false
     @State private var selectedEntry: EmotionEntry?
+    @State private var showMoodRatingSheet = false
+    @State private var anotherRating: Int = 7
+    @State private var showWeeklyInsightDetail = false
+    
+    // Quote of the day
+    @State private var dailyQuote: Quote?
+    @State private var isLoadingQuote = true
+    private let quoteService = QuoteService()
 
     var body: some View {
         ZStack {
@@ -30,6 +40,9 @@ struct HomeView: View {
                     // Header
                     headerSection
                         .padding(.top, Spacing.md)
+                    
+                    // Quote of the Day
+                    quoteOfTheDaySection
 
                     // Daily Challenge Card
                     if !hasSubmittedToday {
@@ -43,9 +56,6 @@ struct HomeView: View {
                         todayEntryCard
                     }
 
-                    // Quick Actions
-                    quickActionsSection
-
                     // Stats Overview
                     statsSection
 
@@ -53,9 +63,6 @@ struct HomeView: View {
                     if !entries.isEmpty {
                         weeklyInsightSection
                     }
-
-                    // Recent Entries Preview
-                    recentEntriesSection
                 }
                 .padding(.horizontal, Layout.screenPadding)
                 .padding(.bottom, Spacing.xxxl)
@@ -63,11 +70,44 @@ struct HomeView: View {
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showJournalSheet) {
-            VoiceJournalExperimentView(emotionRating: todayRating)
+            VoiceJournalExperimentView(emotionRating: capturedRating, onComplete: {
+                // After journal is complete, switch to garden tab
+                selectedTab = 1
+            })
         }
-        // Keep old Apple Speech version as backup
+        // Keep old Apple Speech version as backup (commented out)
+        /*
         .sheet(isPresented: $showExperimentalJournalSheet) {
-            VoiceJournalView(emotionRating: todayRating)
+            VoiceJournalView(emotionRating: capturedRating)
+        }
+        */
+        .sheet(isPresented: $showMoodRatingSheet) {
+            NavigationStack {
+                ZStack {
+                    Color.peacefulGradient
+                        .ignoresSafeArea()
+                    VStack(spacing: Spacing.xl) {
+                        VStack(spacing: Spacing.sm) {
+                            Text("How are you feeling now?")
+                                .font(Typography.title2)
+                                .foregroundColor(.textPrimary)
+                                .multilineTextAlignment(.center)
+                            Text("Rate your emotional wellness")
+                                .font(Typography.callout)
+                                .foregroundColor(.textSecondary)
+                        }
+                        EmotionSlider(rating: $anotherRating)
+                        PrimaryButton("Continue to Journal", icon: "arrow.right") {
+                            capturedRating = anotherRating
+                            showMoodRatingSheet = false
+                            DispatchQueue.main.async {
+                                showJournalSheet = true
+                            }
+                        }
+                    }
+                    .padding()
+                }
+            }
         }
         .sheet(item: $selectedEntry) { entry in
             EntryDetailView(entry: entry)
@@ -80,14 +120,14 @@ struct HomeView: View {
     // MARK: - Header Section
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
             Text(greeting)
-                .font(Typography.title)
+                .font(.system(size: 28, weight: .semibold))
                 .foregroundColor(.textPrimary)
 
             Text(currentDate)
-                .font(Typography.callout)
-                .foregroundColor(.textSecondary)
+                .font(Typography.body)
+                .foregroundColor(.textSecondary.opacity(0.7))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .fadeIn()
@@ -105,7 +145,8 @@ struct HomeView: View {
                 challenge: DailyChallenge.todaysChallenge(),
                 hasCompletedToday: hasSubmittedToday
             ) {
-                showJournalSheet = true
+                // Show mood rating first
+                showMoodRatingSheet = true
             }
         }
         .slideInFromBottom(delay: 0.05)
@@ -130,6 +171,7 @@ struct HomeView: View {
                 EmotionSlider(rating: $todayRating)
 
                 PrimaryButton("Continue to Journal", icon: "arrow.right") {
+                    capturedRating = todayRating
                     showJournalSheet = true
                 }
             }
@@ -194,18 +236,21 @@ struct HomeView: View {
 
                         // Record another journal for testing or multiple entries per day
                         PrimaryButton("Record Another Journal", icon: "mic.fill") {
-                            showJournalSheet = true
+                            anotherRating = todayRating
+                            showMoodRatingSheet = true
                             Theme.Haptics.light()
                         }
                         .padding(.top, Spacing.sm)
                         
-                        // Fallback to Apple Speech (for testing)
+                        // Fallback to Apple Speech (commented out - backup only)
+                        /*
                         Button("🔄 Use Apple Speech (Fallback)") {
                             showExperimentalJournalSheet = true
                             Theme.Haptics.light()
                         }
                         .font(Typography.caption)
                         .foregroundColor(.textSecondary)
+                        */
                     }
                 }
                 .slideInFromBottom(delay: 0.1)
@@ -283,8 +328,15 @@ struct HomeView: View {
     private var weeklyInsightSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             WeeklyInsightCard(insight: WeeklyInsight.generate(from: entries))
+                .onTapGesture {
+                    showWeeklyInsightDetail = true
+                    Theme.Haptics.light()
+                }
         }
         .slideInFromBottom(delay: 0.35)
+        .sheet(isPresented: $showWeeklyInsightDetail) {
+            WeeklyInsightDetailView(entries: entries)
+        }
     }
 
     // MARK: - Recent Entries
@@ -311,10 +363,13 @@ struct HomeView: View {
                     icon: "leaf.fill",
                     title: "No Entries Yet",
                     description: "Start your emotional wellness journey today",
-                    actionTitle: "Create First Entry"
-                ) {
-                    showJournalSheet = true
-                }
+                    actionTitle: "Create First Entry",
+                    action: {
+                        capturedRating = todayRating
+                        showJournalSheet = true
+                    },
+                    showMascot: true
+                )
             } else {
                 ForEach(entries.prefix(3)) { entry in
                     EmotionEntryCard(entry: entry) {
@@ -350,9 +405,9 @@ struct HomeView: View {
 
         for i in 0..<entries.count {
             let expectedDate = calendar.date(byAdding: .day, value: -i, to: Date())!
-            if let entry = entries.first(where: {
+            if entries.first(where: {
                 calendar.isDate($0.date, inSameDayAs: expectedDate)
-            }) {
+            }) != nil {
                 streak += 1
             } else {
                 break
@@ -369,13 +424,40 @@ struct HomeView: View {
     }
 
     private var totalTrees: Int {
-        entries.count
+        allTrees.count
     }
 
     // MARK: - Helper Methods
 
     private func checkTodayEntry() {
         hasSubmittedToday = entries.contains { $0.isToday }
+    }
+    
+    // MARK: - Quote of the Day Section
+    
+    private var quoteOfTheDaySection: some View {
+        Group {
+            if isLoadingQuote {
+                QuoteCardLoading()
+            } else if let quote = dailyQuote {
+                QuoteCard(quote: quote, isWeekly: false)
+            }
+        }
+        .onAppear {
+            loadDailyQuote()
+        }
+    }
+    
+    private func loadDailyQuote() {
+        Task {
+            // Get last 2-3 entries for analysis
+            let recentEntries = Array(entries.prefix(3))
+            dailyQuote = await quoteService.getDailyQuote(
+                recentEntries: recentEntries,
+                modelContext: modelContext
+            )
+            isLoadingQuote = false
+        }
     }
 }
 

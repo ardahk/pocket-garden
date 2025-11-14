@@ -196,7 +196,7 @@ class AppleIntelligenceService {
     // MARK: - Theme Response
 
     private func generateThemeResponse(themes: [String], rating: Int) -> String {
-        guard let firstTheme = themes.first else { return "" }
+        guard themes.first != nil else { return "" }
 
         // Create contextual responses based on themes
         let themeResponses: [String: [String]] = [

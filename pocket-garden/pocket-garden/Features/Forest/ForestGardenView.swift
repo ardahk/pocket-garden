@@ -10,6 +10,7 @@ import SwiftData
 
 struct ForestGardenView: View {
     @Query(sort: \EmotionEntry.date) private var entries: [EmotionEntry]
+    @Query private var achievements: [Achievement]
     @Environment(\.modelContext) private var modelContext
 
     @State private var scrollOffset: CGFloat = 0
@@ -292,9 +293,9 @@ struct ForestGardenView: View {
 
         for i in 0..<sortedEntries.count {
             let expectedDate = calendar.date(byAdding: .day, value: -i, to: Date())!
-            if let entry = sortedEntries.first(where: {
+            if sortedEntries.first(where: {
                 calendar.isDate($0.date, inSameDayAs: expectedDate)
-            }) {
+            }) != nil {
                 streak += 1
             } else {
                 break
@@ -317,6 +318,9 @@ struct ForestGardenView: View {
         shakeCelebrationCount += 1
         UserDefaults.standard.set(shakeCelebrationCount, forKey: "shakeCelebrationCount")
         achievementService.incrementShakeCelebration()
+        
+        // Save achievement progress to database
+        try? modelContext.save()
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             withAnimation {
@@ -326,10 +330,17 @@ struct ForestGardenView: View {
     }
 
     private func initializeAchievements() {
-        // Initialize achievements if needed
-        if achievementService.achievements.isEmpty {
-            achievementService.achievements = Achievement.createDefaultAchievements()
+        // Initialize achievements from SwiftData or create defaults
+        if achievements.isEmpty {
+            // Create and persist default achievements
+            let defaultAchievements = Achievement.createDefaultAchievements()
+            for achievement in defaultAchievements {
+                modelContext.insert(achievement)
+            }
+            try? modelContext.save()
         }
+        // Sync achievements from database to service
+        achievementService.achievements = achievements
     }
 
     private func checkAchievements() {
@@ -337,6 +348,8 @@ struct ForestGardenView: View {
             entries: entries,
             currentStreak: currentStreak
         )
+        // Save achievement progress to database
+        try? modelContext.save()
     }
 }
 

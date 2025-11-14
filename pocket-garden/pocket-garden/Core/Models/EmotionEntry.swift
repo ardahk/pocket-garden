@@ -35,6 +35,12 @@ final class EmotionEntry {
 
     /// Optional mood tags
     var tags: [String]?
+    
+    /// AFM-classified mood category (what's happening overall)
+    var moodCategory: String?
+    
+    /// AFM-classified focus area (what to focus on)
+    var focusArea: String?
 
     /// Has user listened to AI feedback
     var hasViewedFeedback: Bool
@@ -90,6 +96,17 @@ final class EmotionEntry {
     /// Has AI feedback
     var hasAIFeedback: Bool {
         aiFeedback != nil && !(aiFeedback?.isEmpty ?? true)
+    }
+    
+    /// Cleaned transcription (without Whisper artifacts)
+    var cleanedTranscription: String? {
+        guard let text = transcription else { return nil }
+        // Remove [Music], [Blank], [Pause], etc.
+        let pattern = "\\[.*?\\]"
+        let regex = try? NSRegularExpression(pattern: pattern, options: [])
+        let range = NSRange(text.startIndex..., in: text)
+        let cleaned = regex?.stringByReplacingMatches(in: text, range: range, withTemplate: "") ?? text
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Initialization
