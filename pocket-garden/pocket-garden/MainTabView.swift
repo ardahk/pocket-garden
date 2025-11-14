@@ -24,7 +24,7 @@ struct MainTabView: View {
 
             // Forest Tab
             NavigationStack {
-                ForestGardenView()
+                ForestGardenViewRedesigned()
             }
             .tabItem {
                 Label("Garden", systemImage: "leaf.fill")
@@ -33,7 +33,7 @@ struct MainTabView: View {
 
             // History Tab
             NavigationStack {
-                EntriesListView()
+                EntriesListViewRedesigned()
             }
             .tabItem {
                 Label("History", systemImage: "clock.fill")

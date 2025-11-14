@@ -28,8 +28,8 @@ struct Card<Content: View>: View {
         content
             .padding(padding)
             .background(backgroundColor)
-            .cornerRadius(CornerRadius.md)
-            .cardShadow()
+            .cornerRadius(CornerRadius.lg)
+            .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
     }
 }
 
@@ -224,12 +224,18 @@ struct EmptyStateCard: View {
     let description: String
     var actionTitle: String? = nil
     var action: (() -> Void)? = nil
+    var showMascot: Bool = false
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
-            Image(systemName: icon)
-                .font(.system(size: 60))
-                .foregroundColor(.primaryGreen.opacity(0.3))
+            if showMascot {
+                // Sleeping panda for empty states
+                GardenMascot(emotion: .sleeping, size: 100)
+            } else {
+                Image(systemName: icon)
+                    .font(.system(size: 60))
+                    .foregroundColor(.primaryGreen.opacity(0.3))
+            }
 
             VStack(spacing: Spacing.sm) {
                 Text(title)

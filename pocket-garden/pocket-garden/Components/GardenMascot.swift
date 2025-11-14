@@ -6,6 +6,11 @@
 //
 
 import SwiftUI
+import SwiftData
+import NaturalLanguage
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 // MARK: - Mascot Character
 
@@ -51,112 +56,31 @@ struct GardenMascot: View {
     }
 
     private var mascotBody: some View {
-        ZStack {
-            // Main body (cute sprout character)
-            VStack(spacing: 0) {
-                // Leaves (head)
-                HStack(spacing: -8) {
-                    LeafShape()
-                        .fill(Color.primaryGreen)
-                        .frame(width: size * 0.35, height: size * 0.45)
-                        .rotationEffect(.degrees(-25))
-
-                    LeafShape()
-                        .fill(Color.primaryGreen.opacity(0.9))
-                        .frame(width: size * 0.35, height: size * 0.45)
-                        .rotationEffect(.degrees(25))
-                }
-                .offset(y: size * 0.05)
-
-                // Face
-                ZStack {
-                    // Face circle
-                    Circle()
-                        .fill(Color.backgroundCream)
-                        .frame(width: size * 0.5, height: size * 0.5)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.primaryGreen, lineWidth: 3)
-                        )
-
-                    // Eyes
-                    HStack(spacing: size * 0.15) {
-                        ForEach(0..<2) { _ in
-                            mascotEye
-                        }
-                    }
-
-                    // Mouth
-                    mascotMouth
-                        .offset(y: size * 0.1)
-                }
-                .offset(y: -size * 0.05)
-            }
+        Image(pandaImageName)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: size, height: size)
+    }
+    
+    private var pandaImageName: String {
+        switch emotion {
+        case .happy:
+            return "panda_happy"
+        case .supportive:
+            return "panda_supportive"
+        case .concerned:
+            return "panda_sad"
+        case .proud:
+            return "panda_happy"
+        case .thinking:
+            return "panda_thinking"
+        case .sleeping:
+            return "panda_sleep"
+        case .neutral:
+            return "panda_welcome"
         }
     }
 
-    private var mascotEye: some View {
-        ZStack {
-            // Eye white
-            Circle()
-                .fill(Color.white)
-                .frame(width: size * 0.12, height: size * 0.12)
-
-            // Pupil
-            Circle()
-                .fill(Color.textPrimary)
-                .frame(width: size * 0.06, height: size * 0.06)
-                .offset(x: 1, y: 1)
-
-            // Shine
-            Circle()
-                .fill(Color.white)
-                .frame(width: size * 0.03, height: size * 0.03)
-                .offset(x: -1, y: -1)
-        }
-    }
-
-    private var mascotMouth: some View {
-        Group {
-            switch emotion {
-            case .happy, .proud:
-                // Big smile
-                Path { path in
-                    path.move(to: CGPoint(x: -size * 0.12, y: 0))
-                    path.addQuadCurve(
-                        to: CGPoint(x: size * 0.12, y: 0),
-                        control: CGPoint(x: 0, y: size * 0.08)
-                    )
-                }
-                .stroke(Color.textPrimary, lineWidth: 2)
-                .frame(width: size * 0.24, height: size * 0.1)
-
-            case .supportive:
-                // Gentle smile
-                Path { path in
-                    path.move(to: CGPoint(x: -size * 0.1, y: 0))
-                    path.addQuadCurve(
-                        to: CGPoint(x: size * 0.1, y: 0),
-                        control: CGPoint(x: 0, y: size * 0.05)
-                    )
-                }
-                .stroke(Color.textPrimary, lineWidth: 2)
-                .frame(width: size * 0.2, height: size * 0.08)
-
-            case .concerned:
-                // Empathetic expression
-                Path { path in
-                    path.move(to: CGPoint(x: -size * 0.1, y: size * 0.02))
-                    path.addQuadCurve(
-                        to: CGPoint(x: size * 0.1, y: size * 0.02),
-                        control: CGPoint(x: 0, y: -size * 0.02)
-                    )
-                }
-                .stroke(Color.textPrimary, lineWidth: 2)
-                .frame(width: size * 0.2, height: size * 0.08)
-            }
-        }
-    }
 }
 
 // MARK: - Mascot Emotion
@@ -166,6 +90,9 @@ enum MascotEmotion {
     case supportive // For moderate entries (5-7)
     case concerned  // For low entries (1-4)
     case proud      // For achievements
+    case thinking   // For transcription/loading
+    case sleeping   // For idle/empty states
+    case neutral    // For welcome/default
 
     static func from(rating: Int) -> MascotEmotion {
         switch rating {
@@ -187,6 +114,12 @@ struct MascotFeedbackView: View {
     @State private var feedbackOpacity: Double = 0
     @State private var speechBubbleScale: CGFloat = 0
     @State private var showSparkles = false
+    @State private var generatedText: String?
+    @State private var emotionOverride: MascotEmotion?
+    @State private var isGenerating = false
+    @State private var showAINotice = false
+    @Environment(\.modelContext) private var modelContext
+    @Query(sort: \EmotionEntry.date, order: .reverse) private var allEntries: [EmotionEntry]
 
     private let mascotEmotion: MascotEmotion
 
@@ -214,23 +147,19 @@ struct MascotFeedbackView: View {
                 Spacer()
 
                 // Mascot character
-                GardenMascot(emotion: mascotEmotion, size: 140)
+                GardenMascot(emotion: activeEmotion, size: 140)
                     .scaleEffect(mascotScale)
                     .onAppear {
                         withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
                             mascotScale = 1.0
                         }
 
-                        // Show sparkles for high ratings
                         if entry.emotionRating >= 8 {
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                withAnimation {
-                                    showSparkles = true
-                                }
+                                withAnimation { showSparkles = true }
                             }
                         }
 
-                        // Show speech bubble after mascot appears
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                             withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
                                 speechBubbleScale = 1.0
@@ -238,12 +167,11 @@ struct MascotFeedbackView: View {
                             Theme.Haptics.light()
                         }
 
-                        // Fade in text
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                            withAnimation(.easeIn(duration: 0.5)) {
-                                feedbackOpacity = 1.0
-                            }
+                            withAnimation(.easeIn(duration: 0.5)) { feedbackOpacity = 1.0 }
                         }
+
+                        Task { await generateFeedback() }
                     }
 
                 // Speech bubble with feedback
@@ -253,9 +181,30 @@ struct MascotFeedbackView: View {
                             .font(Typography.title3)
                             .foregroundColor(.textPrimary)
 
-                        Text(entry.aiFeedback ?? "You're doing great!")
-                            .font(Typography.body)
-                            .foregroundColor(.textSecondary)
+                        if isGenerating {
+                            HStack(spacing: Spacing.sm) {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                                Text("Thinking...")
+                                    .font(Typography.body)
+                                    .foregroundColor(.textSecondary)
+                            }
+                        } else {
+                            Text(generatedText ?? entry.aiFeedback ?? "You're doing great!")
+                                .font(Typography.body)
+                                .foregroundColor(.textSecondary)
+                        }
+                        
+                        if showAINotice {
+                            HStack(spacing: Spacing.xs) {
+                                Image(systemName: "sparkles")
+                                    .font(.caption)
+                                Text("Enable Apple Intelligence for richer feedback")
+                                    .font(Typography.caption)
+                            }
+                            .foregroundColor(.primaryGreen.opacity(0.7))
+                            .padding(.top, Spacing.xs)
+                        }
                     }
                 }
                 .scaleEffect(speechBubbleScale)
@@ -275,7 +224,7 @@ struct MascotFeedbackView: View {
     }
 
     private var mascotGreeting: String {
-        switch mascotEmotion {
+        switch activeEmotion {
         case .happy:
             return "Amazing energy today! 🌟"
         case .supportive:
@@ -284,6 +233,12 @@ struct MascotFeedbackView: View {
             return "Sending you support! 🤗"
         case .proud:
             return "You're incredible! ✨"
+        case .thinking:
+            return "Processing your thoughts... 🤔"
+        case .sleeping:
+            return "Time to rest! 😴"
+        case .neutral:
+            return "Welcome! 👋"
         }
     }
 
@@ -358,5 +313,255 @@ struct Triangle: Shape {
         entry: .sample(rating: 9, includeTranscription: true, includeFeedback: true)
     ) {
         print("Dismissed")
+    }
+}
+
+// MARK: - Panda Feedback Integration (on-device)
+
+extension MascotFeedbackView {
+    private var activeEmotion: MascotEmotion { emotionOverride ?? mascotEmotion }
+
+    private func generateFeedback() async {
+        guard !isGenerating else { return }
+        isGenerating = true
+        defer { isGenerating = false }
+
+        // Get recent feedbacks to avoid repetition
+        let recentFeedbacks = allEntries
+            .prefix(5)
+            .compactMap { $0.aiFeedback }
+            .filter { !$0.isEmpty }
+        
+        let result = await PandaFeedbackService.shared.generate(for: entry, recentHints: recentFeedbacks)
+        generatedText = result.text
+        emotionOverride = result.emotion
+        showAINotice = !result.usedAFM
+        
+        if entry.aiFeedback != result.text {
+            entry.aiFeedback = result.text
+            try? modelContext.save()
+        }
+    }
+}
+
+fileprivate struct PandaFeedback: Codable {
+    let text: String
+    let emotionHint: String
+    let tags: [String]?
+}
+
+fileprivate final class PandaFeedbackService {
+    static let shared = PandaFeedbackService()
+    private init() {}
+
+    func generate(for entry: EmotionEntry, recentHints: [String]) async -> (text: String, emotion: MascotEmotion, usedAFM: Bool) {
+        if #available(iOS 26.0, *), PandaFoundationManager.shared.isAvailable {
+            if let afm = await generateWithAFM(entry: entry, recentHints: recentHints) {
+                return (afm.text, mapEmotion(hint: afm.emotionHint, rating: entry.emotionRating), true)
+            }
+        }
+        let local = PandaLocalFeedbackEngine.shared.generate(entry: entry)
+        return (local.text, local.emotion, false)
+    }
+
+    private func mapEmotion(hint: String, rating: Int) -> MascotEmotion {
+        let h = hint.lowercased()
+        if h.contains("happy") || h.contains("proud") { return .happy }
+        if h.contains("support") || h.contains("encourage") { return .supportive }
+        if h.contains("concern") || h.contains("tough") || h.contains("hard") { return .concerned }
+        if h.contains("thinking") { return .thinking }
+        if h.contains("sleep") { return .sleeping }
+        if h.contains("neutral") { return .neutral }
+        return MascotEmotion.from(rating: rating)
+    }
+
+    private func minimizeMarkdown(_ s: String) -> String {
+        var out = s
+        ["#", "##", "###", "####", "---"].forEach { out = out.replacingOccurrences(of: $0, with: "") }
+        return out.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func buildPrompt(entry: EmotionEntry, recentHints: [String]) -> String {
+        var lines: [String] = []
+        lines.append("User's emotion rating: \(entry.emotionRating)/10")
+        if let t = entry.transcription, !t.isEmpty {
+            lines.append("\nUser's journal entry:")
+            lines.append("\"\(t.prefix(1200))\"")
+        }
+        if !recentHints.isEmpty {
+            lines.append("\nYour recent replies (vary your wording and avoid repeating these):")
+            recentHints.prefix(3).forEach { lines.append("- \($0.prefix(150))") }
+        }
+        lines.append("\nRespond with valid JSON: {\"text\": \"...\", \"emotionHint\": \"...\", \"tags\": [...]}")
+        return lines.joined(separator: "\n")
+    }
+
+    private func instructionsText() -> String {
+        "You are Panda, a warm and thoughtful emotional wellness companion. Read the user's journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Acknowledge something specific they mentioned to show you're listening\n2. Validate their feelings with empathy\n3. Offer one gentle, actionable suggestion\n4. Use warm, conversational language and vary your phrasing each time\n5. Never diagnose, give medical advice, or repeat recent responses\n\nMake it feel personal and genuine, not scripted."
+    }
+
+    @MainActor
+    private func generateWithAFM(entry: EmotionEntry, recentHints: [String]) async -> PandaFeedback? {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let session = PandaSessionManager.shared.getSession()
+            let promptText = buildPrompt(entry: entry, recentHints: recentHints)
+            do {
+                let response = try await session.respond(to: promptText)
+                let rawText = response.content
+                
+                // Try to parse JSON from response
+                if let data = rawText.data(using: .utf8),
+                   let decoded = try? JSONDecoder().decode(PandaFeedback.self, from: data) {
+                    return PandaFeedback(
+                        text: minimizeMarkdown(decoded.text),
+                        emotionHint: decoded.emotionHint,
+                        tags: decoded.tags
+                    )
+                }
+                
+                // Fallback: extract text from non-JSON response
+                let cleaned = extractTextFromResponse(rawText)
+                return PandaFeedback(
+                    text: minimizeMarkdown(cleaned),
+                    emotionHint: "supportive",
+                    tags: nil
+                )
+            } catch {
+                return nil
+            }
+        }
+        #endif
+        return nil
+    }
+    
+    private func extractTextFromResponse(_ raw: String) -> String {
+        // Remove JSON artifacts if present
+        var cleaned = raw
+        if let start = cleaned.range(of: "\"text\":"), let end = cleaned.range(of: "\",", range: start.upperBound..<cleaned.endIndex) {
+            let textRange = start.upperBound..<end.lowerBound
+            cleaned = String(cleaned[textRange]).trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\"", with: "")
+        }
+        return cleaned
+    }
+}
+
+fileprivate final class PandaLocalFeedbackEngine {
+    static let shared = PandaLocalFeedbackEngine()
+    private init() {}
+
+    func generate(entry: EmotionEntry) -> (text: String, emotion: MascotEmotion) {
+        let text = entry.transcription ?? ""
+        let sentiment = sentimentScore(for: text)
+        let emotion = blendedEmotion(rating: entry.emotionRating, sentiment: sentiment)
+        let msg = message(for: emotion, topics: keywords(from: text))
+        return (msg, emotion)
+    }
+
+    private func sentimentScore(for text: String) -> Double {
+        let tagger = NLTagger(tagSchemes: [.sentimentScore])
+        tagger.string = text
+        let tag = tagger.tag(at: text.startIndex, unit: .paragraph, scheme: .sentimentScore).0
+        return Double(tag?.rawValue ?? "0") ?? 0
+    }
+
+    private func blendedEmotion(rating: Int, sentiment: Double) -> MascotEmotion {
+        if rating <= 4 || sentiment < -0.5 { return .concerned }
+        if rating >= 8 || sentiment > 0.5 { return .happy }
+        return .supportive
+    }
+
+    private func keywords(from text: String) -> [String] {
+        guard !text.isEmpty else { return [] }
+        let tagger = NLTagger(tagSchemes: [.lexicalClass, .lemma])
+        tagger.string = text
+        var nouns = Set<String>()
+        let range = text.startIndex..<text.endIndex
+        tagger.enumerateTags(in: range, unit: .word, scheme: .lexicalClass, options: [.omitWhitespace, .omitPunctuation]) { tag, tokenRange in
+            if let tag = tag, tag == .noun {
+                let lemmaTag = tagger.tag(at: tokenRange.lowerBound, unit: .word, scheme: .lemma)
+                let lemma = lemmaTag.0?.rawValue ?? String(text[tokenRange])
+                nouns.insert(lemma.lowercased())
+            }
+            return true
+        }
+        return Array(nouns.prefix(3))
+    }
+
+    private func message(for emotion: MascotEmotion, topics: [String]) -> String {
+        let topic = topics.first ?? "what you're experiencing"
+        let variations: [[String]] = [
+            ["Love this energy! ", "This is wonderful! ", "So glad to hear this! "],
+            ["I hear how \(topic) is affecting you. ", "It sounds like \(topic) has been on your mind. ", "I can sense \(topic) is important right now. "],
+            ["That sounds really tough with \(topic). ", "I can feel the weight of \(topic) in your words. ", "\(topic.capitalized) can be so challenging. "]
+        ]
+        
+        switch emotion {
+        case .happy:
+            let opening = variations[0].randomElement()!
+            return "\(opening)It's clear something positive happened today. Consider jotting down what made this moment special—it helps us recreate these feelings. What small thing brought you joy? 🌟"
+        case .supportive:
+            let opening = variations[1].randomElement()!
+            return "\(opening)Your feelings are completely valid. When things feel uncertain, try this: take three slow breaths, then name one thing you can control right now. Sometimes the smallest step forward is enough. 💚"
+        case .concerned:
+            let opening = variations[2].randomElement()!
+            return "\(opening)I'm right here with you. When everything feels heavy, let's ground together: place your feet flat, take a slow breath, and name five things you can see. You don't have to carry this alone. 🤗"
+        default:
+            return "Thanks for sharing your thoughts with me. Taking time to check in with yourself matters, and I'm here for every step of your journey."
+        }
+    }
+}
+
+@available(iOS 26.0, *)
+fileprivate final class PandaSessionManager {
+    static let shared = PandaSessionManager()
+    private var session: LanguageModelSession?
+    private init() {}
+    
+    func getSession() -> LanguageModelSession {
+        if let existing = session {
+            return existing
+        }
+        let instructions = "You are Panda, a warm and thoughtful emotional wellness companion. Read the user's journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Acknowledge something specific they mentioned to show you're listening\n2. Validate their feelings with empathy\n3. Offer one gentle, actionable suggestion\n4. Use warm, conversational language and vary your phrasing each time\n5. Never diagnose, give medical advice, or repeat recent responses\n\nMake it feel personal and genuine, not scripted."
+        let newSession = LanguageModelSession(instructions: instructions)
+        session = newSession
+        return newSession
+    }
+    
+    func resetSession() {
+        session = nil
+    }
+}
+
+fileprivate final class PandaFoundationManager {
+    static let shared = PandaFoundationManager()
+    private init() {}
+
+    private(set) var notAvailableReason: String = ""
+
+    var isAvailable: Bool {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            switch SystemLanguageModel.default.availability {
+            case .available:
+                notAvailableReason = ""
+                return true
+            case .unavailable(.deviceNotEligible):
+                notAvailableReason = "This device is not eligible for Apple Intelligence."
+                return false
+            case .unavailable(.appleIntelligenceNotEnabled):
+                notAvailableReason = "Enable Apple Intelligence in Settings to get richer Panda feedback."
+                return false
+            case .unavailable(.modelNotReady):
+                notAvailableReason = "Apple Intelligence is downloading models. Connect to power and Wi‑Fi, then try again."
+                return false
+            case .unavailable(let other):
+                notAvailableReason = "Apple Intelligence unavailable: \(String(describing: other))."
+                return false
+            }
+        }
+        #endif
+        notAvailableReason = "Apple Intelligence requires iOS 26 or later."
+        return false
     }
 }

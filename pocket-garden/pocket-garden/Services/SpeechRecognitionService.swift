@@ -101,8 +101,15 @@ class SpeechRecognitionService {
 
         // Request microphone permission (iOS)
         let micStatus = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                cont.resume(returning: granted)
+            // Use AVAudioApplication for iOS 17.0+, fallback to AVAudioSession for older versions
+            if #available(iOS 17.0, *) {
+                AVAudioApplication.requestRecordPermission { granted in
+                    cont.resume(returning: granted)
+                }
+            } else {
+                AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                    cont.resume(returning: granted)
+                }
             }
         }
 

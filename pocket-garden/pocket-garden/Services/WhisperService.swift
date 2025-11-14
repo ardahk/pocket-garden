@@ -39,13 +39,9 @@ class WhisperService {
             print("📥 Download models from: https://huggingface.co/ggerganov/whisper.cpp")
         } else {
             print("✅ Whisper model found at: \(modelURL!.path)")
-            // Initialize Whisper after package is added
-            do {
-                self.whisper = Whisper(fromFileURL: modelURL!)
-                print("✅ Whisper initialized successfully")
-            } catch {
-                print("❌ Failed to initialize Whisper: \(error)")
-            }
+            self.whisper = Whisper(fromFileURL: modelURL!)
+            print("✅ Whisper initialized successfully")
+            
         }
     }
     
@@ -54,10 +50,17 @@ class WhisperService {
     /// Request microphone permission
     func requestPermissions() async -> Bool {
         let micStatus = await withCheckedContinuation { (cont: CheckedContinuation<Bool, Never>) in
-            AVAudioSession.sharedInstance().requestRecordPermission { granted in
-                cont.resume(returning: granted)
-            }
-        }
+                    // Use AVAudioApplication for iOS 17.0+, fallback to AVAudioSession for older versions
+                    if #available(iOS 17.0, *) {
+                        AVAudioApplication.requestRecordPermission { granted in
+                            cont.resume(returning: granted)
+                        }
+                    } else {
+                        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+                            cont.resume(returning: granted)
+                        }
+                    }
+                }
         
         guard micStatus else {
             error = .microphoneAccessDenied
@@ -194,8 +197,11 @@ class WhisperService {
             // Combine segments into full transcription
             let fullText = segments.map(\.text).joined()
             
+            // Clean up transcription artifacts
+            let cleanedText = cleanTranscription(fullText)
+            
             await MainActor.run {
-                self.transcription = fullText.trimmingCharacters(in: .whitespacesAndNewlines)
+                self.transcription = cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
                 self.isTranscribing = false
                 self.transcriptionProgress = 1.0
             }
@@ -236,6 +242,44 @@ class WhisperService {
     
     var canRecord: Bool {
         modelURL != nil
+    }
+    
+    /// Clean transcription by removing common Whisper artifacts
+    private func cleanTranscription(_ text: String) -> String {
+        var cleaned = text
+        
+        // Remove content in square brackets: [MUSIC], [Applause], etc.
+        cleaned = cleaned.replacingOccurrences(
+            of: "\\[[^\\]]*\\]",
+            with: "",
+            options: .regularExpression
+        )
+        
+        // Remove content in asterisks: *click*, *cough*, etc.
+        cleaned = cleaned.replacingOccurrences(
+            of: "\\*[^\\*]*\\*",
+            with: "",
+            options: .regularExpression
+        )
+        
+        // Remove content in parentheses if it's non-speech: (laughs), (sighs), etc.
+        let nonSpeechPatterns = ["laugh", "sigh", "cough", "click", "music", "applause", "background", "noise"]
+        for pattern in nonSpeechPatterns {
+            cleaned = cleaned.replacingOccurrences(
+                of: "\\([^\\)]*\(pattern)[^\\)]*\\)",
+                with: "",
+                options: [.regularExpression, .caseInsensitive]
+            )
+        }
+        
+        // Clean up multiple spaces and newlines
+        cleaned = cleaned.replacingOccurrences(
+            of: "\\s+",
+            with: " ",
+            options: .regularExpression
+        )
+        
+        return cleaned
     }
 }
 

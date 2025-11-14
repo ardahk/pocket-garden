@@ -144,6 +144,9 @@ Temporary Items
 
 # Documentation
 docs/
+docs-local/
+*.md
+!README.md
 
 # Temporary files
 *.tmp
