@@ -59,7 +59,7 @@ struct AchievementUnlockView: View {
                         .frame(width: 120, height: 120)
                         .overlay(
                             Circle()
-                                .stroke(Color.white.opacity(0.3), lineWidth: 4)
+                                .stroke(Color.cardBackground.opacity(0.5), lineWidth: 4)
                         )
                         .shadow(color: achievement.rarity.color.opacity(0.5), radius: 20)
 
@@ -382,13 +382,13 @@ struct DailyChallengeCard: View {
                             Text("Start Journaling")
                         }
                         .font(Typography.callout.bold())
-                        .foregroundColor(.white)
+                        .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, Spacing.sm)
                         .background(challenge.category.color)
                         .cornerRadius(CornerRadius.sm)
                     }
-                    .pressAnimation()
+                    .buttonStyle(.plain)
                 }
             }
             .padding(Spacing.md)

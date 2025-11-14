@@ -54,7 +54,7 @@ struct RecordingButton: View {
                 // Icon
                 buttonIcon
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
 
                 // Transcribing indicator
                 if isTranscribing && !isRecording {
@@ -114,7 +114,7 @@ struct RecordingButton: View {
                 Image(systemName: "stop.fill")
             } else if isTranscribing {
                 ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .progressViewStyle(CircularProgressViewStyle(tint: Color(light: "FFFFFF", dark: "2A2A2E")))
             } else {
                 Image(systemName: "mic.fill")
             }

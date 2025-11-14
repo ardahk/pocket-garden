@@ -19,6 +19,8 @@ class WhisperService {
     var isTranscribing: Bool = false
     var error: WhisperError?
     var transcriptionProgress: Double = 0.0
+    /// Normalized audio level (0...1) while recording, updated in real time.
+    var audioLevel: CGFloat = 0
     
     // MARK: - Private Properties
     
@@ -26,6 +28,7 @@ class WhisperService {
     private var recordingURL: URL?
     private var whisper: Whisper? // Uncomment after adding package
     private let modelURL: URL?
+    private var levelTimer: Timer?
     
     // MARK: - Initialization
     
@@ -103,6 +106,7 @@ class WhisperService {
         
         // Create and start recorder
         audioRecorder = try AVAudioRecorder(url: recordingURL, settings: settings)
+        audioRecorder?.isMeteringEnabled = true
         audioRecorder?.prepareToRecord()
         
         guard audioRecorder?.record() == true else {
@@ -113,6 +117,9 @@ class WhisperService {
         error = nil
         
         print("🎤 Whisper recording started")
+
+        // Start updating audio level for UI animations
+        startLevelMetering()
     }
     
     /// Stop recording and transcribe
@@ -122,6 +129,7 @@ class WhisperService {
         // Stop recording
         audioRecorder?.stop()
         isRecording = false
+        stopLevelMetering()
         
         // Deactivate audio session
         do {
@@ -143,6 +151,7 @@ class WhisperService {
         isTranscribing = false
         transcription = ""
         error = nil
+        stopLevelMetering()
         
         // Clean up recording file
         if let recordingURL = recordingURL {
@@ -262,8 +271,20 @@ class WhisperService {
             options: .regularExpression
         )
         
-        // Remove content in parentheses if it's non-speech: (laughs), (sighs), etc.
-        let nonSpeechPatterns = ["laugh", "sigh", "cough", "click", "music", "applause", "background", "noise"]
+        // Remove content in parentheses if it's non-speech: (laughs), (door opening), etc.
+        let nonSpeechPatterns = [
+            "laugh",
+            "sigh",
+            "cough",
+            "click",
+            "music",
+            "applause",
+            "background",
+            "noise",
+            "door",
+            "opening",
+            "closing"
+        ]
         for pattern in nonSpeechPatterns {
             cleaned = cleaned.replacingOccurrences(
                 of: "\\([^\\)]*\(pattern)[^\\)]*\\)",
@@ -280,6 +301,30 @@ class WhisperService {
         )
         
         return cleaned
+    }
+
+    // MARK: - Audio Level Metering
+    
+    private func startLevelMetering() {
+        levelTimer?.invalidate()
+        levelTimer = Timer.scheduledTimer(withTimeInterval: 0.06, repeats: true) { [weak self] _ in
+            guard let self = self, let recorder = self.audioRecorder, recorder.isRecording else { return }
+            recorder.updateMeters()
+            let power = recorder.averagePower(forChannel: 0) // -160...0 dB
+            // Normalize into 0...1 range, focusing on the typical speech band
+            let normalized = max(0, min(1, (power + 60) / 60))
+            Task { @MainActor in
+                self.audioLevel = CGFloat(normalized)
+            }
+        }
+    }
+    
+    private func stopLevelMetering() {
+        levelTimer?.invalidate()
+        levelTimer = nil
+        Task { @MainActor in
+            self.audioLevel = 0
+        }
     }
 }
 
