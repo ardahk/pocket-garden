@@ -82,8 +82,8 @@ struct EntriesListViewRedesigned: View {
     
     private var entriesListView: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: Spacing.xl, pinnedViews: [.sectionHeaders]) {
-                ForEach(groupedEntries.keys.sorted(by: >), id: \.self) { section in
+            LazyVStack(alignment: .leading, spacing: Spacing.xl) {
+                ForEach(orderedSections, id: \.self) { section in
                     Section {
                         VStack(spacing: Spacing.md) {
                             ForEach(groupedEntries[section] ?? []) { entry in
@@ -142,6 +142,24 @@ struct EntriesListViewRedesigned: View {
         }
         
         return groups
+    }
+
+    /// Ordered section titles: Today, Yesterday, This Week, This Month, then older groups by name
+    private var orderedSections: [String] {
+        let priority: [String: Int] = [
+            "TODAY": 0,
+            "YESTERDAY": 1,
+            "THIS WEEK": 2,
+            "THIS MONTH": 3
+        ]
+
+        return groupedEntries.keys.sorted { lhs, rhs in
+            let lp = priority[lhs] ?? 10
+            let rp = priority[rhs] ?? 10
+            if lp != rp { return lp < rp }
+            // For older groups (months/years), keep most recent first
+            return lhs > rhs
+        }
     }
     
     // MARK: - Filtered Entries

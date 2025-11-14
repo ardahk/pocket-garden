@@ -91,7 +91,7 @@ struct EmotionSlider: View {
 
                 // Thumb
                 Circle()
-                    .fill(Color.white)
+                    .fill(Color.cardBackground)
                     .frame(width: 32, height: 32)
                     .shadow(color: Color.emotionColor(for: rating).opacity(0.5), radius: 8)
                     .overlay(

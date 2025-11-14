@@ -64,7 +64,7 @@ struct VoiceJournalExperimentView: View {
                         dismiss()
                     }) {
                         Circle()
-                            .fill(Color.white.opacity(0.9))
+                            .fill(Color.cardBackground)
                             .frame(width: 44, height: 44)
                             .overlay(
                                 Image(systemName: "xmark")
@@ -72,6 +72,7 @@ struct VoiceJournalExperimentView: View {
                                     .foregroundColor(.textPrimary)
                             )
                     }
+                    .buttonStyle(.plain)
                     .padding(.leading, Layout.screenPadding)
                     .padding(.top, 50)
                 }
@@ -90,26 +91,24 @@ struct VoiceJournalExperimentView: View {
             if isRecording() && !needsAuthorization() {
                 // Stop recording button with panda
                 Button(action: {
-                    Task {
-                        await stopRecording()
-                        Theme.Haptics.medium()
-                    }
+                    stopRecording()
+                    Theme.Haptics.medium()
                 }) {
                     HStack(spacing: Spacing.md) {
                         // Stop square icon
                         RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.white)
+                            .fill(Color(light: "FFFFFF", dark: "2A2A2E"))
                             .frame(width: 24, height: 24)
                         
                         Text("Stop Recording")
                             .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
                         
                         Spacer()
                         
                         // Panda emoji circle
                         Circle()
-                            .fill(Color.white)
+                            .fill(Color(light: "FFFFFF", dark: "2A2A2E"))
                             .frame(width: 50, height: 50)
                             .overlay(
                                 Text("🐼")
@@ -124,6 +123,7 @@ struct VoiceJournalExperimentView: View {
                             .fill(Color.red.opacity(0.8))
                     )
                 }
+                .buttonStyle(.plain)
                 .padding(.horizontal, Layout.screenPadding)
                 .padding(.bottom, 40)
             }
@@ -267,6 +267,7 @@ struct VoiceJournalExperimentView: View {
                         cancelRecording()
                         recordingSeconds = 0
                     }
+                    .buttonStyle(.plain)
                     .font(Typography.callout)
                     .foregroundColor(.primaryGreen)
                 }
@@ -324,33 +325,34 @@ struct VoiceJournalExperimentView: View {
     private var recordingControlsView: some View {
         VStack(spacing: 0) {
             if isRecording() {
-                // Concentric circles design while recording with breathing animation
+                // Concentric circles driven by live audio level (slow, voice-synced pulse)
+                let level = whisperService.audioLevel
                 ZStack {
-                    // Outer circle - breathing animation
+                    // Outer circle - very subtle, slow swell
                     Circle()
                         .fill(Color.primaryGreen.opacity(0.08))
                         .frame(width: 300, height: 300)
-                        .scaleEffect(isRecording() ? 1.05 : 1.0)
-                        .animation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true), value: isRecording())
+                        .scaleEffect(0.95 + 0.10 * level)
+                        .animation(.easeOut(duration: 0.25), value: level)
                     
-                    // Middle circle - breathing animation (offset timing)
+                    // Middle circle
                     Circle()
                         .fill(Color.primaryGreen.opacity(0.15))
                         .frame(width: 220, height: 220)
-                        .scaleEffect(isRecording() ? 1.08 : 1.0)
-                        .animation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true), value: isRecording())
+                        .scaleEffect(0.96 + 0.14 * level)
+                        .animation(.easeOut(duration: 0.22), value: level)
                     
                     // Inner circle - main pulse
                     Circle()
                         .fill(Color.primaryGreen)
                         .frame(width: 140, height: 140)
-                        .scaleEffect(isRecording() ? 1.1 : 1.0)
-                        .animation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true), value: isRecording())
+                        .scaleEffect(0.98 + 0.18 * level)
+                        .animation(.easeOut(duration: 0.2), value: level)
                     
                     // Center icon
                     Image(systemName: "mic.fill")
                         .font(.system(size: 50))
-                        .foregroundColor(.white)
+                        .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
                 }
                 .padding(.vertical, 30)
             } else if !isTranscribing() && transcription().isEmpty {
@@ -374,7 +376,7 @@ struct VoiceJournalExperimentView: View {
                     // Center icon
                     Image(systemName: "mic.fill")
                         .font(.system(size: 50))
-                        .foregroundColor(.white)
+                        .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
                 }
                 .padding(.vertical, 60)
                 .onTapGesture {

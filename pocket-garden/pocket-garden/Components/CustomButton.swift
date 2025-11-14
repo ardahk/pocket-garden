@@ -15,6 +15,7 @@ struct PrimaryButton: View {
     let action: () -> Void
     var isLoading: Bool = false
     var isDisabled: Bool = false
+    @State private var isPressed = false
 
     init(
         _ title: String,
@@ -49,7 +50,7 @@ struct PrimaryButton: View {
                         .font(Typography.button)
                 }
             }
-            .foregroundColor(.white)
+            .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
             .frame(maxWidth: .infinity)
             .frame(height: Layout.buttonHeight)
             .background(
@@ -62,8 +63,15 @@ struct PrimaryButton: View {
             .cornerRadius(CornerRadius.md)
             .shadow(color: isDisabled ? .clear : Color.primaryGreen.opacity(0.3), radius: 8, y: 4)
         }
+        .buttonStyle(.plain)
         .disabled(isDisabled || isLoading)
-        .pressAnimation()
+        .scaleEffect(isPressed ? 0.96 : 1.0)
+        .animation(.easeInOut(duration: 0.1), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
     }
 }
 
@@ -74,6 +82,7 @@ struct SecondaryButton: View {
     let icon: String?
     let action: () -> Void
     var isDisabled: Bool = false
+    @State private var isPressed = false
 
     init(
         _ title: String,
@@ -111,8 +120,15 @@ struct SecondaryButton: View {
                     .stroke(Color.primaryGreen.opacity(0.3), lineWidth: 1.5)
             )
         }
+        .buttonStyle(.plain)
         .disabled(isDisabled)
-        .pressAnimation()
+        .scaleEffect(isPressed ? 0.96 : 1.0)
+        .animation(.easeInOut(duration: 0.1), value: isPressed)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in isPressed = true }
+                .onEnded { _ in isPressed = false }
+        )
     }
 }
 
@@ -166,7 +182,7 @@ struct FloatingActionButton: View {
         }) {
             Image(systemName: icon)
                 .font(.system(size: size * 0.4, weight: .bold))
-                .foregroundColor(.white)
+                .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
                 .frame(width: size, height: size)
                 .background(
                     LinearGradient(
@@ -196,7 +212,7 @@ struct TagButton: View {
         }) {
             Text(text)
                 .font(Typography.callout)
-                .foregroundColor(isSelected ? .white : .primaryGreen)
+                .foregroundColor(isSelected ? Color(light: "FFFFFF", dark: "2A2A2E") : .primaryGreen)
                 .padding(.horizontal, Spacing.md)
                 .padding(.vertical, Spacing.sm)
                 .background(isSelected ? Color.primaryGreen : Color.primaryGreen.opacity(0.1))

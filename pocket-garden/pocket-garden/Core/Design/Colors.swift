@@ -16,8 +16,8 @@ extension Color {
     /// Warm terracotta - Secondary brand color
     static let secondaryTerracotta = Color(hex: "E5A888")
 
-    /// Cream white - Background color
-    static let backgroundCream = Color(hex: "FAF8F3")
+    /// Cream white - Background color (light mode) / Warm dark grey (dark mode)
+    static let backgroundCream = Color(light: "FAF8F3", dark: "2A2A2E")
 
     /// Golden yellow - Accent color
     static let accentGold = Color(hex: "F4D06F")
@@ -48,19 +48,19 @@ extension Color {
     // MARK: - UI Colors
 
     /// Card background with slight tint
-    static let cardBackground = Color.white.opacity(0.95)
+    static let cardBackground = Color(light: "FFFFFF", dark: "3A3A3E").opacity(0.95)
 
     /// Subtle shadow color
     static let shadowColor = Color.black.opacity(0.08)
 
     /// Border color for inputs
-    static let borderColor = Color.gray.opacity(0.2)
+    static let borderColor = Color(light: "E0E0E0", dark: "4A4A4E").opacity(0.5)
 
-    /// Text primary
-    static let textPrimary = Color(hex: "2D3436")
+    /// Text primary - adapts to dark/light mode
+    static let textPrimary = Color(light: "2D3436", dark: "F5F5F7")
 
-    /// Text secondary
-    static let textSecondary = Color(hex: "636E72")
+    /// Text secondary - adapts to dark/light mode
+    static let textSecondary = Color(light: "636E72", dark: "A8A8AA")
 
     /// Success green
     static let successGreen = Color(hex: "00B894")
@@ -70,12 +70,14 @@ extension Color {
 
     // MARK: - Gradient Colors
 
-    /// Peaceful gradient for backgrounds
-    static let peacefulGradient = LinearGradient(
-        colors: [Color.backgroundCream, Color.primaryGreen.opacity(0.1)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
+    /// Peaceful gradient for backgrounds - adapts to dark mode
+    static var peacefulGradient: LinearGradient {
+        LinearGradient(
+            colors: [Color.backgroundCream, Color.primaryGreen.opacity(0.15)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
 
     /// Energy gradient for positive emotions
     static let energyGradient = LinearGradient(
@@ -125,6 +127,18 @@ extension Color {
 // MARK: - Color Extension for Hex Support
 
 extension Color {
+    /// Initialize color that adapts to light/dark mode
+    init(light: String, dark: String) {
+        self.init(UIColor { traitCollection in
+            switch traitCollection.userInterfaceStyle {
+            case .dark:
+                return UIColor(Color(hex: dark))
+            default:
+                return UIColor(Color(hex: light))
+            }
+        })
+    }
+    
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0

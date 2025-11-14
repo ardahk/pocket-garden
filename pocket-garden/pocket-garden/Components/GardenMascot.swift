@@ -268,7 +268,7 @@ struct SpeechBubble<Content: View>: View {
         VStack(spacing: 0) {
             // Bubble tail
             Triangle()
-                .fill(Color.white)
+                .fill(Color.cardBackground)
                 .frame(width: 20, height: 15)
                 .rotationEffect(.degrees(180))
                 .offset(y: 1)
@@ -276,7 +276,7 @@ struct SpeechBubble<Content: View>: View {
             // Bubble content
             content
                 .padding(Spacing.xl)
-                .background(Color.white)
+                .background(Color.cardBackground)
                 .cornerRadius(CornerRadius.lg)
                 .cardShadow()
         }
@@ -357,7 +357,9 @@ fileprivate final class PandaFeedbackService {
     func generate(for entry: EmotionEntry, recentHints: [String]) async -> (text: String, emotion: MascotEmotion, usedAFM: Bool) {
         if #available(iOS 26.0, *), PandaFoundationManager.shared.isAvailable {
             if let afm = await generateWithAFM(entry: entry, recentHints: recentHints) {
-                return (afm.text, mapEmotion(hint: afm.emotionHint, rating: entry.emotionRating), true)
+                let mapped = mapEmotion(hint: afm.emotionHint, rating: entry.emotionRating)
+                let clamped = clampEmotion(mapped, rating: entry.emotionRating)
+                return (afm.text, clamped, true)
             }
         }
         let local = PandaLocalFeedbackEngine.shared.generate(entry: entry)
@@ -373,6 +375,19 @@ fileprivate final class PandaFeedbackService {
         if h.contains("sleep") { return .sleeping }
         if h.contains("neutral") { return .neutral }
         return MascotEmotion.from(rating: rating)
+    }
+
+    private func clampEmotion(_ emotion: MascotEmotion, rating: Int) -> MascotEmotion {
+        // For very positive check-ins, always show a clearly positive mascot
+        guard rating >= 8 else { return emotion }
+
+        switch emotion {
+        case .happy, .proud:
+            return emotion
+        default:
+            // Prefer a joyful mascot over supportive/concerned when the rating is high
+            return .happy
+        }
     }
 
     private func minimizeMarkdown(_ s: String) -> String {
@@ -397,7 +412,7 @@ fileprivate final class PandaFeedbackService {
     }
 
     private func instructionsText() -> String {
-        "You are Panda, a warm and thoughtful emotional wellness companion. Read the user's journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Acknowledge something specific they mentioned to show you're listening\n2. Validate their feelings with empathy\n3. Offer one gentle, actionable suggestion\n4. Use warm, conversational language and vary your phrasing each time\n5. Never diagnose, give medical advice, or repeat recent responses\n\nMake it feel personal and genuine, not scripted."
+        "You are Panda, a warm and thoughtful emotional wellness companion. Read the user's emotion rating and journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Always take the emotion rating into account together with the text.\n2. If the rating is 8, 9, or 10 out of 10, the overall tone MUST be clearly celebratory and proud. You may briefly acknowledge remaining stress, but focus mainly on what went well and why the user feels capable or hopeful.\n3. If the rating is 4–7, use a balanced, supportive tone that recognizes both difficulties and strengths.\n4. If the rating is 1–3, use a very gentle, compassionate tone and avoid minimizing their experience.\n5. Acknowledge at least one concrete detail they mentioned so it feels specific.\n6. Offer exactly one gentle, actionable suggestion (no long lists).\n7. Use warm, conversational language and vary your phrasing each time.\n8. Never diagnose, give medical advice, or repeat recent responses.\n\nMake it feel personal and genuine, not scripted."
     }
 
     @MainActor

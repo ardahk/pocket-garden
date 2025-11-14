@@ -55,7 +55,7 @@ class EntryClassificationService {
         Only respond with valid JSON, nothing else.
         """
         
-        session = try? LanguageModelSession(instructions: instructions)
+        session = LanguageModelSession(instructions: instructions)
     }
     
     func classifyEntry(transcription: String) async throws -> (moodCategory: String, focusArea: String) {

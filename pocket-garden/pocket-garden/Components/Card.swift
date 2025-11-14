@@ -124,8 +124,8 @@ struct EmotionEntryCard: View {
             .background(
                 LinearGradient(
                     colors: [
-                        Color.emotionColor(for: entry.emotionRating).opacity(0.05),
-                        Color.white
+                        Color.emotionColor(for: entry.emotionRating).opacity(0.08),
+                        Color.cardBackground
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -253,7 +253,7 @@ struct EmptyStateCard: View {
                 Button(action: action) {
                     Text(actionTitle)
                         .font(Typography.button)
-                        .foregroundColor(.white)
+                        .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
                         .padding(.horizontal, Spacing.xl)
                         .padding(.vertical, Spacing.md)
                         .background(Color.primaryGreen)
