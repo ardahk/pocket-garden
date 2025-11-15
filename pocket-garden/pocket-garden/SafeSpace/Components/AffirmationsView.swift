@@ -79,7 +79,7 @@ struct AffirmationsView: View {
                 // Instructions
                 VStack(spacing: 16) {
                     HStack(spacing: 12) {
-                        Image("panda-supportive")
+                        Image("panda_supportive") // Switched to underscore style
                             .resizable()
                             .scaledToFit()
                             .frame(width: 50, height: 50)
@@ -115,9 +115,9 @@ struct AffirmationsView: View {
                                 RoundedRectangle(cornerRadius: 16)
                                     .fill(Color.primaryGreen)
                             )
-                            .shadow(color: Color.primaryGreen.opacity(0.3), radius: 8, y: 4)
                     }
                     .padding(.horizontal, 24)
+                    .buttonStyle(.plain)
                 }
                 .padding(.bottom, 40)
             }
@@ -213,8 +213,8 @@ struct AffirmationCard: View {
                 )
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 400)
-        .padding(32)
+        .frame(height: 340)
+        .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 24)
                 .fill(Color.cardBackground)

@@ -126,6 +126,7 @@ struct BodyScanView: View {
                                 .foregroundStyle(Color.textSecondary)
                         }
                         .padding(.bottom, 40)
+                        .buttonStyle(.plain)
                     }
                 } else {
                     completionView
@@ -178,7 +179,7 @@ struct BodyScanView: View {
 
             // Panda
             HStack(spacing: 12) {
-                Image("panda-supportive")
+                Image("panda_supportive")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 50, height: 50)
@@ -211,10 +212,10 @@ struct BodyScanView: View {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(Color.primaryGreen)
                     )
-                    .shadow(color: Color.primaryGreen.opacity(0.3), radius: 8, y: 4)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
+            .buttonStyle(.plain)
         }
     }
 

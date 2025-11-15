@@ -89,7 +89,7 @@ struct BreathingExerciseView: View {
                     }
 
                     // Panda mascot
-                    Image("panda-supportive")
+                    Image("panda_supportive")
                         .resizable()
                         .scaledToFit()
                         .frame(width: 80, height: 80)
@@ -124,6 +124,7 @@ struct BreathingExerciseView: View {
                             .font(.subheadline)
                             .foregroundStyle(Color.primaryGreen)
                     }
+                    .buttonStyle(.plain)
                 }
                 .padding(.bottom, 40)
             }

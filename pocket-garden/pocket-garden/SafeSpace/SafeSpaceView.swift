@@ -10,7 +10,6 @@ struct SafeSpaceView: View {
 
     @State private var viewModel: SafeSpaceViewModel
     @State private var breathingScale: CGFloat = 1.0
-    @State private var showActivity: Bool = false
     @State private var selectedActivity: CalmActivity?
 
     init(modelContext: ModelContext? = nil) {
@@ -71,14 +70,15 @@ struct SafeSpaceView: View {
                             .font(.title3)
                             .foregroundStyle(Color.textSecondary)
                     }
+                    .buttonStyle(.plain)
                 }
             }
             .onAppear {
                 viewModel.startSession(fromEmergency: true)
                 startBreathingAnimation()
             }
-            .sheet(isPresented: $showActivity) {
-                activitySheet
+            .sheet(item: $selectedActivity) { activity in
+                activitySheet(for: activity)
             }
         }
         .enableInjection()
@@ -127,7 +127,7 @@ struct SafeSpaceView: View {
             }
 
             // Panda
-            Image("panda-supportive")
+            Image("panda_supportive")
                 .resizable()
                 .scaledToFit()
                 .frame(width: 80, height: 80)
@@ -156,11 +156,15 @@ struct SafeSpaceView: View {
 
                 Spacer()
 
-                // Toggle indicator
-                Toggle("", isOn: .constant(viewModel.selectedAmbientSound != .silent))
-                    .labelsHidden()
-                    .tint(Color.primaryGreen)
-                    .disabled(true)
+                // Enable/disable ambient sounds
+                Toggle("", isOn: Binding(
+                    get: { viewModel.selectedAmbientSound != .silent },
+                    set: { isOn in
+                        viewModel.setAmbientEnabled(isOn)
+                    }
+                ))
+                .labelsHidden()
+                .tint(Color.primaryGreen)
             }
 
             // Sound options
@@ -198,7 +202,6 @@ struct SafeSpaceView: View {
                     PracticeCardView(activity: activity) {
                         selectedActivity = activity
                         viewModel.startActivity(activity)
-                        showActivity = true
                     }
                 }
             }
@@ -208,35 +211,37 @@ struct SafeSpaceView: View {
     // MARK: - Activity Sheet
 
     @ViewBuilder
-    private var activitySheet: some View {
-        if let activity = selectedActivity {
-            switch activity.type {
-            case .breathing:
-                BreathingExerciseView(
-                    pattern: .boxBreathing,
-                    duration: activity.duration
-                ) {
-                    viewModel.completeActivity(activity)
-                }
-
-            case .grounding:
-                GroundingTechniqueView {
-                    viewModel.completeActivity(activity)
-                }
-
-            case .bodyScan:
-                BodyScanView {
-                    viewModel.completeActivity(activity)
-                }
-
-            case .affirmations:
-                AffirmationsView(duration: activity.duration) {
-                    viewModel.completeActivity(activity)
-                }
-
-            default:
-                Text("Coming soon!")
+    private func activitySheet(for activity: CalmActivity) -> some View {
+        switch activity.type {
+        case .breathing:
+            BreathingExerciseView(
+                pattern: .boxBreathing,
+                duration: activity.duration
+            ) {
+                viewModel.completeActivity(activity)
+                selectedActivity = nil
             }
+
+        case .grounding:
+            GroundingTechniqueView {
+                viewModel.completeActivity(activity)
+                selectedActivity = nil
+            }
+
+        case .bodyScan:
+            BodyScanView {
+                viewModel.completeActivity(activity)
+                selectedActivity = nil
+            }
+
+        case .affirmations:
+            AffirmationsView(duration: activity.duration) {
+                viewModel.completeActivity(activity)
+                selectedActivity = nil
+            }
+
+        default:
+            Text("Coming soon!")
         }
     }
 
