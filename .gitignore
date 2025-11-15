@@ -142,6 +142,8 @@ Temporary Items
 # Windsurf IDE
 .windsurf/
 
+.claude/
+
 # Documentation
 docs/
 docs-local/

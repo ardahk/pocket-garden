@@ -29,6 +29,9 @@ struct HomeView: View {
     @State private var isLoadingQuote = true
     private let quoteService = QuoteService()
 
+    // Safe Space
+    @State private var showSafeSpace = false
+
     var body: some View {
         ZStack {
             // Background gradient
@@ -43,6 +46,9 @@ struct HomeView: View {
                     
                     // Quote of the Day
                     quoteOfTheDaySection
+
+                    // Safe Space - Always visible
+                    safeSpaceSection
 
                     // Daily Challenge Card
                     if !hasSubmittedToday {
@@ -111,6 +117,9 @@ struct HomeView: View {
         }
         .sheet(item: $selectedEntry) { entry in
             EntryDetailView(entry: entry)
+        }
+        .fullScreenCover(isPresented: $showSafeSpace) {
+            SafeSpaceView(modelContext: modelContext)
         }
         .onAppear {
             checkTodayEntry()
@@ -457,6 +466,110 @@ struct HomeView: View {
                 modelContext: modelContext
             )
             isLoadingQuote = false
+        }
+    }
+
+    // MARK: - Safe Space Section
+
+    private var safeSpaceSection: some View {
+        SafeSpaceCard {
+            showSafeSpace = true
+        }
+        .slideInFromBottom(delay: 0.07)
+    }
+}
+
+// MARK: - Safe Space Card
+
+struct SafeSpaceCard: View {
+    let action: () -> Void
+    @State private var isPulsing = false
+
+    var body: some View {
+        Button(action: {
+            Theme.Haptics.medium()
+            action()
+        }) {
+            HStack(spacing: Spacing.md) {
+                // Icon with pulse animation
+                ZStack {
+                    // Outer pulse circle
+                    Circle()
+                        .fill(Color.emotionCalm.opacity(0.3))
+                        .frame(width: 60, height: 60)
+                        .scaleEffect(isPulsing ? 1.3 : 1.0)
+                        .opacity(isPulsing ? 0.0 : 1.0)
+
+                    // Inner circle
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color.emotionCalm.opacity(0.8),
+                                    Color.primaryGreen.opacity(0.6)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 56, height: 56)
+
+                    // Lotus icon
+                    Image(systemName: "moon.stars.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.white)
+                }
+
+                // Content
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("Need a Moment?")
+                        .font(Typography.headline)
+                        .foregroundColor(.textPrimary)
+
+                    Text("Take a breath, find your calm")
+                        .font(Typography.callout)
+                        .foregroundColor(.textSecondary)
+                }
+
+                Spacer()
+
+                // Arrow
+                Image(systemName: "arrow.right.circle.fill")
+                    .font(.system(size: 28))
+                    .foregroundColor(Color.emotionCalm)
+            }
+            .padding(Spacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.lg)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.cardBackground,
+                                Color.emotionCalm.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: Color.emotionCalm.opacity(0.2), radius: 12, y: 6)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: CornerRadius.lg)
+                    .stroke(Color.emotionCalm.opacity(0.2), lineWidth: 1)
+            )
+        }
+        .pressAnimation()
+        .onAppear {
+            startPulseAnimation()
+        }
+    }
+
+    private func startPulseAnimation() {
+        withAnimation(
+            .easeInOut(duration: 2.0)
+            .repeatForever(autoreverses: false)
+        ) {
+            isPulsing = true
         }
     }
 }

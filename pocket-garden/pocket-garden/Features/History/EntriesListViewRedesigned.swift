@@ -216,6 +216,12 @@ struct JournalEntryRow: View {
                             .font(.system(size: 13))
                             .foregroundColor(.textSecondary)
                         
+                        if entry.voiceRecordingURL != nil {
+                            Image(systemName: "waveform.circle.fill")
+                                .font(.system(size: 13))
+                                .foregroundColor(.primaryGreen)
+                        }
+                        
                         Spacer()
                         
                         // Chevron
