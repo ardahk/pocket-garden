@@ -7,8 +7,9 @@
 
 import SwiftUI
 import SwiftData
-
+import Inject
 struct HomeView: View {
+    @ObserveInjection var inject
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
     @Query private var allTrees: [GrowingTree]
@@ -124,6 +125,7 @@ struct HomeView: View {
         .onAppear {
             checkTodayEntry()
         }
+        .enableInjection()
     }
 
     // MARK: - Header Section
@@ -551,14 +553,13 @@ struct SafeSpaceCard: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .shadow(color: Color.emotionCalm.opacity(0.2), radius: 12, y: 6)
             )
             .overlay(
                 RoundedRectangle(cornerRadius: CornerRadius.lg)
                     .stroke(Color.emotionCalm.opacity(0.2), lineWidth: 1)
             )
         }
-        .pressAnimation()
+        .buttonStyle(.plain)
         .onAppear {
             startPulseAnimation()
         }

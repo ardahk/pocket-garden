@@ -101,6 +101,23 @@ class SafeSpaceViewModel {
         ambientSoundService.play(soundType)
     }
 
+    /// Enable or disable ambient sounds from the header toggle
+    func setAmbientEnabled(_ isOn: Bool) {
+        if isOn {
+            // If nothing is selected yet, default to nature
+            if selectedAmbientSound == .silent {
+                selectedAmbientSound = .nature
+            }
+
+            if selectedAmbientSound != .silent {
+                ambientSoundService.play(selectedAmbientSound)
+            }
+        } else {
+            selectedAmbientSound = .silent
+            ambientSoundService.stop()
+        }
+    }
+
     // MARK: - Analytics
 
     func getTotalSessions(context: ModelContext) -> Int {

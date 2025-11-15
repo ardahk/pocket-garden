@@ -45,7 +45,6 @@ struct PracticeCardView: View {
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.cardBackground)
-                    .shadow(color: Color.shadowColor, radius: 8, x: 0, y: 4)
             )
         }
         .buttonStyle(ScaleButtonStyle())

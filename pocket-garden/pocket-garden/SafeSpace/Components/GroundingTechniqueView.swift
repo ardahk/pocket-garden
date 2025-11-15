@@ -112,7 +112,8 @@ struct GroundingTechniqueView: View {
                                 .fontWeight(.medium)
                                 .foregroundStyle(Color.textPrimary)
                                 .multilineTextAlignment(.center)
-                                .padding(.horizontal, 40)
+                                .padding(.horizontal, 32)
+                                .fixedSize(horizontal: false, vertical: true)
 
                             Text("Take your time")
                                 .font(.subheadline)
@@ -123,7 +124,7 @@ struct GroundingTechniqueView: View {
 
                         // Panda encouragement
                         HStack(spacing: 12) {
-                            Image("panda-supportive")
+                            Image("panda_supportive")
                                 .resizable()
                                 .scaledToFit()
                                 .frame(width: 50, height: 50)
@@ -154,10 +155,10 @@ struct GroundingTechniqueView: View {
                                     RoundedRectangle(cornerRadius: 16)
                                         .fill(Color.primaryGreen)
                                 )
-                                .shadow(color: Color.primaryGreen.opacity(0.3), radius: 8, y: 4)
                         }
                         .padding(.horizontal, 24)
                         .padding(.bottom, 40)
+                        .buttonStyle(.plain)
                     }
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -211,7 +212,7 @@ struct GroundingTechniqueView: View {
 
             // Panda celebration
             HStack(spacing: 12) {
-                Image("panda-happy")
+                Image("panda_happy")
                     .resizable()
                     .scaledToFit()
                     .frame(width: 50, height: 50)
@@ -244,10 +245,10 @@ struct GroundingTechniqueView: View {
                         RoundedRectangle(cornerRadius: 16)
                             .fill(Color.primaryGreen)
                     )
-                    .shadow(color: Color.primaryGreen.opacity(0.3), radius: 8, y: 4)
             }
             .padding(.horizontal, 24)
             .padding(.bottom, 40)
+            .buttonStyle(.plain)
         }
     }
 
