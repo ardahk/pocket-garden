@@ -152,12 +152,9 @@ class WhisperService {
         transcription = ""
         error = nil
         stopLevelMetering()
-        
+
         // Clean up recording file
-        if let recordingURL = recordingURL {
-            try? FileManager.default.removeItem(at: recordingURL)
-        }
-        recordingURL = nil
+        discardRecordingFile()
         
         // Deactivate audio session
         do {
@@ -224,10 +221,6 @@ class WhisperService {
             }
             print("❌ Whisper transcription failed: \(error)")
         }
-        
-        // Clean up recording file
-        try? FileManager.default.removeItem(at: recordingURL)
-        self.recordingURL = nil
     }
     
     /// Convert audio file to 16kHz PCM array required by Whisper
@@ -301,6 +294,67 @@ class WhisperService {
         )
         
         return cleaned
+    }
+
+    // MARK: - Recording File Management & Compression
+
+    /// Remove the temporary WAV recording from disk and clear the reference.
+    func discardRecordingFile() {
+        if let recordingURL = recordingURL {
+            try? FileManager.default.removeItem(at: recordingURL)
+        }
+        recordingURL = nil
+    }
+
+    /// Compress the last recorded WAV to an AAC m4a file for the given entry ID.
+    /// Returns the destination URL and deletes the original WAV on success.
+    func exportCompressedAudio(forEntryID entryID: UUID) async throws -> URL {
+        guard let sourceURL = recordingURL else {
+            throw WhisperError.recordingFailed("No recording available for export")
+        }
+
+        let fileManager = FileManager.default
+        guard let docs = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw WhisperError.recordingFailed("Unable to access documents directory")
+        }
+
+        let folder = docs.appendingPathComponent("VoiceEntries", isDirectory: true)
+        try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+
+        let destinationURL = folder.appendingPathComponent("\(entryID.uuidString).m4a")
+
+        if fileManager.fileExists(atPath: destinationURL.path) {
+            try? fileManager.removeItem(at: destinationURL)
+        }
+
+        let asset = AVURLAsset(url: sourceURL)
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+            throw WhisperError.recordingFailed("Failed to create export session")
+        }
+
+        exportSession.outputURL = destinationURL
+        exportSession.outputFileType = .m4a
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            exportSession.exportAsynchronously {
+                switch exportSession.status {
+                case .completed:
+                    continuation.resume(returning: ())
+                case .failed, .cancelled:
+                    let message = exportSession.error?.localizedDescription ?? "Export failed"
+                    continuation.resume(throwing: WhisperError.recordingFailed(message))
+                default:
+                    let message = exportSession.error?.localizedDescription ?? "Export did not complete"
+                    continuation.resume(throwing: WhisperError.recordingFailed(message))
+                }
+            }
+        }
+
+        // Remove original WAV to free space
+        try? fileManager.removeItem(at: sourceURL)
+        recordingURL = nil
+
+        return destinationURL
     }
 
     // MARK: - Audio Level Metering

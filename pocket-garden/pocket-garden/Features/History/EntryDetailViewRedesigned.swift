@@ -7,12 +7,15 @@
 
 import SwiftUI
 import SwiftData
+import AVFoundation
 
 struct EntryDetailViewRedesigned: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     
     let entry: EmotionEntry
+    @State private var audioPlayer: AVAudioPlayer?
+    @State private var isPlaying = false
     
     var body: some View {
         NavigationStack {
@@ -25,8 +28,11 @@ struct EntryDetailViewRedesigned: View {
                         // Header with date and favorite
                         headerSection
                         
-                        // Emotion card
                         emotionCard
+                        
+                        if entry.voiceRecordingURL != nil {
+                            audioCard
+                        }
                         
                         // Journal entry
                         if entry.hasTranscription {
@@ -71,9 +77,13 @@ struct EntryDetailViewRedesigned: View {
             
             Spacer()
             
-            // Favorite button
             Button(action: {
+                let wasFavorite = entry.isFavorite
                 entry.toggleFavorite()
+                if wasFavorite && !entry.isFavorite, let url = entry.voiceRecordingURL {
+                    try? FileManager.default.removeItem(at: url)
+                    entry.voiceRecordingURL = nil
+                }
                 try? modelContext.save()
                 Theme.Haptics.light()
             }) {
@@ -109,6 +119,34 @@ struct EntryDetailViewRedesigned: View {
             .padding(.vertical, Spacing.sm)
         }
         .slideInFromBottom(delay: 0.1)
+    }
+    
+    // MARK: - Audio Card
+    
+    private var audioCard: some View {
+        Card {
+            HStack(spacing: Spacing.md) {
+                Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(.primaryGreen)
+                
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text("Voice Recording")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    
+                    Text("Tap to \(isPlaying ? "pause" : "play") your original journal audio.")
+                        .font(.system(size: 14))
+                        .foregroundColor(.textSecondary)
+                }
+                
+                Spacer()
+            }
+        }
+        .onTapGesture {
+            togglePlayback()
+        }
+        .slideInFromBottom(delay: 0.15)
     }
     
     // MARK: - Journal Entry Card
@@ -194,6 +232,26 @@ struct EntryDetailViewRedesigned: View {
         case "Joyful": return .primaryGreen
         default: return .textSecondary
         }
+    }
+    
+    private func togglePlayback() {
+        guard let url = entry.voiceRecordingURL else { return }
+        if isPlaying {
+            audioPlayer?.pause()
+            isPlaying = false
+            return
+        }
+        if audioPlayer == nil {
+            do {
+                audioPlayer = try AVAudioPlayer(contentsOf: url)
+                audioPlayer?.prepareToPlay()
+            } catch {
+                print("Failed to load audio: \(error)")
+                return
+            }
+        }
+        audioPlayer?.play()
+        isPlaying = true
     }
 }
 

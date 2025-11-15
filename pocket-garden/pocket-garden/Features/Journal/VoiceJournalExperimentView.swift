@@ -35,6 +35,7 @@ struct VoiceJournalExperimentView: View {
     @State private var showMascotFeedback = false
     @State private var savedEntry: EmotionEntry?
     @State private var previousTranscription: String = "" // For appending mode
+    @State private var saveAudioAsFavorite: Bool = false
     
     
     var body: some View {
@@ -251,21 +252,43 @@ struct VoiceJournalExperimentView: View {
             // Action buttons
             if !transcription().isEmpty && !isRecording() {
                 VStack(spacing: Spacing.md) {
+                    // Favorite + keep audio toggle (directly under transcription)
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        Toggle(isOn: $saveAudioAsFavorite) {
+                            HStack(spacing: Spacing.sm) {
+                                Image(systemName: saveAudioAsFavorite ? "heart.fill" : "heart")
+                                    .foregroundColor(saveAudioAsFavorite ? .errorRed : .textSecondary)
+                                Text("Mark as favorite and keep audio (up to 5 minutes)")
+                                    .font(Typography.callout)
+                                    .foregroundColor(.textSecondary)
+                            }
+                        }
+                        .tint(.primaryGreen)
+                        .disabled(recordingSeconds > 300)
+                        .opacity(recordingSeconds > 300 ? 0.6 : 1.0)
+
+                        if recordingSeconds > 300 {
+                            Text("Recordings over 5 minutes save text only.")
+                                .font(Typography.caption)
+                                .foregroundColor(.textSecondary)
+                        }
+                    }
+
                     // Continue Adding button
                     SecondaryButton("Continue Adding", icon: "plus.mic.fill") {
-                        // Save current transcription and start appending mode
                         previousTranscription = transcription()
                         startRecording()
                         Theme.Haptics.medium()
                     }
-                    
+
                     // Save button
                     saveButtonView
-                    
+
                     // Record again text button
                     Button("Record Again") {
                         cancelRecording()
                         recordingSeconds = 0
+                        saveAudioAsFavorite = false
                     }
                     .buttonStyle(.plain)
                     .font(Typography.callout)
@@ -310,13 +333,14 @@ struct VoiceJournalExperimentView: View {
     
     private var transcriptionView: some View {
         Card {
-            ScrollView {
-                Text(transcription())
-                    .font(Typography.body)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxHeight: 300)
+            TextEditor(text: Binding(
+                get: { transcription() },
+                set: { whisperService.transcription = $0 }
+            ))
+            .font(Typography.body)
+            .frame(minHeight: 140, maxHeight: 300, alignment: .topLeading)
+            .scrollContentBackground(.hidden)
+            .padding(.top, Spacing.xs)
         }
     }
     
@@ -428,6 +452,7 @@ struct VoiceJournalExperimentView: View {
                 recordingTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
                     recordingSeconds += 1
                 }
+                saveAudioAsFavorite = false
             } catch {
                 showingError = true
             }
@@ -453,18 +478,22 @@ struct VoiceJournalExperimentView: View {
         recordingTimer?.invalidate()
         recordingTimer = nil
         recordingSeconds = 0
+        saveAudioAsFavorite = false
         
         whisperService.cancelRecording()
     }
     
     private func saveEntry() {
         isGeneratingFeedback = true
-        
+        let shouldFavorite = saveAudioAsFavorite
+        let shouldSaveAudio = saveAudioAsFavorite && recordingSeconds <= 300
+
         let entry = EmotionEntry(
             emotionRating: emotionRating,
             date: Date(),
             transcription: transcription().isEmpty ? nil : transcription()
         )
+        entry.isFavorite = shouldFavorite
         
         modelContext.insert(entry)
         
@@ -477,9 +506,28 @@ struct VoiceJournalExperimentView: View {
                 await classifyEntry(entry)
             }
             
+            if shouldSaveAudio {
+                Task {
+                    do {
+                        let url = try await whisperService.exportCompressedAudio(forEntryID: entry.id)
+                        await MainActor.run {
+                            entry.voiceRecordingURL = url
+                            try? modelContext.save()
+                        }
+                    } catch {
+                        whisperService.discardRecordingFile()
+                        print("Failed to export audio: \(error)")
+                    }
+                }
+            } else {
+                whisperService.discardRecordingFile()
+            }
+            
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 isGeneratingFeedback = false
                 showMascotFeedback = true
+                saveAudioAsFavorite = false
+                recordingSeconds = 0
             }
         } catch {
             print("Failed to save entry: \(error)")
