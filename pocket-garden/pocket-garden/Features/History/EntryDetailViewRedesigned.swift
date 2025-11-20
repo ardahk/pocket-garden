@@ -16,6 +16,8 @@ struct EntryDetailViewRedesigned: View {
     let entry: EmotionEntry
     @State private var audioPlayer: AVAudioPlayer?
     @State private var isPlaying = false
+    @State private var playbackRate: Float = 1.0
+    @State private var audioDelegate: EntryAudioDelegate?
     
     var body: some View {
         NavigationStack {
@@ -122,29 +124,48 @@ struct EntryDetailViewRedesigned: View {
     }
     
     // MARK: - Audio Card
-    
+
     private var audioCard: some View {
         Card {
             HStack(spacing: Spacing.md) {
-                Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(.primaryGreen)
-                
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("Voice Recording")
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    
-                    Text("Tap to \(isPlaying ? "pause" : "play") your original journal audio.")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textSecondary)
+                // Play / pause area
+                Button(action: togglePlayback) {
+                    HStack(spacing: Spacing.md) {
+                        Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
+                            .font(.system(size: 32))
+                            .foregroundColor(.primaryGreen)
+
+                        VStack(alignment: .leading, spacing: Spacing.xs) {
+                            Text("Voice Recording")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.textPrimary)
+
+                            if !isPlaying {
+                                Text("Tap to play your original journal audio.")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.textSecondary)
+                            }
+                        }
+                    }
                 }
-                
+                .buttonStyle(.plain)
+
                 Spacer()
+
+                // Playback speed control
+                Button(action: cyclePlaybackRate) {
+                    Text(playbackRateLabel)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primaryGreen)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(Color.cardBackground.opacity(0.9))
+                        )
+                }
+                .buttonStyle(.plain)
             }
-        }
-        .onTapGesture {
-            togglePlayback()
         }
         .slideInFromBottom(delay: 0.15)
     }
@@ -236,22 +257,88 @@ struct EntryDetailViewRedesigned: View {
     
     private func togglePlayback() {
         guard let url = entry.voiceRecordingURL else { return }
+
+        // Pause if already playing
         if isPlaying {
             audioPlayer?.pause()
             isPlaying = false
             return
         }
+
+        // Ensure file still exists
+        guard FileManager.default.fileExists(atPath: url.path) else {
+            print("Audio file not found at path: \(url.path)")
+            return
+        }
+
+        // Configure audio session for playback
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+            try session.setActive(true)
+        } catch {
+            print("Failed to configure audio session: \(error)")
+        }
+
+        // Lazily create the player
         if audioPlayer == nil {
             do {
-                audioPlayer = try AVAudioPlayer(contentsOf: url)
-                audioPlayer?.prepareToPlay()
+                let player = try AVAudioPlayer(contentsOf: url)
+                player.enableRate = true
+                player.rate = playbackRate
+                player.prepareToPlay()
+
+                let delegate = EntryAudioDelegate()
+                delegate.onFinish = {
+                    DispatchQueue.main.async {
+                        isPlaying = false
+                    }
+                }
+                player.delegate = delegate
+                audioDelegate = delegate
+
+                audioPlayer = player
             } catch {
                 print("Failed to load audio: \(error)")
                 return
             }
         }
+
+        audioPlayer?.enableRate = true
+        audioPlayer?.rate = playbackRate
         audioPlayer?.play()
         isPlaying = true
+    }
+
+    private var playbackRateLabel: String {
+        switch playbackRate {
+        case 1.0: return "1x"
+        case 1.5: return "1.5x"
+        default: return "2x"
+        }
+    }
+
+    private func cyclePlaybackRate() {
+        if playbackRate == 1.0 {
+            playbackRate = 1.5
+        } else if playbackRate == 1.5 {
+            playbackRate = 2.0
+        } else {
+            playbackRate = 1.0
+        }
+
+        audioPlayer?.enableRate = true
+        audioPlayer?.rate = playbackRate
+    }
+}
+
+// MARK: - Audio Delegate
+
+final class EntryAudioDelegate: NSObject, AVAudioPlayerDelegate {
+    var onFinish: (() -> Void)?
+
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        onFinish?()
     }
 }
 

@@ -14,6 +14,6 @@ struct pocket_gardenApp: App {
         WindowGroup {
             MainTabView()
         }
-        .modelContainer(for: [EmotionEntry.self, GrowingTree.self, Quote.self, Achievement.self, CalmSession.self])
+        .modelContainer(for: [EmotionEntry.self, GrowingTree.self, Quote.self, Achievement.self, CalmSession.self, WorryTreeEntry.self])
     }
 }

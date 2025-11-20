@@ -8,9 +8,12 @@ struct AffirmationsView: View {
     let onComplete: () -> Void
 
     @State private var currentIndex = 0
+    @State private var allAffirmations: [Affirmation] = []
     @State private var affirmations: [Affirmation] = []
-    @State private var timeRemaining: Int = 0
     @State private var dragOffset: CGSize = .zero
+    @State private var selectedCategory: AffirmationCategory? = nil
+    @State private var hasSwiped: Bool = false
+    @State private var shufflesRemainingToday: Int = 10
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -39,7 +42,31 @@ struct AffirmationsView: View {
                         .foregroundStyle(Color.textSecondary)
                 }
                 .padding(.top, 40)
-                .padding(.bottom, 40)
+                .padding(.bottom, 16)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        AffirmationCategoryChip(
+                            title: "All",
+                            isSelected: selectedCategory == nil
+                        ) {
+                            selectedCategory = nil
+                            applyFilter()
+                        }
+
+                        ForEach(AffirmationCategory.allCases, id: \.self) { category in
+                            AffirmationCategoryChip(
+                                title: category.rawValue,
+                                isSelected: selectedCategory == category
+                            ) {
+                                selectedCategory = category
+                                applyFilter()
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                }
+                .padding(.bottom, 24)
 
                 Spacer()
 
@@ -78,28 +105,28 @@ struct AffirmationsView: View {
 
                 // Instructions
                 VStack(spacing: 16) {
-                    HStack(spacing: 12) {
-                        Image("panda_supportive") // Switched to underscore style
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 50, height: 50)
+                    if !hasSwiped {
+                        HStack(spacing: 12) {
+                            Image("panda_supportive")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 50, height: 50)
 
-                        Text("Swipe to see more affirmations")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.textSecondary)
+                            Text("Swipe left or right to navigate")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.cardBackground)
+                        )
+                        .padding(.horizontal, 24)
                     }
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.cardBackground)
-                            .shadow(color: Color.shadowColor, radius: 4, y: 2)
-                    )
-                    .padding(.horizontal, 24)
 
-                    // Progress
-                    Text("\(currentIndex + 1) of \(affirmations.count)")
-                        .font(.caption)
-                        .foregroundStyle(Color.textSecondary)
+                    Text("\(shufflesRemainingToday) shuffle\(shufflesRemainingToday == 1 ? "" : "s") remaining today")
+                        .font(.caption2)
+                        .foregroundStyle(Color.textSecondary.opacity(0.8))
 
                     // Done button
                     Button(action: {
@@ -124,7 +151,6 @@ struct AffirmationsView: View {
         }
         .onAppear {
             setupAffirmations()
-            startTimer()
         }
         .enableInjection()
     }
@@ -132,21 +158,45 @@ struct AffirmationsView: View {
     // MARK: - Setup
 
     private func setupAffirmations() {
-        // Shuffle affirmations for variety
-        affirmations = Affirmation.defaultAffirmations.shuffled()
-        timeRemaining = duration * 60
+        allAffirmations = Affirmation.defaultAffirmations
+        loadShuffleCount()
+        applyFilter()
     }
 
-    private func startTimer() {
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            timeRemaining -= 1
-
-            if timeRemaining <= 0 {
-                timer.invalidate()
-                onComplete()
-                dismiss()
-            }
+    private func applyFilter() {
+        guard shufflesRemainingToday > 0 else {
+            affirmations = allAffirmations
+            currentIndex = 0
+            return
         }
+        
+        var base = allAffirmations
+        if let category = selectedCategory {
+            base = base.filter { $0.category == category }
+        }
+        affirmations = base.shuffled()
+        currentIndex = 0
+        
+        decrementShuffleCount()
+    }
+    
+    private func loadShuffleCount() {
+        let today = Calendar.current.startOfDay(for: Date())
+        let defaults = UserDefaults.standard
+        
+        if let lastDate = defaults.object(forKey: "lastAffirmationShuffleDate") as? Date,
+           Calendar.current.isDate(lastDate, inSameDayAs: today) {
+            shufflesRemainingToday = max(0, defaults.integer(forKey: "affirmationShufflesRemaining"))
+        } else {
+            shufflesRemainingToday = 10
+            defaults.set(today, forKey: "lastAffirmationShuffleDate")
+            defaults.set(10, forKey: "affirmationShufflesRemaining")
+        }
+    }
+    
+    private func decrementShuffleCount() {
+        shufflesRemainingToday = max(0, shufflesRemainingToday - 1)
+        UserDefaults.standard.set(shufflesRemainingToday, forKey: "affirmationShufflesRemaining")
     }
 
     // MARK: - Swipe Handling
@@ -156,17 +206,51 @@ struct AffirmationsView: View {
 
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             if abs(value.translation.width) > swipeThreshold {
-                // Swipe detected
                 let generator = UIImpactFeedbackGenerator(style: .light)
                 generator.impactOccurred()
 
-                // Move to next affirmation
-                if currentIndex < affirmations.count - 1 {
-                    currentIndex += 1
+                hasSwiped = true
+
+                if value.translation.width < 0 {
+                    // Swipe left - next affirmation
+                    if currentIndex < affirmations.count - 1 {
+                        currentIndex += 1
+                    }
+                } else {
+                    // Swipe right - previous affirmation
+                    if currentIndex > 0 {
+                        currentIndex -= 1
+                    }
                 }
             }
             dragOffset = .zero
         }
+    }
+}
+
+struct AffirmationCategoryChip: View {
+    let title: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundStyle(isSelected ? Color.primaryGreen : Color.textSecondary)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(isSelected ? Color.primaryGreen.opacity(0.15) : Color.cardBackground)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(isSelected ? Color.primaryGreen : Color.borderColor.opacity(0.5), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -218,7 +302,6 @@ struct AffirmationCard: View {
         .background(
             RoundedRectangle(cornerRadius: 24)
                 .fill(Color.cardBackground)
-                .shadow(color: Color.shadowColor, radius: 20, y: 10)
         )
     }
 

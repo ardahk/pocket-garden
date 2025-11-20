@@ -35,9 +35,10 @@ enum ActivityType: String, Codable, CaseIterable {
     case bodyScan = "Body Scan"
     case affirmations = "Affirmations"
     case visualization = "Visualization"
-    case colorBreathing = "Color Breathing"
     case worryTree = "Worry Tree"
     case butterflyHug = "Butterfly Hug"
+    case nameAndSoothe = "Name & Soothe"
+    case lovingKindness = "Loving Kindness"
 }
 
 // Predefined activities for Phase 1
@@ -78,10 +79,50 @@ extension CalmActivity {
         type: .affirmations
     )
 
+    static let worryTree = CalmActivity(
+        title: "Worry Tree",
+        icon: "arrow.up.bin.fill",
+        duration: 5,
+        description: "Guide your worries to a solution",
+        color: .orange.opacity(0.7),
+        type: .worryTree
+    )
+
+    static let butterflyHug = CalmActivity(
+        title: "Butterfly Hug",
+        icon: "hands.clap.fill",
+        duration: 2,
+        description: "Bilateral stimulation for calm",
+        color: .indigo.opacity(0.7),
+        type: .butterflyHug
+    )
+
+    static let visualization = CalmActivity(
+        title: "Safe Place",
+        icon: "mountain.2.fill",
+        duration: 4,
+        description: "Visualize your peaceful sanctuary",
+        color: .teal.opacity(0.7),
+        type: .visualization
+    )
+
+    static let nameAndSoothe = CalmActivity(
+        title: "Name & Soothe",
+        icon: "sparkles",
+        duration: 3,
+        description: "Label your feelings and respond with kindness",
+        color: .mint.opacity(0.7),
+        type: .nameAndSoothe
+    )
+
     static let allActivities: [CalmActivity] = [
         breathingExercise,
-        bodyScan,
         groundingTechnique,
-        gentleAffirmations
+        bodyScan,
+        gentleAffirmations,
+        worryTree,
+        butterflyHug,
+        visualization,
+        nameAndSoothe
     ]
 }

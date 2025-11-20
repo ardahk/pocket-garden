@@ -9,6 +9,8 @@ struct BodyScanView: View {
     @State private var currentStep = 0
     @State private var isInstructionPhase = true // Tense or release
     @State private var progress: CGFloat = 0
+    @State private var countdown: Int = 5 // Live countdown timer
+    @State private var phaseColor: Color = .green
     @Environment(\.dismiss) private var dismiss
 
     private let bodyParts: [BodyPart] = [
@@ -47,6 +49,9 @@ struct BodyScanView: View {
                     Text("Progressive muscle relaxation")
                         .font(.subheadline)
                         .foregroundStyle(Color.textSecondary)
+                    Text("Step \(min(currentStep + 1, bodyParts.count)) of \(bodyParts.count)")
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary.opacity(0.8))
                 }
                 .padding(.top, 40)
                 .padding(.bottom, 24)
@@ -67,8 +72,8 @@ struct BodyScanView: View {
                                 .fill(
                                     RadialGradient(
                                         colors: [
-                                            bodyPart.position.color.opacity(0.3),
-                                            bodyPart.position.color.opacity(0.0)
+                                            phaseColor.opacity(0.3),
+                                            phaseColor.opacity(0.0)
                                         ],
                                         center: .center,
                                         startRadius: 50,
@@ -78,55 +83,42 @@ struct BodyScanView: View {
                                 .frame(width: 200, height: 200)
 
                             Circle()
-                                .fill(bodyPart.position.color.opacity(0.2))
+                                .fill(phaseColor.opacity(0.2))
                                 .frame(width: 120, height: 120)
 
                             Image(systemName: bodyPart.icon)
                                 .font(.system(size: 50))
-                                .foregroundStyle(bodyPart.position.color)
+                                .foregroundStyle(phaseColor)
                         }
                         .scaleEffect(isInstructionPhase ? 1.0 : 0.95)
                         .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: isInstructionPhase)
 
-                        // Instructions
+                        // Instructions with integrated countdown
                         VStack(spacing: 16) {
                             Text(bodyPart.name)
                                 .font(.title3)
                                 .fontWeight(.semibold)
                                 .foregroundStyle(Color.textPrimary)
 
-                            Text(currentInstruction)
-                                .font(.body)
-                                .foregroundStyle(Color.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
-                                .fixedSize(horizontal: false, vertical: true)
+                            VStack(spacing: 12) {
+                                Text(currentInstructionBase)
+                                    .font(.body)
+                                    .foregroundStyle(Color.textSecondary)
+                                    .multilineTextAlignment(.center)
+                                    .padding(.horizontal, 32)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                
+                                // Prominent countdown
+                                Text("\(countdown)")
+                                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                                    .monospacedDigit()
+                                    .foregroundStyle(phaseColor)
+                                    .frame(minWidth: 60)
+                                    .contentTransition(.numericText())
+                            }
                         }
 
                         Spacer()
-
-                        // Timer indicator
-                        Text(timerText)
-                            .font(.caption)
-                            .fontWeight(.medium)
-                            .foregroundStyle(Color.textSecondary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(
-                                Capsule()
-                                    .fill(Color.cardBackground)
-                            )
-
-                        Spacer()
-
-                        // Skip button
-                        Button(action: skipToEnd) {
-                            Text("Skip to End")
-                                .font(.subheadline)
-                                .foregroundStyle(Color.textSecondary)
-                        }
-                        .padding(.bottom, 40)
-                        .buttonStyle(.plain)
                     }
                 } else {
                     completionView
@@ -193,7 +185,6 @@ struct BodyScanView: View {
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.cardBackground)
-                    .shadow(color: Color.shadowColor, radius: 4, y: 2)
             )
             .padding(.horizontal, 24)
 
@@ -221,21 +212,18 @@ struct BodyScanView: View {
 
     // MARK: - Computed Properties
 
-    private var currentInstruction: String {
+    private var currentInstructionBase: String {
         if isInstructionPhase {
-            return "Tense your \(bodyParts[currentStep].name.lowercased()) for 5 seconds..."
+            return "Tense your \(bodyParts[currentStep].name.lowercased())..."
         } else {
             return "Now release... let all the tension go"
         }
     }
 
-    private var timerText: String {
-        isInstructionPhase ? "Tense (5s)" : "Release (5s)"
-    }
-
     // MARK: - Body Scan Logic
 
     private func startBodyScan() {
+        updatePhaseColor()
         performNextPhase()
     }
 
@@ -243,36 +231,61 @@ struct BodyScanView: View {
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
 
-        // Wait 5 seconds, then move to next phase
-        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                progress += 1
+        // Reset countdown
+        countdown = 5
+        updatePhaseColor()
 
-                if isInstructionPhase {
-                    // Move to release phase
-                    isInstructionPhase = false
-                    performNextPhase()
-                } else {
-                    // Move to next body part
-                    isInstructionPhase = true
-                    currentStep += 1
+        // Start countdown timer
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            countdown -= 1
+            updatePhaseColor()
 
-                    if currentStep < bodyParts.count {
+            if countdown <= 0 {
+                timer.invalidate()
+
+                // Move to next phase
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                    progress += 1
+
+                    if isInstructionPhase {
+                        // Move to release phase
+                        isInstructionPhase = false
                         performNextPhase()
                     } else {
-                        // Complete
-                        let completionGenerator = UINotificationFeedbackGenerator()
-                        completionGenerator.notificationOccurred(.success)
+                        // Move to next body part
+                        isInstructionPhase = true
+                        currentStep += 1
+
+                        if currentStep < bodyParts.count {
+                            performNextPhase()
+                        } else {
+                            // Complete
+                            let completionGenerator = UINotificationFeedbackGenerator()
+                            completionGenerator.notificationOccurred(.success)
+                        }
                     }
                 }
             }
         }
     }
 
-    private func skipToEnd() {
-        withAnimation {
-            currentStep = bodyParts.count
-            progress = Double(bodyParts.count * 2)
+    private func updatePhaseColor() {
+        // Smooth color progression synchronized with countdown
+        withAnimation(.easeInOut(duration: 1.0)) {
+            switch countdown {
+            case 5:
+                phaseColor = Color.green
+            case 4:
+                phaseColor = Color(red: 0.4, green: 0.8, blue: 0.6)
+            case 3:
+                phaseColor = Color(red: 0.8, green: 0.8, blue: 0.3)
+            case 2:
+                phaseColor = Color.orange
+            case 1:
+                phaseColor = Color(red: 1.0, green: 0.4, blue: 0.3)
+            default:
+                phaseColor = Color.red
+            }
         }
     }
 }

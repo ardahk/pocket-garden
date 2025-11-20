@@ -16,7 +16,7 @@ class SafeSpaceViewModel {
     // UI State
     var selectedActivity: CalmActivity?
     var isActivityActive: Bool = false
-    var selectedAmbientSound: AmbientSoundType = .silent
+    var selectedAmbientSound: AmbientSoundType? = nil
 
     // Model context for persistence
     private var modelContext: ModelContext?
@@ -48,7 +48,7 @@ class SafeSpaceViewModel {
         let duration = Date().timeIntervalSince(startTime)
         session.duration = duration
         session.activities = completedActivities
-        session.ambientSound = selectedAmbientSound != .silent ? selectedAmbientSound.rawValue : nil
+        session.ambientSound = selectedAmbientSound?.rawValue
 
         // Save to SwiftData
         modelContext?.insert(session)
@@ -88,7 +88,7 @@ class SafeSpaceViewModel {
 
     func toggleAmbientSound(_ soundType: AmbientSoundType) {
         if selectedAmbientSound == soundType {
-            selectedAmbientSound = .silent
+            selectedAmbientSound = nil
             ambientSoundService.stop()
         } else {
             selectedAmbientSound = soundType
@@ -99,23 +99,6 @@ class SafeSpaceViewModel {
     func setAmbientSound(_ soundType: AmbientSoundType) {
         selectedAmbientSound = soundType
         ambientSoundService.play(soundType)
-    }
-
-    /// Enable or disable ambient sounds from the header toggle
-    func setAmbientEnabled(_ isOn: Bool) {
-        if isOn {
-            // If nothing is selected yet, default to nature
-            if selectedAmbientSound == .silent {
-                selectedAmbientSound = .nature
-            }
-
-            if selectedAmbientSound != .silent {
-                ambientSoundService.play(selectedAmbientSound)
-            }
-        } else {
-            selectedAmbientSound = .silent
-            ambientSoundService.stop()
-        }
     }
 
     // MARK: - Analytics

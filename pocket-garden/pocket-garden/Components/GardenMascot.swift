@@ -461,6 +461,351 @@ fileprivate final class PandaFeedbackService {
     }
 }
 
+final class PandaWeeklyFeedbackService {
+    static let shared = PandaWeeklyFeedbackService()
+    private init() {}
+
+    /// Generate a weekly Panda message from multiple entries. Uses Apple Intelligence
+    /// when available, with a local on-device fallback otherwise.
+    func generate(for entries: [EmotionEntry]) async -> (text: String, usedAFM: Bool) {
+        guard !entries.isEmpty else {
+            let text = "This week is just getting started. Each check‑in you make helps me understand how you're doing, and I'm here whenever you want to share more. 🌱"
+            return (text, false)
+        }
+
+        if #available(iOS 26.0, *), PandaFoundationManager.shared.isAvailable {
+            if let afm = await generateWithAFM(entries: entries) {
+                return (afm.text, true)
+            }
+        }
+
+        let local = generateLocal(for: entries)
+        return (local, false)
+    }
+
+    @MainActor
+    private func generateWithAFM(entries: [EmotionEntry]) async -> PandaFeedback? {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let session = PandaSessionManager.shared.getSession()
+            let promptText = buildWeeklyPrompt(entries: entries)
+            do {
+                let response = try await session.respond(to: promptText)
+                let rawText = response.content
+
+                if let data = rawText.data(using: .utf8),
+                   let decoded = try? JSONDecoder().decode(PandaFeedback.self, from: data) {
+                    return PandaFeedback(
+                        text: minimizeMarkdown(decoded.text),
+                        emotionHint: decoded.emotionHint,
+                        tags: decoded.tags
+                    )
+                }
+
+                let cleaned = extractTextFromResponse(rawText)
+                return PandaFeedback(
+                    text: minimizeMarkdown(cleaned),
+                    emotionHint: "supportive",
+                    tags: nil
+                )
+            } catch {
+                return nil
+            }
+        }
+        #endif
+        return nil
+    }
+
+    private func generateLocal(for entries: [EmotionEntry]) -> String {
+        let calendar = Calendar.current
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEEE"
+
+        let ratings = entries.map { $0.emotionRating }
+        let avgRating = Double(ratings.reduce(0, +)) / Double(max(ratings.count, 1))
+
+        // Find one recent entry with text for a concrete detail
+        let textEntry = entries
+            .sorted(by: { $0.date > $1.date })
+            .first(where: { !($0.cleanedTranscription?.isEmpty ?? $0.transcription?.isEmpty ?? true) })
+
+        var detailLine = ""
+        if let e = textEntry {
+            let day = dayFormatter.string(from: e.date)
+            let snippet = (e.cleanedTranscription ?? e.transcription ?? "").prefix(120)
+            if !snippet.isEmpty {
+                detailLine = " For example, on \(day) you shared: \"\(snippet)\"."
+            }
+        }
+
+        let checkInCount = Set(entries.map { calendar.startOfDay(for: $0.date) }).count
+
+        let base: String
+        switch avgRating {
+        case 8...10:
+            base = "You've had a really bright week so far, with lots of moments of good energy and emotional strength."
+        case 6..<8:
+            base = "This week has a steady, gently positive rhythm. You're noticing what supports your wellbeing and showing up for yourself."
+        case 4..<6:
+            base = "This week has been a mix of easier and tougher moments, but you keep checking in and that takes courage."
+        default:
+            base = "It's been a heavy week so far, and I can tell you've been carrying a lot. Thank you for being honest in your check‑ins."
+        }
+
+        let consistency: String
+        switch checkInCount {
+        case 5...:
+            consistency = " You've checked in on most days, which is an amazing act of self‑care."
+        case 3...4:
+            consistency = " You've checked in on several days, and that consistency really matters."
+        case 1...2:
+            consistency = " Even a couple of check‑ins this week are meaningful steps in understanding how you're feeling."
+        default:
+            consistency = ""
+        }
+
+        let suggestion: String
+        switch avgRating {
+        case 8...10:
+            suggestion = " This weekend, consider writing down one or two things that have been working especially well, so you can return to them when you need a boost."
+        case 6..<8:
+            suggestion = " Over the next few days, try repeating one small habit that helped you feel a bit more grounded—like a short walk, a mindful pause, or journaling before bed."
+        case 4..<6:
+            suggestion = " In the coming days, choose one tiny act of kindness toward yourself—something that feels doable, like a five‑minute break or a gentle walk."
+        default:
+            suggestion = " For the rest of this week, see if you can give yourself permission to move slowly and choose just one small thing that feels supportive, even if it's simply taking a deeper breath."
+        }
+
+        return base + consistency + detailLine + " " + suggestion
+    }
+
+    private func buildWeeklyPrompt(entries: [EmotionEntry]) -> String {
+        var lines: [String] = []
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE"
+
+        lines.append("You are Panda, a warm and thoughtful emotional wellness companion.")
+        lines.append("You are reading the user's journal entries for this week so far (from the start of the week up to today). In your response:")
+        lines.append("- Write 3–6 sentences, maximum 120 words.")
+        lines.append("- Clearly refer to 'this week' or 'this week so far'.")
+        lines.append("- Acknowledge at least one concrete detail from their entries so it feels specific.")
+        lines.append("- Describe any noticeable pattern in how they have been feeling.")
+        lines.append("- Offer exactly one gentle, actionable suggestion for the coming days.")
+        lines.append("- Use warm, conversational language and never give medical advice.")
+        lines.append("")
+        lines.append("Here are the entries for this week:")
+
+        for entry in entries {
+            let day = formatter.string(from: entry.date)
+            let rating = entry.emotionRating
+            let text = (entry.cleanedTranscription ?? entry.transcription ?? "").prefix(240)
+            if !text.isEmpty {
+                lines.append("- \(day) — rating \(rating)/10: \"\(text)\"")
+            } else {
+                lines.append("- \(day) — rating \(rating)/10.")
+            }
+        }
+
+        lines.append("")
+        lines.append("Respond with valid JSON: {\"text\": \"...\", \"emotionHint\": \"...\", \"tags\": [...]}")
+        return lines.joined(separator: "\n")
+    }
+
+    private func minimizeMarkdown(_ s: String) -> String {
+        var out = s
+        ["#", "##", "###", "####", "---"].forEach { out = out.replacingOccurrences(of: $0, with: "") }
+        return out.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func extractTextFromResponse(_ raw: String) -> String {
+        var cleaned = raw
+        if let start = cleaned.range(of: "\"text\":"), let end = cleaned.range(of: "\",", range: start.upperBound..<cleaned.endIndex) {
+            let textRange = start.upperBound..<end.lowerBound
+            cleaned = String(cleaned[textRange]).trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\"", with: "")
+        }
+        return cleaned
+    }
+}
+
+// MARK: - Panda Worry Tree Service
+
+final class PandaWorryTreeService {
+    static let shared = PandaWorryTreeService()
+    private init() {}
+
+    /// Generate Panda feedback for a completed Worry Tree.
+    /// Uses Apple Intelligence when available, with a simple local fallback.
+    func generate(
+        worryText: String,
+        canControl: Bool?,
+        actionPlan: String?,
+        letGoNote: String?,
+        historySummary: String
+    ) async -> (text: String, usedAFM: Bool) {
+        if #available(iOS 26.0, *), PandaFoundationManager.shared.isAvailable {
+            if let afm = await generateWithAFM(
+                worryText: worryText,
+                canControl: canControl,
+                actionPlan: actionPlan,
+                letGoNote: letGoNote,
+                historySummary: historySummary
+            ) {
+                return (afm.text, true)
+            }
+        }
+
+        let local = generateLocal(
+            worryText: worryText,
+            canControl: canControl,
+            actionPlan: actionPlan,
+            letGoNote: letGoNote
+        )
+        return (local, false)
+    }
+
+    @MainActor
+    private func generateWithAFM(
+        worryText: String,
+        canControl: Bool?,
+        actionPlan: String?,
+        letGoNote: String?,
+        historySummary: String
+    ) async -> PandaFeedback? {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let session = PandaSessionManager.shared.getSession()
+            let promptText = buildWorryTreePrompt(
+                worryText: worryText,
+                canControl: canControl,
+                actionPlan: actionPlan,
+                letGoNote: letGoNote,
+                historySummary: historySummary
+            )
+
+            do {
+                let response = try await session.respond(to: promptText)
+                let rawText = response.content
+
+                if let data = rawText.data(using: .utf8),
+                   let decoded = try? JSONDecoder().decode(PandaFeedback.self, from: data) {
+                    return PandaFeedback(
+                        text: minimizeMarkdown(decoded.text),
+                        emotionHint: decoded.emotionHint,
+                        tags: decoded.tags
+                    )
+                }
+
+                let cleaned = extractTextFromResponse(rawText)
+                return PandaFeedback(
+                    text: minimizeMarkdown(cleaned),
+                    emotionHint: "supportive",
+                    tags: ["worry_tree"]
+                )
+            } catch {
+                return nil
+            }
+        }
+        #endif
+        return nil
+    }
+
+    private func generateLocal(
+        worryText: String,
+        canControl: Bool?,
+        actionPlan: String?,
+        letGoNote: String?
+    ) -> String {
+        var lines: [String] = []
+        lines.append("Thank you for walking through this worry. That alone is a big step.")
+
+        if let canControl = canControl {
+            if canControl, let plan = actionPlan, !plan.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                lines.append("You identified something you can influence and even sketched a plan. Try choosing just one tiny step from your plan to focus on next.")
+                lines.append("Remember, you don't have to fix everything at once—small, realistic actions are enough.")
+                lines.append("Your worry was: \(worryText)")
+                lines.append("Your next gentle step might be: \(plan.prefix(160))")
+            } else if !canControl {
+                lines.append("You noticed that this worry is largely outside your control, which is hard and also very wise.")
+                if let note = letGoNote, !note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    lines.append("The way you chose to let go—'\(note.prefix(160))'—is a powerful act of self-care.")
+                }
+                lines.append("When this worry shows up again, gently remind yourself what is and isn't yours to carry.")
+            }
+        }
+
+        return lines.joined(separator: " ")
+    }
+
+    private func buildWorryTreePrompt(
+        worryText: String,
+        canControl: Bool?,
+        actionPlan: String?,
+        letGoNote: String?,
+        historySummary: String
+    ) -> String {
+        var lines: [String] = []
+        lines.append("You are Panda, a warm, practical emotional support companion.")
+        lines.append("The user has just completed a 'Worry Tree' exercise in a wellbeing app.")
+        lines.append("")
+        lines.append("Your goals in this context:")
+        lines.append("- Acknowledge the specific worry and how hard it feels.")
+        lines.append("- Briefly reflect on what the user can and cannot control.")
+        lines.append("- Help them turn their insights into gentle, realistic next steps that support their goals.")
+        lines.append("- If they created an action plan, refine it into 1–3 tiny, concrete steps they can actually do.")
+        lines.append("- If the worry is outside their control, focus on acceptance, self-compassion, and shifting attention back to what they can influence.")
+        lines.append("- Optionally, connect to patterns you notice from previous Worry Tree entries without overwhelming them.")
+        lines.append("- Never give medical advice or make diagnoses. Stay supportive, non-clinical, and non-judgmental.")
+        lines.append("")
+        lines.append("Response format:")
+        lines.append("- 3–7 sentences.")
+        lines.append("- Maximum ~150 words.")
+        lines.append("- Use warm, conversational language, as if talking directly to the user.")
+        lines.append("- Always sound encouraging and realistic—no toxic positivity.")
+        lines.append("")
+        lines.append("Here is the current Worry Tree result:")
+        lines.append("- Worry: \(worryText)")
+        if let canControl = canControl {
+            lines.append("- User believes they can control some part of this: \(canControl ? "yes" : "no")")
+        }
+        if let actionPlan, !actionPlan.isEmpty {
+            lines.append("- Action plan (user's own words): \(actionPlan)")
+        }
+        if let letGoNote, !letGoNote.isEmpty {
+            lines.append("- Let-go note (how they plan to release this): \(letGoNote)")
+        }
+        lines.append("")
+        lines.append("Recent Worry Tree history (most recent first, may be empty):")
+        lines.append(historySummary.isEmpty ? "(no previous entries)" : historySummary)
+        lines.append("")
+        lines.append("Now respond with valid JSON of the form:")
+        lines.append("{\"text\": \"...\", \"emotionHint\": \"supportive\", \"tags\": [\"worry_tree\", \"goals\"]}")
+
+        return lines.joined(separator: "\n")
+    }
+
+    // Local helpers
+
+    private func minimizeMarkdown(_ s: String) -> String {
+        var out = s
+        ["#", "##", "###", "####", "---"].forEach { token in
+            out = out.replacingOccurrences(of: token, with: "")
+        }
+        return out.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func extractTextFromResponse(_ raw: String) -> String {
+        var cleaned = raw
+        if let start = cleaned.range(of: "\"text\":"),
+           let end = cleaned.range(of: "\",", range: start.upperBound..<cleaned.endIndex) {
+            let textRange = start.upperBound..<end.lowerBound
+            cleaned = String(cleaned[textRange])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "\"", with: "")
+        }
+        return cleaned
+    }
+}
+
 fileprivate final class PandaLocalFeedbackEngine {
     static let shared = PandaLocalFeedbackEngine()
     private init() {}

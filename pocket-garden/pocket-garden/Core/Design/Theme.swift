@@ -120,12 +120,17 @@ extension Theme {
     /// Get emotion label for rating
     static func emotionLabel(for rating: Int) -> String {
         switch rating {
-        case 9...10: return "Amazing"
-        case 7...8: return "Great"
-        case 5...6: return "Okay"
-        case 3...4: return "Not Good"
-        case 1...2: return "Difficult"
-        default: return "Neutral"
+        case 1: return "Really Rough"
+        case 2: return "Pretty Hard"
+        case 3: return "Not Great"
+        case 4: return "A Bit Low"
+        case 5: return "Meh"
+        case 6: return "Okay"
+        case 7: return "Pretty Good"
+        case 8: return "Great"
+        case 9: return "Really Good"
+        case 10: return "Amazing"
+        default: return "Okay"
         }
     }
 
