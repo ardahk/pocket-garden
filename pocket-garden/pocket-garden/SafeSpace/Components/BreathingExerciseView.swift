@@ -8,50 +8,52 @@ struct BreathingExerciseView: View {
     let duration: Int // Total duration in minutes
     let onComplete: () -> Void
 
+    @State private var selectedPattern: BreathingPattern = .boxBreathing
     @State private var currentPhase: BreathPhase = .inhale
     @State private var phaseProgress: CGFloat = 0
     @State private var cyclesCompleted: Int = 0
     @State private var timeRemaining: Int = 0
     @State private var isAnimating = false
+    @State private var hasStarted = false
+    @State private var phaseSecondsRemaining: Int = 0
 
     @Environment(\.dismiss) private var dismiss
 
-    private let circleMinSize: CGFloat = 120
-    private let circleMaxSize: CGFloat = 240
+    private let circleMinSize: CGFloat = 100
+    private let circleMaxSize: CGFloat = 200
 
     var body: some View {
         ZStack {
-            // Background gradient
+            // Background gradient (kept static so only the circle feels like it moves)
             LinearGradient(
                 colors: [
                     Color.backgroundCream,
-                    currentPhase.color.opacity(0.1)
+                    Color.emotionCalm.opacity(0.12)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
             )
             .ignoresSafeArea()
 
-            VStack(spacing: 40) {
-                // Header
-                VStack(spacing: 8) {
-                    Text("You're Safe Here")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.textPrimary)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    // Header
+                    VStack(spacing: 8) {
+                        Text("Guided Breathing")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.textPrimary)
 
-                    Text("Take all the time you need")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.textSecondary)
-                }
-                .padding(.top, 40)
+                        Text("Choose a rhythm that feels right for you")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    .padding(.top, 16)
 
-                Spacer()
-
-                // Breathing circle with instruction
-                VStack(spacing: 32) {
+                    // Breathing circle with instruction
+                    VStack(spacing: 16) {
                     ZStack {
-                        // Outer glow
+                        // Outer glow (fixed size so layout stays stable)
                         Circle()
                             .fill(
                                 RadialGradient(
@@ -60,11 +62,11 @@ struct BreathingExerciseView: View {
                                         currentPhase.color.opacity(0.0)
                                     ],
                                     center: .center,
-                                    startRadius: circleSize / 2,
-                                    endRadius: circleSize / 2 + 60
+                                    startRadius: circleMaxSize / 2,
+                                    endRadius: circleMaxSize / 2 + 60
                                 )
                             )
-                            .frame(width: circleSize + 120, height: circleSize + 120)
+                            .frame(width: circleMaxSize + 120, height: circleMaxSize + 120)
 
                         // Main breathing circle
                         Circle()
@@ -79,41 +81,95 @@ struct BreathingExerciseView: View {
                                 )
                             )
                             .frame(width: circleSize, height: circleSize)
-                            .shadow(color: currentPhase.color.opacity(0.3), radius: 20)
+                            .clipShape(Circle())
 
-                        // Instruction text
-                        Text(currentPhase.instruction)
-                            .font(.title3)
-                            .fontWeight(.medium)
-                            .foregroundStyle(Color.textPrimary)
+                        // Instruction + per-phase countdown
+                        VStack(spacing: 6) {
+                            Text(currentPhase.instruction)
+                                .font(.title3)
+                                .fontWeight(.medium)
+                                .foregroundStyle(Color.textPrimary)
+
+                            if phaseSecondsRemaining > 0 {
+                                Text("\(phaseSecondsRemaining)s")
+                                    .font(.headline)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                        }
                     }
-
-                    // Panda mascot
-                    Image("panda_supportive")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 80, height: 80)
-                        .background(
-                            Circle()
-                                .fill(Color.cardBackground)
-                                .frame(width: 100, height: 100)
-                        )
-                        .shadow(color: Color.shadowColor, radius: 8, y: 4)
                 }
 
-                Spacer()
-
                 // Pattern info and timer
-                VStack(spacing: 24) {
-                    // Pattern name
-                    Text(pattern.name)
-                        .font(.headline)
-                        .foregroundStyle(Color.textPrimary)
+                VStack(spacing: 16) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(BreathingPattern.allPatterns) { option in
+                                BreathingPatternChip(
+                                    pattern: option,
+                                    isSelected: option == selectedPattern
+                                ) {
+                                    switchToPattern(option)
+                                }
+                            }
+                        }
+                        .disabled(hasStarted)
+                        .opacity(hasStarted ? 0.6 : 1.0)
+                        .padding(.horizontal, 24)
+                    }
+
+                    VStack(spacing: 6) {
+                        Text(selectedPattern.name)
+                            .font(.headline)
+                            .foregroundStyle(Color.textPrimary)
+
+                        Text(selectedPattern.description)
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                            .lineLimit(3)
+                            .minimumScaleFactor(0.9)
+                    }
+
+                    HStack(spacing: 8) {
+                        if selectedPattern.inhale > 0 {
+                            BreathingPhaseBadge(label: "Inhale", value: selectedPattern.inhale)
+                        }
+                        if selectedPattern.hold1 > 0 {
+                            BreathingPhaseBadge(label: "Hold", value: selectedPattern.hold1)
+                        }
+                        if selectedPattern.exhale > 0 {
+                            BreathingPhaseBadge(label: "Exhale", value: selectedPattern.exhale)
+                        }
+                        if selectedPattern.hold2 > 0 {
+                            BreathingPhaseBadge(label: "Hold", value: selectedPattern.hold2)
+                        }
+                    }
 
                     // Time remaining
-                    Text(timeRemainingText)
-                        .font(.subheadline)
-                        .foregroundStyle(Color.textSecondary)
+                    if hasStarted {
+                        Text(timeRemainingText)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+
+                    if !hasStarted {
+                        Button(action: {
+                            startBreathing()
+                        }) {
+                            Text("Start \(selectedPattern.name)")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 50)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(Color.primaryGreen)
+                                )
+                            .buttonStyle(.plain)
+                        }
+                        .padding(.horizontal, 24)
+                    }
 
                     // Close button
                     Button(action: {
@@ -126,11 +182,14 @@ struct BreathingExerciseView: View {
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(.bottom, 40)
+                .padding(.bottom, 16)
             }
+            .padding(.horizontal, 20)
+        }
         }
         .onAppear {
-            startBreathing()
+            selectedPattern = pattern
+            timeRemaining = duration * 60
         }
         .onDisappear {
             stopBreathing()
@@ -154,9 +213,13 @@ struct BreathingExerciseView: View {
     // MARK: - Breathing Logic
 
     private func startBreathing() {
+        guard !hasStarted else { return }
+
         timeRemaining = duration * 60
-        isAnimating = true
+        phaseSecondsRemaining = 0
         cyclesCompleted = 0
+        hasStarted = true
+        isAnimating = true
         startPhase(.inhale)
         startTimer()
     }
@@ -169,21 +232,18 @@ struct BreathingExerciseView: View {
         guard isAnimating else { return }
 
         currentPhase = phase
-        let phaseDuration = currentPhase.duration(for: pattern)
+        let phaseDuration = currentPhase.duration(for: selectedPattern)
 
         // Haptic feedback
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.impactOccurred()
+        generateHaptic(for: phase)
 
         // Animate circle
         withAnimation(.easeInOut(duration: Double(phaseDuration))) {
             phaseProgress = currentPhase == .inhale || currentPhase == .hold1 ? 1.0 : 0.0
         }
 
-        // Schedule next phase
-        DispatchQueue.main.asyncAfter(deadline: .now() + Double(phaseDuration)) {
-            nextPhase()
-        }
+        // Reset per-phase countdown
+        phaseSecondsRemaining = phaseDuration
     }
 
     private func nextPhase() {
@@ -191,7 +251,7 @@ struct BreathingExerciseView: View {
 
         switch currentPhase {
         case .inhale:
-            if pattern.hold1 > 0 {
+            if selectedPattern.hold1 > 0 {
                 startPhase(.hold1)
             } else {
                 startPhase(.exhale)
@@ -199,7 +259,7 @@ struct BreathingExerciseView: View {
         case .hold1:
             startPhase(.exhale)
         case .exhale:
-            if pattern.hold2 > 0 {
+            if selectedPattern.hold2 > 0 {
                 startPhase(.hold2)
             } else {
                 completeCycle()
@@ -222,6 +282,11 @@ struct BreathingExerciseView: View {
             }
 
             timeRemaining -= 1
+            phaseSecondsRemaining -= 1
+
+            if phaseSecondsRemaining <= 0 {
+                nextPhase()
+            }
 
             if timeRemaining <= 0 {
                 timer.invalidate()
@@ -230,6 +295,126 @@ struct BreathingExerciseView: View {
                 dismiss()
             }
         }
+    }
+
+    private func generateHaptic(for phase: BreathPhase) {
+        let phaseDuration = phase.duration(for: selectedPattern)
+
+        switch phase {
+        case .inhale:
+            // Strong, building taps through the inhale
+            let generator = UIImpactFeedbackGenerator(style: .heavy)
+            generator.prepare()
+            generator.impactOccurred(intensity: 1.0)
+
+            let first = max(0.15, Double(phaseDuration) * 0.25)
+            let second = max(0.3, Double(phaseDuration) * 0.5)
+            let third = max(0.45, Double(phaseDuration) * 0.75)
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + first) {
+                generator.impactOccurred(intensity: 1.0)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + second) {
+                generator.impactOccurred(intensity: 1.0)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + third) {
+                generator.impactOccurred(intensity: 1.0)
+            }
+
+        case .hold1, .hold2:
+            // Firm "stretch" pulse while holding
+            let generator = UIImpactFeedbackGenerator(style: .rigid)
+            generator.prepare()
+            generator.impactOccurred(intensity: 1.0)
+
+            let mid = max(0.25, Double(phaseDuration) * 0.5)
+            DispatchQueue.main.asyncAfter(deadline: .now() + mid) {
+                generator.impactOccurred(intensity: 0.9)
+            }
+
+        case .exhale:
+            // Series of strong release taps as you breathe out
+            let generator = UIImpactFeedbackGenerator(style: .soft)
+            generator.prepare()
+
+            let first = max(0.1, Double(phaseDuration) * 0.2)
+            let second = max(0.25, Double(phaseDuration) * 0.4)
+            let third = max(0.4, Double(phaseDuration) * 0.7)
+
+            generator.impactOccurred(intensity: 1.0)
+            DispatchQueue.main.asyncAfter(deadline: .now() + first) {
+                generator.impactOccurred(intensity: 0.9)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + second) {
+                generator.impactOccurred(intensity: 0.8)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + third) {
+                generator.impactOccurred(intensity: 0.7)
+            }
+        }
+    }
+
+    private func switchToPattern(_ newPattern: BreathingPattern) {
+        // Allow choosing pattern freely before starting; lock once the session begins
+        guard !hasStarted, newPattern != selectedPattern else { return }
+
+        let generator = UIImpactFeedbackGenerator(style: .light)
+        generator.impactOccurred()
+
+        selectedPattern = newPattern
+        phaseProgress = 0
+    }
+}
+
+struct BreathingPatternChip: View {
+    let pattern: BreathingPattern
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text(pattern.name)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(isSelected ? Color.primaryGreen : Color.textSecondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isSelected ? Color.primaryGreen.opacity(0.15) : Color.cardBackground)
+            )
+            .overlay(
+                Capsule()
+                    .stroke(isSelected ? Color.primaryGreen : Color.borderColor.opacity(0.5), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+struct BreathingPhaseBadge: View {
+    let label: String
+    let value: Int
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.caption2)
+                .foregroundStyle(Color.textSecondary)
+
+            Text("\(value)s")
+                .font(.caption2)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.textPrimary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(Color.cardBackground)
+        )
     }
 }
 

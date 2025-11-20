@@ -318,7 +318,7 @@ struct HomeView: View {
 
                 StatCard(
                     value: String(format: "%.1f", averageRating),
-                    label: "Avg Rating",
+                    label: "Avg Mood",
                     icon: "chart.line.uptrend.xyaxis",
                     color: .primaryGreen
                 )

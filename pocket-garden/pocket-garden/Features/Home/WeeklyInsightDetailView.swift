@@ -16,6 +16,9 @@ struct WeeklyInsightDetailView: View {
     @State private var weeklyQuote: Quote?
     @State private var isLoadingQuote = true
     private let quoteService = QuoteService()
+
+    @State private var weeklyPandaMessage: String?
+    @State private var isLoadingPandaMessage = false
     
     private var weeklyInsight: WeeklyInsight {
         WeeklyInsight.generate(from: entries)
@@ -23,8 +26,15 @@ struct WeeklyInsightDetailView: View {
     
     private var thisWeekEntries: [EmotionEntry] {
         let calendar = Calendar.current
-        let weekAgo = calendar.date(byAdding: .day, value: -7, to: Date())!
-        return entries.filter { $0.date >= weekAgo }
+        // Use the calendar's current week interval (e.g. Monday–Sunday) and
+        // only include entries from the start of this week up to today.
+        let today = Date()
+        if let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today) {
+            let startOfWeek = weekInterval.start
+            return entries.filter { $0.date >= startOfWeek && $0.date <= today }
+        } else {
+            return entries
+        }
     }
     
     var body: some View {
@@ -47,7 +57,7 @@ struct WeeklyInsightDetailView: View {
                         // Detailed insights
                         insightsSection
                         
-                        // Panda's personalized motivation
+                        // Panda's personalized motivation for the week
                         motivationSection
                     }
                     .padding(.horizontal, Layout.screenPadding)
@@ -168,7 +178,7 @@ struct WeeklyInsightDetailView: View {
     
     private var motivationSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Panda's Message")
+            Text("Panda's message for your week so far")
                 .font(Typography.headline)
                 .foregroundColor(.textPrimary)
             
@@ -178,15 +188,25 @@ struct WeeklyInsightDetailView: View {
                         GardenMascot(emotion: .supportive, size: 50)
                         
                         VStack(alignment: .leading, spacing: Spacing.sm) {
-                            Text(pandaMotivation)
-                                .font(Typography.body)
-                                .foregroundColor(.textPrimary)
-                                .fixedSize(horizontal: false, vertical: true)
-                            
-                            Text(pandaActionItem)
-                                .font(Typography.callout)
-                                .foregroundColor(.primaryGreen)
-                                .padding(.top, Spacing.xs)
+                            if isLoadingPandaMessage {
+                                HStack(spacing: Spacing.sm) {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("Panda is reflecting on your week...")
+                                        .font(Typography.body)
+                                        .foregroundColor(.textSecondary)
+                                }
+                            } else {
+                                Text(weeklyPandaMessage ?? pandaMotivation)
+                                    .font(Typography.body)
+                                    .foregroundColor(.textPrimary)
+                                    .fixedSize(horizontal: false, vertical: true)
+
+                                Text(pandaActionItem)
+                                    .font(Typography.callout)
+                                    .foregroundColor(.primaryGreen)
+                                    .padding(.top, Spacing.xs)
+                            }
                         }
                     }
                 }
@@ -194,6 +214,9 @@ struct WeeklyInsightDetailView: View {
             }
         }
         .slideInFromBottom(delay: 0.3)
+        .task {
+            await loadWeeklyPandaMessage()
+        }
     }
     
     // MARK: - Entries Section
@@ -370,6 +393,21 @@ struct WeeklyInsightDetailView: View {
                 modelContext: modelContext
             )
             isLoadingQuote = false
+        }
+    }
+
+    // MARK: - Weekly Panda Message
+
+    private func loadWeeklyPandaMessage() async {
+        guard !isLoadingPandaMessage else { return }
+        isLoadingPandaMessage = true
+
+        let entriesForWeek = thisWeekEntries
+        let result = await PandaWeeklyFeedbackService.shared.generate(for: entriesForWeek)
+
+        await MainActor.run {
+            weeklyPandaMessage = result.text
+            isLoadingPandaMessage = false
         }
     }
 }

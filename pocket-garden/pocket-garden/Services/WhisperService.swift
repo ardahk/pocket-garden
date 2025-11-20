@@ -10,6 +10,11 @@ import SwiftUI
 import AVFoundation
 import SwiftWhisper
 
+// AVAssetExportSession is not declared Sendable by AVFoundation, but we only
+// use it on a single thread while exporting. Mark it as unchecked Sendable so
+// it can be captured in @Sendable closures under Swift 6 concurrency checks.
+extension AVAssetExportSession: @unchecked Sendable {}
+
 @Observable
 class WhisperService {
     // MARK: - Published Properties

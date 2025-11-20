@@ -38,7 +38,7 @@ extension BreathingPattern {
         hold1: 4,
         exhale: 4,
         hold2: 4,
-        description: "Equal parts, deeply calming"
+        description: "Equal 4-count sides; great for steadying anxiety and grounding quickly"
     )
 
     static let relaxingBreath = BreathingPattern(
@@ -46,7 +46,7 @@ extension BreathingPattern {
         inhale: 4,
         hold1: 7,
         exhale: 8,
-        description: "Natural tranquilizer for the nervous system"
+        description: "Long, gentle exhale; especially helpful for winding down or preparing for sleep"
     )
 
     static let coherentBreathing = BreathingPattern(
@@ -55,7 +55,7 @@ extension BreathingPattern {
         hold1: 0,
         exhale: 5,
         hold2: 0,
-        description: "Simple and effective for balance"
+        description: "Smooth 5–5 rhythm; ideal for balancing energy and easing everyday stress"
     )
 
     static let calmingBreath = BreathingPattern(
@@ -64,7 +64,7 @@ extension BreathingPattern {
         hold1: 3,
         exhale: 6,
         hold2: 0,
-        description: "Longer exhale for deep relaxation"
+        description: "Short inhale, gentle hold, long exhale; good for releasing tension when you’re overwhelmed"
     )
 
     static let allPatterns: [BreathingPattern] = [

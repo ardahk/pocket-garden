@@ -5,7 +5,7 @@ import Observation
 enum AmbientSoundType: String, CaseIterable, Identifiable {
     case nature = "Nature"
     case music = "Music"
-    case silent = "Silent"
+    case night = "Night"
 
     var id: String { rawValue }
 
@@ -13,16 +13,16 @@ enum AmbientSoundType: String, CaseIterable, Identifiable {
         switch self {
         case .nature: return "leaf.fill"
         case .music: return "music.note"
-        case .silent: return "moon.zzz.fill"
+        case .night: return "moon.zzz.fill"
         }
     }
 
     // Filename in Resources/Sounds/ directory (without extension)
-    var fileName: String? {
+    var fileName: String {
         switch self {
         case .nature: return "ambient-nature"
         case .music: return "ambient-music"
-        case .silent: return nil
+        case .night: return "ambient-night"
         }
     }
 }
@@ -55,15 +55,9 @@ class AmbientSoundService {
         // Stop current sound if playing
         stop()
 
-        // Silent mode - just update state
-        guard soundType != .silent else {
-            currentSound = .silent
-            return
-        }
-
         // Get sound file
-        guard let fileName = soundType.fileName,
-              let soundURL = Bundle.main.url(forResource: fileName, withExtension: "mp3") else {
+        let fileName = soundType.fileName
+        guard let soundURL = Bundle.main.url(forResource: fileName, withExtension: "mp3") else {
             print("Sound file not found for \(soundType.rawValue)")
             // User needs to add sound files - continue silently
             currentSound = soundType

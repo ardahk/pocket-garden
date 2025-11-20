@@ -8,6 +8,7 @@ struct GroundingTechniqueView: View {
 
     @State private var currentStep = 0
     @State private var completedSteps: Set<Int> = []
+    @State private var itemsCompletedForStep: Int = 0
     @Environment(\.dismiss) private var dismiss
 
     private let steps: [GroundingStep] = [
@@ -64,6 +65,9 @@ struct GroundingTechniqueView: View {
                     Text("Reconnect with the present moment")
                         .font(.subheadline)
                         .foregroundStyle(Color.textSecondary)
+                    Text("Step \(currentStep + 1) of \(steps.count)")
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary.opacity(0.8))
                 }
                 .padding(.top, 40)
                 .padding(.bottom, 32)
@@ -118,6 +122,21 @@ struct GroundingTechniqueView: View {
                             Text("Take your time")
                                 .font(.subheadline)
                                 .foregroundStyle(Color.textSecondary)
+
+                            HStack(spacing: 12) {
+                                ForEach(0..<step.count, id: \.self) { index in
+                                    Circle()
+                                        .fill(index < itemsCompletedForStep ? Color.primaryGreen : Color.clear)
+                                        .frame(width: 24, height: 24)
+                                        .overlay(
+                                            Circle()
+                                                .stroke(Color.primaryGreen.opacity(0.4), lineWidth: 2)
+                                        )
+                                        .onTapGesture {
+                                            handleGroundingTap()
+                                        }
+                                }
+                            }
                         }
 
                         Spacer()
@@ -138,27 +157,20 @@ struct GroundingTechniqueView: View {
                         .background(
                             RoundedRectangle(cornerRadius: 16)
                                 .fill(Color.cardBackground)
-                                .shadow(color: Color.shadowColor, radius: 4, y: 2)
                         )
                         .padding(.horizontal, 24)
 
                         Spacer()
 
-                        // Next button
-                        Button(action: nextStep) {
-                            Text(currentStep == steps.count - 1 ? "Complete" : "Next")
-                                .font(.headline)
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 56)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color.primaryGreen)
-                                )
-                        }
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 40)
-                        .buttonStyle(.plain)
+                        // Tap anywhere hint
+                        Text("Tap anywhere to continue")
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary.opacity(0.7))
+                            .padding(.bottom, 40)
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        handleGroundingTap()
                     }
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -226,7 +238,6 @@ struct GroundingTechniqueView: View {
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.cardBackground)
-                    .shadow(color: Color.shadowColor, radius: 4, y: 2)
             )
             .padding(.horizontal, 24)
 
@@ -272,9 +283,26 @@ struct GroundingTechniqueView: View {
         generator.impactOccurred()
 
         completedSteps.insert(currentStep)
-
+        itemsCompletedForStep = 0
         withAnimation(.spring(response: 0.4, dampingFraction: 0.7)) {
             currentStep += 1
+        }
+    }
+
+    private func handleGroundingTap() {
+        guard currentStep < steps.count else { return }
+
+        let step = steps[currentStep]
+
+        if itemsCompletedForStep < step.count {
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+
+            itemsCompletedForStep += 1
+
+            if itemsCompletedForStep >= step.count {
+                nextStep()
+            }
         }
     }
 }
