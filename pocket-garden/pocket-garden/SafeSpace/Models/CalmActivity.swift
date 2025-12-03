@@ -62,10 +62,10 @@ extension CalmActivity {
     )
 
     static let bodyScan = CalmActivity(
-        title: "Body Scan",
+        title: "Muscle Relaxation",
         icon: "figure.mind.and.body",
         duration: 3,
-        description: "Progressive muscle relaxation",
+        description: "Gently tense and release each area to let go of tension",
         color: .purple.opacity(0.7),
         type: .bodyScan
     )
@@ -107,10 +107,10 @@ extension CalmActivity {
     )
 
     static let nameAndSoothe = CalmActivity(
-        title: "Name & Soothe",
+        title: "Three Good Moments",
         icon: "sparkles",
         duration: 3,
-        description: "Label your feelings and respond with kindness",
+        description: "Recall and savor three small good moments",
         color: .mint.opacity(0.7),
         type: .nameAndSoothe
     )

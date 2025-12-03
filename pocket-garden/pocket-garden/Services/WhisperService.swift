@@ -31,6 +31,7 @@ class WhisperService {
     
     private var audioRecorder: AVAudioRecorder?
     private var recordingURL: URL?
+    private var segmentRecordingURLs: [URL] = []
     private var whisper: Whisper? // Uncomment after adding package
     private let modelURL: URL?
     private var levelTimer: Timer?
@@ -93,7 +94,9 @@ class WhisperService {
         
         // Create temporary recording URL
         let tempDir = FileManager.default.temporaryDirectory
-        recordingURL = tempDir.appendingPathComponent(UUID().uuidString + ".wav")
+        let newURL = tempDir.appendingPathComponent(UUID().uuidString + ".wav")
+        recordingURL = newURL
+        segmentRecordingURLs.append(newURL)
         
         guard let recordingURL = recordingURL else {
             throw WhisperError.recordingFailed("Failed to create recording URL")
@@ -305,16 +308,26 @@ class WhisperService {
 
     /// Remove the temporary WAV recording from disk and clear the reference.
     func discardRecordingFile() {
+        let fileManager = FileManager.default
         if let recordingURL = recordingURL {
-            try? FileManager.default.removeItem(at: recordingURL)
+            try? fileManager.removeItem(at: recordingURL)
+        }
+        for url in segmentRecordingURLs {
+            try? fileManager.removeItem(at: url)
         }
         recordingURL = nil
+        segmentRecordingURLs.removeAll()
     }
 
     /// Compress the last recorded WAV to an AAC m4a file for the given entry ID.
     /// Returns the destination URL and deletes the original WAV on success.
     func exportCompressedAudio(forEntryID entryID: UUID) async throws -> URL {
-        guard let sourceURL = recordingURL else {
+        let sourceURLs: [URL]
+        if !segmentRecordingURLs.isEmpty {
+            sourceURLs = segmentRecordingURLs
+        } else if let recordingURL = recordingURL {
+            sourceURLs = [recordingURL]
+        } else {
             throw WhisperError.recordingFailed("No recording available for export")
         }
 
@@ -332,8 +345,33 @@ class WhisperService {
             try? fileManager.removeItem(at: destinationURL)
         }
 
-        let asset = AVURLAsset(url: sourceURL)
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetAppleM4A) else {
+        let exportAsset: AVAsset
+        if sourceURLs.count == 1 {
+            exportAsset = AVURLAsset(url: sourceURLs[0])
+        } else {
+            let composition = AVMutableComposition()
+            guard let track = composition.addMutableTrack(withMediaType: .audio, preferredTrackID: kCMPersistentTrackID_Invalid) else {
+                throw WhisperError.recordingFailed("Failed to create composition track")
+            }
+
+            var currentTime = CMTime.zero
+            for url in sourceURLs {
+                let asset = AVURLAsset(url: url)
+                let timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+                if let assetTrack = asset.tracks(withMediaType: .audio).first {
+                    do {
+                        try track.insertTimeRange(timeRange, of: assetTrack, at: currentTime)
+                        currentTime = CMTimeAdd(currentTime, asset.duration)
+                    } catch {
+                        print("Failed to append segment: \(error)")
+                    }
+                }
+            }
+
+            exportAsset = composition
+        }
+
+        guard let exportSession = AVAssetExportSession(asset: exportAsset, presetName: AVAssetExportPresetAppleM4A) else {
             throw WhisperError.recordingFailed("Failed to create export session")
         }
 
@@ -355,9 +393,11 @@ class WhisperService {
             }
         }
 
-        // Remove original WAV to free space
-        try? fileManager.removeItem(at: sourceURL)
+        for url in sourceURLs {
+            try? fileManager.removeItem(at: url)
+        }
         recordingURL = nil
+        segmentRecordingURLs.removeAll()
 
         return destinationURL
     }

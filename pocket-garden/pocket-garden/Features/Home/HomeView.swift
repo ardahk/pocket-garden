@@ -24,6 +24,7 @@ struct HomeView: View {
     @State private var showMoodRatingSheet = false
     @State private var anotherRating: Int = 7
     @State private var showWeeklyInsightDetail = false
+    @State private var openWeeklyInsightWithCalendar = false
     
     // Quote of the day
     @State private var dailyQuote: Quote?
@@ -39,7 +40,8 @@ struct HomeView: View {
             Color.peacefulGradient
                 .ignoresSafeArea()
 
-            ScrollView {
+            // Vertical-only scrolling to avoid horizontal panning
+            ScrollView(.vertical, showsIndicators: false) {
                 VStack(spacing: Spacing.xl) {
                     // Header
                     headerSection
@@ -196,6 +198,7 @@ struct HomeView: View {
     private var todayEntryCard: some View {
         Group {
             if let todayEntry = entries.first(where: { $0.isToday }) {
+                let stage = TreeStage(rawValue: todayEntry.treeStage) ?? .seed
                 Card {
                     VStack(spacing: Spacing.lg) {
                         HStack {
@@ -230,12 +233,25 @@ struct HomeView: View {
                                 .frame(height: 60)
 
                             VStack(alignment: .leading, spacing: Spacing.xs) {
-                                Text(TreeStage(rawValue: todayEntry.treeStage)?.emoji ?? "🌱")
-                                    .font(.system(size: 32))
-
-                                Text(TreeStage(rawValue: todayEntry.treeStage)?.name ?? "Growing")
+                                Text("Today's Growth")
                                     .font(Typography.caption)
                                     .foregroundColor(.textSecondary)
+
+                                HStack(spacing: Spacing.xs) {
+                                    Text(stage.emoji)
+                                        .font(.system(size: 24))
+
+                                    Text(growthSummaryTitle(for: stage))
+                                        .font(Typography.callout)
+                                        .foregroundColor(.textPrimary)
+                                        .lineLimit(1)
+                                        .minimumScaleFactor(0.9)
+                                }
+
+                                Text(growthSummarySubtitle(for: todayEntry.emotionRating))
+                                    .font(Typography.caption)
+                                    .foregroundColor(.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
 
                             Spacer()
@@ -315,6 +331,11 @@ struct HomeView: View {
                     icon: "flame.fill",
                     color: .accentGold
                 )
+                .onTapGesture {
+                    openWeeklyInsightWithCalendar = true
+                    showWeeklyInsightDetail = true
+                    Theme.Haptics.light()
+                }
 
                 StatCard(
                     value: String(format: "%.1f", averageRating),
@@ -346,7 +367,13 @@ struct HomeView: View {
         }
         .slideInFromBottom(delay: 0.35)
         .sheet(isPresented: $showWeeklyInsightDetail) {
-            WeeklyInsightDetailView(entries: entries)
+            WeeklyInsightDetailView(
+                entries: entries,
+                startWithCalendarExpanded: openWeeklyInsightWithCalendar
+            )
+            .onDisappear {
+                openWeeklyInsightWithCalendar = false
+            }
         }
     }
 
@@ -436,6 +463,38 @@ struct HomeView: View {
 
     private var totalTrees: Int {
         allTrees.count
+    }
+    
+    private func growthSummaryTitle(for stage: TreeStage) -> String {
+        switch stage {
+        case .seed:
+            return "New seed planted"
+        case .sprout:
+            return "Your sprout is waking up"
+        case .youngTree:
+            return "Your tree is taking root"
+        case .matureTree:
+            return "Your tree is standing strong"
+        case .bloomingTree:
+            return "Your tree is in bloom"
+        }
+    }
+    
+    private func growthSummarySubtitle(for rating: Int) -> String {
+        let avg = averageRating
+        guard avg > 0 else {
+            return "Every check-in helps your garden grow."
+        }
+        let diff = Double(rating) - avg
+        let formattedAvg = String(format: "%.1f", avg)
+        
+        if diff >= 1.0 {
+            return "Brighter than your recent days (avg \(formattedAvg))."
+        } else if diff <= -1.0 {
+            return "A bit below your usual (avg \(formattedAvg))—thanks for checking in."
+        } else {
+            return "About the same as your recent days (avg \(formattedAvg))."
+        }
     }
 
     // MARK: - Helper Methods

@@ -12,6 +12,7 @@ struct WeeklyInsightDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     let entries: [EmotionEntry]
+    var startWithCalendarExpanded: Bool = false
     
     @State private var weeklyQuote: Quote?
     @State private var isLoadingQuote = true
@@ -19,6 +20,14 @@ struct WeeklyInsightDetailView: View {
 
     @State private var weeklyPandaMessage: String?
     @State private var isLoadingPandaMessage = false
+    
+    // Calendar state
+    @State private var isCalendarExpanded = false
+    @State private var selectedMonth = Date()
+    
+    // Navigation to entry detail
+    @State private var selectedDateForEntry: Date?
+    @State private var showEntryDetail = false
     
     private var weeklyInsight: WeeklyInsight {
         WeeklyInsight.generate(from: entries)
@@ -45,8 +54,8 @@ struct WeeklyInsightDetailView: View {
                 
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
-                        // Panda mascot with greeting
-                        pandaSection
+                        // Activity Calendar (replaces panda section)
+                        activityCalendarSection
                         
                         // Quote of the Week
                         weeklyQuoteSection
@@ -77,27 +86,31 @@ struct WeeklyInsightDetailView: View {
         }
     }
     
-    // MARK: - Panda Section
+    // MARK: - Activity Calendar Section
     
-    private var pandaSection: some View {
-        Card {
-            VStack(spacing: Spacing.lg) {
-                GardenMascot(emotion: pandaEmotion, size: 100)
-                    .scaleEffect(1.0)
-                
-                Text(pandaGreeting)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundColor(.textPrimary)
-                    .multilineTextAlignment(.center)
-                
-                Text(pandaSubtitle)
-                    .font(Typography.body)
-                    .foregroundColor(.textSecondary)
-                    .multilineTextAlignment(.center)
+    private var activityCalendarSection: some View {
+        ActivityCalendarView(
+            entries: entries,
+            isExpanded: $isCalendarExpanded,
+            selectedMonth: $selectedMonth,
+            onDateTapped: { date in
+                selectedDateForEntry = date
+                showEntryDetail = true
             }
-            .padding(.vertical, Spacing.md)
-        }
+        )
         .fadeIn()
+        .onAppear {
+            if startWithCalendarExpanded {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8).delay(0.3)) {
+                    isCalendarExpanded = true
+                }
+            }
+        }
+        .sheet(isPresented: $showEntryDetail) {
+            if let date = selectedDateForEntry {
+                EntryDetailSheet(entries: entries, date: date)
+            }
+        }
     }
     
     // MARK: - Weekly Stats Section
@@ -489,5 +502,651 @@ struct WeeklyEntryRow: View {
                 }
             }
         }
+    }
+}
+
+// MARK: - Activity Calendar View
+
+struct ActivityCalendarView: View {
+    let entries: [EmotionEntry]
+    @Binding var isExpanded: Bool
+    @Binding var selectedMonth: Date
+    var onDateTapped: ((Date) -> Void)? = nil
+    
+    @State private var animateFlames = false
+    @State private var currentWeekDates: [Date] = []
+    
+    private let calendar = Calendar.current
+    private let daysOfWeek = ["S", "M", "T", "W", "T", "F", "S"]
+    
+    // Flame gradient colors
+    private let flameGradient = LinearGradient(
+        colors: [
+            Color(red: 1.0, green: 0.6, blue: 0.2),  // Warm orange
+            Color(red: 1.0, green: 0.4, blue: 0.1),  // Deep orange
+            Color(red: 0.95, green: 0.3, blue: 0.1)  // Red-orange
+        ],
+        startPoint: .bottom,
+        endPoint: .top
+    )
+    
+    private let emptyDayColor = Color.gray.opacity(0.15)
+    
+    var body: some View {
+        Card {
+            VStack(spacing: 0) {
+                // Blended header - shows week when collapsed, month nav when expanded
+                if isExpanded {
+                    // Full calendar mode - no week preview, just month view
+                    fullCalendarSection
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                } else {
+                    // Collapsed mode - show week preview
+                    headerSection
+                        .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                }
+            }
+            .padding(Spacing.lg)
+            .animation(.spring(response: 0.4, dampingFraction: 0.85), value: isExpanded)
+        }
+        .onAppear {
+            setupCurrentWeek()
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                animateFlames = true
+            }
+        }
+    }
+    
+    // MARK: - Header Section (Current Week)
+    
+    private var headerSection: some View {
+        VStack(spacing: Spacing.md) {
+            // Title row with expand button
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Activity")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                        .textCase(.uppercase)
+                        .tracking(0.5)
+                    
+                    Text(currentWeekLabel)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                }
+                
+                Spacer()
+                
+                // Streak indicator
+                if currentStreak > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(flameGradient)
+                            .scaleEffect(animateFlames ? 1.1 : 1.0)
+                        
+                        Text("\(currentStreak)")
+                            .font(.system(size: 15, weight: .bold))
+                            .foregroundColor(.textPrimary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(
+                        Capsule()
+                            .fill(Color.accentGold.opacity(0.15))
+                    )
+                }
+                
+                // Expand/collapse button
+                Button(action: {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        isExpanded.toggle()
+                    }
+                    Theme.Haptics.light()
+                }) {
+                    Image(systemName: isExpanded ? "chevron.up.circle.fill" : "chevron.down.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.primaryGreen.opacity(0.8))
+                        .rotationEffect(.degrees(isExpanded ? 0 : 0))
+                }
+            }
+            
+            // Current week days
+            HStack(spacing: 8) {
+                ForEach(Array(currentWeekDates.enumerated()), id: \.offset) { index, date in
+                    currentWeekDayView(date: date, dayIndex: index)
+                }
+            }
+        }
+    }
+    
+    private func currentWeekDayView(date: Date, dayIndex: Int) -> some View {
+        let hasEntry = hasEntryOn(date: date)
+        let isToday = calendar.isDateInToday(date)
+        let isFuture = date > Date()
+        
+        return Button(action: {
+            if hasEntry {
+                onDateTapped?(date)
+                Theme.Haptics.light()
+            }
+        }) {
+            VStack(spacing: 6) {
+                // Day letter
+                Text(daysOfWeek[dayIndex])
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                
+                // Day circle with flame effect
+                ZStack {
+                    // Base circle
+                    Circle()
+                        .fill(hasEntry ? Color.clear : emptyDayColor)
+                        .frame(width: 36, height: 36)
+                    
+                    if hasEntry {
+                        // Flame ring effect
+                        FlameRingView(isAnimating: animateFlames)
+                            .frame(width: 36, height: 36)
+                        
+                        // Inner glow
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color.accentGold.opacity(0.4),
+                                        Color.accentGold.opacity(0.1),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 0,
+                                    endRadius: 18
+                                )
+                            )
+                            .frame(width: 36, height: 36)
+                        
+                        // Fire emoji or checkmark
+                        Text("🔥")
+                            .font(.system(size: 16))
+                            .scaleEffect(animateFlames ? 1.05 : 0.95)
+                    }
+                    
+                    // Today indicator ring
+                    if isToday {
+                        Circle()
+                            .stroke(Color.primaryGreen, lineWidth: 2)
+                            .frame(width: 38, height: 38)
+                    }
+                }
+                .opacity(isFuture ? 0.4 : 1.0)
+                
+                // Date number
+                Text("\(calendar.component(.day, from: date))")
+                    .font(.system(size: 12, weight: isToday ? .bold : .regular))
+                    .foregroundColor(isToday ? .primaryGreen : .textSecondary)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
+        .disabled(!hasEntry)
+    }
+    
+    // MARK: - Full Calendar Section
+    
+    private var fullCalendarSection: some View {
+        VStack(spacing: Spacing.md) {
+            // Month navigation with collapse button
+            HStack {
+                Button(action: { navigateMonth(by: -1) }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.primaryGreen)
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(Color.primaryGreen.opacity(0.1)))
+                }
+                
+                Spacer()
+                
+                Text(monthYearLabel)
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                
+                Spacer()
+                
+                Button(action: { navigateMonth(by: 1) }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(canNavigateForward ? .primaryGreen : .textSecondary.opacity(0.3))
+                        .frame(width: 36, height: 36)
+                        .background(Circle().fill(canNavigateForward ? Color.primaryGreen.opacity(0.1) : Color.clear))
+                }
+                .disabled(!canNavigateForward)
+                
+                // Collapse button
+                Button(action: {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        isExpanded = false
+                    }
+                    Theme.Haptics.light()
+                }) {
+                    Image(systemName: "chevron.up.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(Color.primaryGreen.opacity(0.8))
+                }
+                .padding(.leading, 8)
+            }
+            
+            // Day headers
+            HStack(spacing: 0) {
+                ForEach(daysOfWeek, id: \.self) { day in
+                    Text(day)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.textSecondary)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            
+            // Calendar grid
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 8) {
+                ForEach(daysInMonth(), id: \.self) { date in
+                    if let date = date {
+                        calendarDayView(date: date)
+                    } else {
+                        Color.clear
+                            .frame(height: 40)
+                    }
+                }
+            }
+            
+            // Monthly summary
+            monthlySummary
+        }
+    }
+    
+    private func calendarDayView(date: Date) -> some View {
+        let hasEntry = hasEntryOn(date: date)
+        let isToday = calendar.isDateInToday(date)
+        let isCurrentMonth = calendar.isDate(date, equalTo: selectedMonth, toGranularity: .month)
+        let isFuture = date > Date()
+        
+        return Button(action: {
+            if hasEntry {
+                onDateTapped?(date)
+                Theme.Haptics.light()
+            }
+        }) {
+            ZStack {
+                // Background
+                if hasEntry {
+                    // Flame effect for days with entries
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.accentGold.opacity(0.5),
+                                    Color.orange.opacity(0.3),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 20
+                            )
+                        )
+                        .scaleEffect(animateFlames ? 1.1 : 1.0)
+                    
+                    Circle()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [Color.orange, Color.accentGold],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2
+                        )
+                }
+                
+                // Today ring
+                if isToday {
+                    Circle()
+                        .stroke(Color.primaryGreen, lineWidth: 2.5)
+                }
+                
+                // Day number
+                Text("\(calendar.component(.day, from: date))")
+                    .font(.system(size: 14, weight: hasEntry || isToday ? .semibold : .regular))
+                    .foregroundColor(
+                        !isCurrentMonth ? .textSecondary.opacity(0.3) :
+                        isFuture ? .textSecondary.opacity(0.5) :
+                        hasEntry ? .textPrimary :
+                        isToday ? .primaryGreen :
+                        .textSecondary
+                    )
+            }
+            .frame(height: 40)
+        }
+        .buttonStyle(.plain)
+        .disabled(!hasEntry)
+    }
+    
+    private var monthlySummary: some View {
+        let monthEntries = entriesInMonth(selectedMonth)
+        let activeDays = Set(monthEntries.map { calendar.startOfDay(for: $0.date) }).count
+        let totalDays = daysPassedInMonth(selectedMonth)
+        
+        return HStack(spacing: Spacing.lg) {
+            VStack(spacing: 4) {
+                Text("\(monthEntries.count)")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.primaryGreen)
+                Text("Check-ins")
+                    .font(.system(size: 11))
+                    .foregroundColor(.textSecondary)
+            }
+            
+            Divider()
+                .frame(height: 30)
+            
+            VStack(spacing: 4) {
+                Text("\(activeDays)")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(flameGradient)
+                Text("Active Days")
+                    .font(.system(size: 11))
+                    .foregroundColor(.textSecondary)
+            }
+            
+            Divider()
+                .frame(height: 30)
+            
+            VStack(spacing: 4) {
+                Text(totalDays > 0 ? "\(Int(Double(activeDays) / Double(totalDays) * 100))%" : "—")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundColor(.accentGold)
+                Text("Consistency")
+                    .font(.system(size: 11))
+                    .foregroundColor(.textSecondary)
+            }
+        }
+        .padding(.top, Spacing.sm)
+    }
+    
+    // MARK: - Helper Functions
+    
+    private func setupCurrentWeek() {
+        let today = Date()
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: today) else { return }
+        
+        var dates: [Date] = []
+        var current = weekInterval.start
+        
+        while current < weekInterval.end {
+            dates.append(current)
+            current = calendar.date(byAdding: .day, value: 1, to: current) ?? current
+        }
+        
+        currentWeekDates = dates
+    }
+    
+    private var currentWeekLabel: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        
+        guard let first = currentWeekDates.first, let last = currentWeekDates.last else {
+            return "This Week"
+        }
+        
+        return "\(formatter.string(from: first)) – \(formatter.string(from: last))"
+    }
+    
+    private var monthYearLabel: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: selectedMonth)
+    }
+    
+    private var currentStreak: Int {
+        let sortedDates = Set(entries.map { calendar.startOfDay(for: $0.date) }).sorted(by: >)
+        guard !sortedDates.isEmpty else { return 0 }
+        
+        var streak = 0
+        var checkDate = calendar.startOfDay(for: Date())
+        
+        // If no entry today, start from yesterday
+        if !sortedDates.contains(checkDate) {
+            guard let yesterday = calendar.date(byAdding: .day, value: -1, to: checkDate) else { return 0 }
+            checkDate = yesterday
+        }
+        
+        for date in sortedDates {
+            if date == checkDate {
+                streak += 1
+                guard let prevDay = calendar.date(byAdding: .day, value: -1, to: checkDate) else { break }
+                checkDate = prevDay
+            } else if date < checkDate {
+                break
+            }
+        }
+        
+        return streak
+    }
+    
+    private var canNavigateForward: Bool {
+        let currentMonth = calendar.component(.month, from: Date())
+        let currentYear = calendar.component(.year, from: Date())
+        let selectedMonthNum = calendar.component(.month, from: selectedMonth)
+        let selectedYear = calendar.component(.year, from: selectedMonth)
+        
+        return selectedYear < currentYear || (selectedYear == currentYear && selectedMonthNum < currentMonth)
+    }
+    
+    private func navigateMonth(by value: Int) {
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+            if let newMonth = calendar.date(byAdding: .month, value: value, to: selectedMonth) {
+                selectedMonth = newMonth
+            }
+        }
+        Theme.Haptics.light()
+    }
+    
+    private func hasEntryOn(date: Date) -> Bool {
+        let dayStart = calendar.startOfDay(for: date)
+        return entries.contains { calendar.startOfDay(for: $0.date) == dayStart }
+    }
+    
+    private func daysInMonth() -> [Date?] {
+        guard let monthInterval = calendar.dateInterval(of: .month, for: selectedMonth),
+              let firstWeekday = calendar.dateComponents([.weekday], from: monthInterval.start).weekday else {
+            return []
+        }
+        
+        var days: [Date?] = []
+        
+        // Add empty cells for days before the first of the month
+        let emptyDays = (firstWeekday - calendar.firstWeekday + 7) % 7
+        for _ in 0..<emptyDays {
+            days.append(nil)
+        }
+        
+        // Add all days in the month
+        var current = monthInterval.start
+        while current < monthInterval.end {
+            days.append(current)
+            current = calendar.date(byAdding: .day, value: 1, to: current) ?? monthInterval.end
+        }
+        
+        return days
+    }
+    
+    private func entriesInMonth(_ month: Date) -> [EmotionEntry] {
+        guard let monthInterval = calendar.dateInterval(of: .month, for: month) else { return [] }
+        return entries.filter { $0.date >= monthInterval.start && $0.date < monthInterval.end }
+    }
+    
+    private func daysPassedInMonth(_ month: Date) -> Int {
+        guard let monthInterval = calendar.dateInterval(of: .month, for: month) else { return 0 }
+        let today = Date()
+        
+        if today < monthInterval.start {
+            return 0
+        } else if today >= monthInterval.end {
+            return calendar.component(.day, from: calendar.date(byAdding: .day, value: -1, to: monthInterval.end) ?? monthInterval.end)
+        } else {
+            return calendar.component(.day, from: today)
+        }
+    }
+}
+
+// MARK: - Flame Ring View
+
+struct FlameRingView: View {
+    let isAnimating: Bool
+    
+    var body: some View {
+        ZStack {
+            // Outer glow
+            Circle()
+                .stroke(
+                    AngularGradient(
+                        colors: [
+                            Color.orange.opacity(0.8),
+                            Color.accentGold.opacity(0.6),
+                            Color.red.opacity(0.4),
+                            Color.orange.opacity(0.8)
+                        ],
+                        center: .center
+                    ),
+                    lineWidth: 3
+                )
+                .blur(radius: 2)
+                .scaleEffect(isAnimating ? 1.15 : 1.0)
+                .opacity(isAnimating ? 0.6 : 0.8)
+            
+            // Inner ring
+            Circle()
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.orange,
+                            Color.accentGold,
+                            Color.orange
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 2.5
+                )
+        }
+    }
+}
+
+// MARK: - Entry Detail Sheet
+
+struct EntryDetailSheet: View {
+    let entries: [EmotionEntry]
+    let date: Date
+    @Environment(\.dismiss) private var dismiss
+    
+    private let calendar = Calendar.current
+    
+    private var entriesOnDate: [EmotionEntry] {
+        let dayStart = calendar.startOfDay(for: date)
+        return entries.filter { calendar.startOfDay(for: $0.date) == dayStart }
+            .sorted { $0.date > $1.date }
+    }
+    
+    private var dateLabel: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "EEEE, MMMM d"
+        return formatter.string(from: date)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.peacefulGradient
+                    .ignoresSafeArea()
+                
+                ScrollView {
+                    VStack(spacing: Spacing.lg) {
+                        if entriesOnDate.isEmpty {
+                            emptyStateView
+                        } else {
+                            ForEach(entriesOnDate) { entry in
+                                entryCard(entry)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, Layout.screenPadding)
+                    .padding(.vertical, Spacing.lg)
+                }
+            }
+            .navigationTitle(dateLabel)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.primaryGreen)
+                }
+            }
+        }
+    }
+    
+    private var emptyStateView: some View {
+        Card {
+            VStack(spacing: Spacing.md) {
+                Image(systemName: "calendar.badge.exclamationmark")
+                    .font(.system(size: 40))
+                    .foregroundColor(.textSecondary.opacity(0.5))
+                
+                Text("No entries on this day")
+                    .font(Typography.body)
+                    .foregroundColor(.textSecondary)
+            }
+            .padding(.vertical, Spacing.xl)
+        }
+    }
+    
+    private func entryCard(_ entry: EmotionEntry) -> some View {
+        Card {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                // Header with emoji and time
+                HStack {
+                    Text(Theme.emoji(for: entry.emotionRating))
+                        .font(.system(size: 40))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Rating: \(entry.emotionRating)/10")
+                            .font(Typography.headline)
+                            .foregroundColor(.textPrimary)
+                        
+                        Text(timeLabel(for: entry.date))
+                            .font(Typography.caption)
+                            .foregroundColor(.textSecondary)
+                    }
+                    
+                    Spacer()
+                }
+                
+                // Transcription if available
+                if let transcription = entry.cleanedTranscription ?? entry.transcription,
+                   !transcription.isEmpty {
+                    Divider()
+                    
+                    Text(transcription)
+                        .font(Typography.body)
+                        .foregroundColor(.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(Spacing.sm)
+        }
+    }
+    
+    private func timeLabel(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "h:mm a"
+        return formatter.string(from: date)
     }
 }

@@ -3,6 +3,7 @@ import Foundation
 struct BreathingPattern: Identifiable, Hashable {
     let id: UUID
     let name: String
+    let shortName: String // For compact UI like segmented controls
     let inhale: Int // seconds
     let hold1: Int // seconds (after inhale)
     let exhale: Int // seconds
@@ -13,6 +14,7 @@ struct BreathingPattern: Identifiable, Hashable {
     init(
         id: UUID = UUID(),
         name: String,
+        shortName: String? = nil,
         inhale: Int,
         hold1: Int = 0,
         exhale: Int,
@@ -21,6 +23,7 @@ struct BreathingPattern: Identifiable, Hashable {
     ) {
         self.id = id
         self.name = name
+        self.shortName = shortName ?? name
         self.inhale = inhale
         self.hold1 = hold1
         self.exhale = exhale
@@ -34,6 +37,7 @@ struct BreathingPattern: Identifiable, Hashable {
 extension BreathingPattern {
     static let boxBreathing = BreathingPattern(
         name: "Box Breathing",
+        shortName: "Box",
         inhale: 4,
         hold1: 4,
         exhale: 4,
@@ -43,28 +47,31 @@ extension BreathingPattern {
 
     static let relaxingBreath = BreathingPattern(
         name: "4-7-8 Breath",
+        shortName: "4-7-8",
         inhale: 4,
         hold1: 7,
         exhale: 8,
-        description: "Long, gentle exhale; especially helpful for winding down or preparing for sleep"
+        description: "Long exhale to wind down and prepare for sleep"
     )
 
     static let coherentBreathing = BreathingPattern(
         name: "Coherent Breathing",
+        shortName: "Coherent",
         inhale: 5,
         hold1: 0,
         exhale: 5,
         hold2: 0,
-        description: "Smooth 5–5 rhythm; ideal for balancing energy and easing everyday stress"
+        description: "Smooth 5–5 rhythm; balances energy and eases stress"
     )
 
     static let calmingBreath = BreathingPattern(
         name: "Calming Breath",
+        shortName: "Calm",
         inhale: 3,
         hold1: 3,
         exhale: 6,
         hold2: 0,
-        description: "Short inhale, gentle hold, long exhale; good for releasing tension when you’re overwhelmed"
+        description: "Short inhale, long exhale; releases tension quickly"
     )
 
     static let allPatterns: [BreathingPattern] = [

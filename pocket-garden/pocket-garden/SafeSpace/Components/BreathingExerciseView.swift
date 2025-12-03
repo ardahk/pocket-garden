@@ -16,176 +16,231 @@ struct BreathingExerciseView: View {
     @State private var isAnimating = false
     @State private var hasStarted = false
     @State private var phaseSecondsRemaining: Int = 0
+    @State private var ringProgress: CGFloat = 0
 
     @Environment(\.dismiss) private var dismiss
 
-    private let circleMinSize: CGFloat = 100
-    private let circleMaxSize: CGFloat = 200
+    private let circleMinSize: CGFloat = 120
+    private let circleMaxSize: CGFloat = 220
+
+    // Calm, unified color palette
+    private var breathColor: Color {
+        switch currentPhase {
+        case .inhale: return Color(red: 0.4, green: 0.7, blue: 0.9)
+        case .hold1, .hold2: return Color(red: 0.5, green: 0.8, blue: 0.75)
+        case .exhale: return Color(red: 0.6, green: 0.75, blue: 0.85)
+        }
+    }
+    
+    // Primary accent for breathing theme
+    private let breathingAccent = Color(red: 0.25, green: 0.62, blue: 0.96)
 
     var body: some View {
         ZStack {
-            // Background gradient (kept static so only the circle feels like it moves)
+            // Clean, minimal background with soft blue tint (dark mode compatible)
             LinearGradient(
                 colors: [
-                    Color.backgroundCream,
-                    Color.emotionCalm.opacity(0.12)
+                    Color(UIColor.systemBackground),
+                    Color(UIColor { traitCollection in
+                        traitCollection.userInterfaceStyle == .dark
+                            ? UIColor(red: 0.12, green: 0.15, blue: 0.22, alpha: 1.0)
+                            : UIColor(red: 0.90, green: 0.95, blue: 1.0, alpha: 1.0)
+                    })
                 ],
-                startPoint: .top,
-                endPoint: .bottom
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Text("Guided Breathing")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.textPrimary)
-
-                        Text("Choose a rhythm that feels right for you")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                    .padding(.top, 16)
-
-                    // Breathing circle with instruction
-                    VStack(spacing: 16) {
-                    ZStack {
-                        // Outer glow (fixed size so layout stays stable)
-                        Circle()
-                            .fill(
-                                RadialGradient(
-                                    colors: [
-                                        currentPhase.color.opacity(0.3),
-                                        currentPhase.color.opacity(0.0)
-                                    ],
-                                    center: .center,
-                                    startRadius: circleMaxSize / 2,
-                                    endRadius: circleMaxSize / 2 + 60
-                                )
-                            )
-                            .frame(width: circleMaxSize + 120, height: circleMaxSize + 120)
-
-                        // Main breathing circle
-                        Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        currentPhase.color.opacity(0.6),
-                                        currentPhase.color.opacity(0.3)
-                                    ],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: circleSize, height: circleSize)
-                            .clipShape(Circle())
-
-                        // Instruction + per-phase countdown
-                        VStack(spacing: 6) {
-                            Text(currentPhase.instruction)
-                                .font(.title3)
-                                .fontWeight(.medium)
-                                .foregroundStyle(Color.textPrimary)
-
-                            if phaseSecondsRemaining > 0 {
-                                Text("\(phaseSecondsRemaining)s")
-                                    .font(.headline)
-                                    .foregroundStyle(Color.textSecondary)
-                            }
-                        }
-                    }
-                }
-
-                // Pattern info and timer
-                VStack(spacing: 16) {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(BreathingPattern.allPatterns) { option in
-                                BreathingPatternChip(
-                                    pattern: option,
-                                    isSelected: option == selectedPattern
-                                ) {
-                                    switchToPattern(option)
-                                }
-                            }
-                        }
-                        .disabled(hasStarted)
-                        .opacity(hasStarted ? 0.6 : 1.0)
-                        .padding(.horizontal, 24)
-                    }
-
-                    VStack(spacing: 6) {
-                        Text(selectedPattern.name)
-                            .font(.headline)
-                            .foregroundStyle(Color.textPrimary)
-
-                        Text(selectedPattern.description)
-                            .font(.caption)
-                            .foregroundStyle(Color.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                            .lineLimit(3)
-                            .minimumScaleFactor(0.9)
-                    }
-
-                    HStack(spacing: 8) {
-                        if selectedPattern.inhale > 0 {
-                            BreathingPhaseBadge(label: "Inhale", value: selectedPattern.inhale)
-                        }
-                        if selectedPattern.hold1 > 0 {
-                            BreathingPhaseBadge(label: "Hold", value: selectedPattern.hold1)
-                        }
-                        if selectedPattern.exhale > 0 {
-                            BreathingPhaseBadge(label: "Exhale", value: selectedPattern.exhale)
-                        }
-                        if selectedPattern.hold2 > 0 {
-                            BreathingPhaseBadge(label: "Hold", value: selectedPattern.hold2)
-                        }
-                    }
-
-                    // Time remaining
-                    if hasStarted {
-                        Text(timeRemainingText)
-                            .font(.subheadline)
-                            .foregroundStyle(Color.textSecondary)
-                    }
-
-                    if !hasStarted {
-                        Button(action: {
-                            startBreathing()
-                        }) {
-                            Text("Start \(selectedPattern.name)")
-                                .font(.headline)
-                                .foregroundStyle(.white)
-                                .frame(maxWidth: .infinity)
-                                .frame(height: 50)
-                                .background(
-                                    RoundedRectangle(cornerRadius: 16)
-                                        .fill(Color.primaryGreen)
-                                )
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.horizontal, 24)
-                    }
-
-                    // Close button
+            VStack(spacing: 0) {
+                // Minimal header
+                HStack {
                     Button(action: {
                         stopBreathing()
                         dismiss()
                     }) {
-                        Text("Feeling better?")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.primaryGreen)
+                        Image(systemName: "xmark")
+                            .font(.system(size: 17, weight: .medium))
+                            .foregroundStyle(Color(.tertiaryLabel))
+                            .frame(width: 32, height: 32)
+                            .background(Color(.tertiarySystemFill))
+                            .clipShape(Circle())
                     }
                     .buttonStyle(.plain)
+
+                    Spacer()
+
+                    if hasStarted {
+                        Text(timeRemainingText)
+                            .font(.system(size: 15, weight: .medium, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Color(.secondaryLabel))
+                    }
                 }
-                .padding(.bottom, 16)
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+
+                Spacer()
+
+                // Phase label above the circle
+                Text(currentPhase.instruction.uppercased())
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .tracking(2)
+                    .foregroundStyle(Color(.secondaryLabel))
+                    .padding(.bottom, 8)
+                    .contentTransition(.opacity)
+                    .animation(.easeInOut(duration: 0.3), value: currentPhase.instruction)
+
+                // Main breathing visualization
+                ZStack {
+                    // Subtle outer ring (progress indicator when active)
+                    Circle()
+                        .stroke(Color(.systemGray5), lineWidth: 4)
+                        .frame(width: circleMaxSize + 40, height: circleMaxSize + 40)
+
+                    if hasStarted {
+                        Circle()
+                            .trim(from: 0, to: ringProgress)
+                            .stroke(
+                                breathColor.opacity(0.6),
+                                style: StrokeStyle(lineWidth: 4, lineCap: .round)
+                            )
+                            .frame(width: circleMaxSize + 40, height: circleMaxSize + 40)
+                            .rotationEffect(.degrees(-90))
+                    }
+
+                    // Main breathing circle
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    breathColor.opacity(0.5),
+                                    breathColor.opacity(0.25)
+                                ],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: circleSize / 2
+                            )
+                        )
+                        .frame(width: circleSize, height: circleSize)
+
+                    // Countdown number in center (only during session)
+                    if hasStarted && phaseSecondsRemaining > 0 {
+                        Text("\(phaseSecondsRemaining)")
+                            .font(.system(size: 72, weight: .ultraLight, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundStyle(Color(.label))
+                            .contentTransition(.numericText())
+                    }
+                }
+                .frame(height: circleMaxSize + 100)
+
+                Spacer()
+
+                // Bottom controls
+                VStack(spacing: 24) {
+                    if !hasStarted {
+                        // Pattern selector (native segmented style)
+                        VStack(spacing: 20) {
+                            Picker("Pattern", selection: $selectedPattern) {
+                                ForEach(BreathingPattern.allPatterns) { option in
+                                    Text(option.shortName).tag(option)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .padding(.horizontal, 20)
+
+                            // Pattern details - fixed height so pills don't jump
+                            VStack(spacing: 8) {
+                                Text(selectedPattern.name)
+                                    .font(.system(size: 20, weight: .semibold))
+                                    .foregroundStyle(Color(.label))
+
+                                Text(selectedPattern.description)
+                                    .font(.system(size: 15))
+                                    .foregroundStyle(Color(.secondaryLabel))
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .padding(.horizontal, 32)
+                            }
+                            .frame(height: 70) // Fixed height for consistent pill placement
+
+                            // Phase timing pills
+                            HStack(spacing: 6) {
+                                BreathingPhasePill(label: "In", value: selectedPattern.inhale)
+                                if selectedPattern.hold1 > 0 {
+                                    BreathingPhasePill(label: "Hold", value: selectedPattern.hold1)
+                                }
+                                BreathingPhasePill(label: "Out", value: selectedPattern.exhale)
+                                if selectedPattern.hold2 > 0 {
+                                    BreathingPhasePill(label: "Hold", value: selectedPattern.hold2)
+                                }
+                            }
+                        }
+
+                        // Start button
+                        Button(action: startBreathing) {
+                            Text("Begin")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 54)
+                                .background(breathingAccent)
+                                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.horizontal, 20)
+                    } else {
+                        // During session: show current pattern info
+                        VStack(spacing: 12) {
+                            Text(selectedPattern.name)
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundStyle(Color(.label))
+
+                            HStack(spacing: 6) {
+                                BreathingPhasePill(
+                                    label: "In",
+                                    value: selectedPattern.inhale,
+                                    isActive: currentPhase == .inhale
+                                )
+                                if selectedPattern.hold1 > 0 {
+                                    BreathingPhasePill(
+                                        label: "Hold",
+                                        value: selectedPattern.hold1,
+                                        isActive: currentPhase == .hold1
+                                    )
+                                }
+                                BreathingPhasePill(
+                                    label: "Out",
+                                    value: selectedPattern.exhale,
+                                    isActive: currentPhase == .exhale
+                                )
+                                if selectedPattern.hold2 > 0 {
+                                    BreathingPhasePill(
+                                        label: "Hold",
+                                        value: selectedPattern.hold2,
+                                        isActive: currentPhase == .hold2
+                                    )
+                                }
+                            }
+                        }
+
+                        // End session button
+                        Button(action: {
+                            stopBreathing()
+                            onComplete()
+                            dismiss()
+                        }) {
+                            Text("End Session")
+                                .font(.system(size: 17, weight: .medium))
+                                .foregroundStyle(breathingAccent)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 8)
+                    }
+                }
+                .padding(.bottom, 40)
             }
-            .padding(.horizontal, 20)
-        }
         }
         .onAppear {
             selectedPattern = pattern
@@ -207,7 +262,7 @@ struct BreathingExerciseView: View {
     private var timeRemainingText: String {
         let minutes = timeRemaining / 60
         let seconds = timeRemaining % 60
-        return String(format: "%d:%02d remaining", minutes, seconds)
+        return String(format: "%d:%02d", minutes, seconds)
     }
 
     // MARK: - Breathing Logic
@@ -237,9 +292,15 @@ struct BreathingExerciseView: View {
         // Haptic feedback
         generateHaptic(for: phase)
 
-        // Animate circle
+        // Animate circle size
         withAnimation(.easeInOut(duration: Double(phaseDuration))) {
             phaseProgress = currentPhase == .inhale || currentPhase == .hold1 ? 1.0 : 0.0
+        }
+
+        // Animate ring progress from 0 to 1 over the phase duration
+        ringProgress = 0
+        withAnimation(.linear(duration: Double(phaseDuration))) {
+            ringProgress = 1.0
         }
 
         // Reset per-phase countdown
@@ -366,54 +427,26 @@ struct BreathingExerciseView: View {
     }
 }
 
-struct BreathingPatternChip: View {
-    let pattern: BreathingPattern
-    let isSelected: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 6) {
-                Text(pattern.name)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundStyle(isSelected ? Color.primaryGreen : Color.textSecondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(
-                Capsule()
-                    .fill(isSelected ? Color.primaryGreen.opacity(0.15) : Color.cardBackground)
-            )
-            .overlay(
-                Capsule()
-                    .stroke(isSelected ? Color.primaryGreen : Color.borderColor.opacity(0.5), lineWidth: 1)
-            )
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-struct BreathingPhaseBadge: View {
+struct BreathingPhasePill: View {
     let label: String
     let value: Int
+    var isActive: Bool = false
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             Text(label)
-                .font(.caption2)
-                .foregroundStyle(Color.textSecondary)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(isActive ? Color(.label) : Color(.secondaryLabel))
 
-            Text("\(value)s")
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundStyle(Color.textPrimary)
+            Text("\(value)")
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(isActive ? Color(.label) : Color(.tertiaryLabel))
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(
             Capsule()
-                .fill(Color.cardBackground)
+                .fill(isActive ? Color(.systemGray5) : Color(.tertiarySystemFill))
         )
     }
 }
@@ -425,9 +458,9 @@ enum BreathPhase {
 
     var instruction: String {
         switch self {
-        case .inhale: return "Breathe In"
+        case .inhale: return "Inhale"
         case .hold1: return "Hold"
-        case .exhale: return "Breathe Out"
+        case .exhale: return "Exhale"
         case .hold2: return "Hold"
         }
     }
