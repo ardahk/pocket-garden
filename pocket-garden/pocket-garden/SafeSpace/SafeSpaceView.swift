@@ -129,7 +129,10 @@ struct SafeSpaceView: View {
                 .foregroundStyle(Color.textPrimary)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                ForEach(CalmActivity.allActivities) { activity in
+                // Hide Butterfly Hug and Safe Place from the Sanctuary quick practices
+                ForEach(CalmActivity.allActivities.filter { activity in
+                    activity.type != .butterflyHug && activity.type != .visualization
+                }) { activity in
                     PracticeGridCard(activity: activity) {
                         selectedActivity = activity
                         viewModel.startActivity(activity)
@@ -190,7 +193,7 @@ struct SafeSpaceView: View {
             }
         
         case .nameAndSoothe:
-            NameAndSootheView(duration: activity.duration) {
+            ThreeGoodMomentsView(duration: activity.duration) {
                 viewModel.completeActivity(activity)
                 selectedActivity = nil
             }

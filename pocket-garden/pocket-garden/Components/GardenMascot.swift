@@ -627,6 +627,145 @@ final class PandaWeeklyFeedbackService {
     }
 }
 
+// MARK: - Panda Savoring Service (Three Good Moments)
+
+final class PandaSavoringService {
+    static let shared = PandaSavoringService()
+    private init() {}
+
+    /// Generate a short reflection on the user's three good moments.
+    /// Uses Apple Intelligence when available, with a simple local fallback.
+    func generate(
+        moments: [String],
+        focusMoment: String?,
+        detail: String?
+    ) async -> (text: String, usedAFM: Bool) {
+        let trimmed = moments.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        guard !trimmed.isEmpty else {
+            let text = "Even pausing to look for good moments is a quiet kind of self-care. You can always come back and add more when you're ready."
+            return (text, false)
+        }
+
+        if #available(iOS 26.0, *), PandaFoundationManager.shared.isAvailable {
+            if let afm = await generateWithAFM(moments: trimmed, focusMoment: focusMoment, detail: detail) {
+                return (afm.text, true)
+            }
+        }
+
+        let local = generateLocal(moments: trimmed, focusMoment: focusMoment, detail: detail)
+        return (local, false)
+    }
+
+    @MainActor
+    private func generateWithAFM(
+        moments: [String],
+        focusMoment: String?,
+        detail: String?
+    ) async -> PandaFeedback? {
+        #if canImport(FoundationModels)
+        if #available(iOS 26.0, *) {
+            let session = PandaSessionManager.shared.getSession()
+            let promptText = buildPrompt(moments: moments, focusMoment: focusMoment, detail: detail)
+            do {
+                let response = try await session.respond(to: promptText)
+                let rawText = response.content
+
+                if let data = rawText.data(using: .utf8),
+                   let decoded = try? JSONDecoder().decode(PandaFeedback.self, from: data) {
+                    return PandaFeedback(
+                        text: minimizeMarkdown(decoded.text),
+                        emotionHint: decoded.emotionHint,
+                        tags: decoded.tags
+                    )
+                }
+
+                let cleaned = extractTextFromResponse(rawText)
+                return PandaFeedback(
+                    text: minimizeMarkdown(cleaned),
+                    emotionHint: "supportive",
+                    tags: ["savoring"]
+                )
+            } catch {
+                return nil
+            }
+        }
+        #endif
+        return nil
+    }
+
+    private func generateLocal(
+        moments: [String],
+        focusMoment: String?,
+        detail: String?
+    ) -> String {
+        let listed = moments.prefix(3).map { "• \($0)" }.joined(separator: " ")
+        var base = "You just named a few good moments: \(listed). Even tiny bits of okayness help balance out your day."
+
+        if let focus = focusMoment?.trimmingCharacters(in: .whitespacesAndNewlines), !focus.isEmpty {
+            base += " One that stands out is: \(focus)."
+        }
+
+        if let d = detail?.trimmingCharacters(in: .whitespacesAndNewlines), !d.isEmpty {
+            base += " The way you described it—\"\(d.prefix(160))\"—is something you can mentally return to when you need a small lift."
+        }
+
+        base += " Coming back to these moments now and then can gently train your brain to notice what supports you."
+        return base
+    }
+
+    private func buildPrompt(
+        moments: [String],
+        focusMoment: String?,
+        detail: String?
+    ) -> String {
+        var lines: [String] = []
+        lines.append("You are Panda, a warm and thoughtful emotional wellness companion.")
+        lines.append("The user has just completed a 'Three Good Moments' savoring exercise in a wellbeing app.")
+        lines.append("")
+        lines.append("Their moments:")
+        for (index, m) in moments.prefix(3).enumerated() {
+            lines.append("- Moment \(index + 1): \(m)")
+        }
+        if let focus = focusMoment, !focus.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            lines.append("\nMoment they chose to zoom in on: \(focus)")
+        }
+        if let d = detail, !d.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            lines.append("\nTheir description of that moment: \"\(d.prefix(220))\"")
+        }
+
+        lines.append("")
+        lines.append("In your response:")
+        lines.append("- Write 3–5 sentences, maximum 90 words.")
+        lines.append("- Gently reinforce that noticing good moments is meaningful, even when the day is mixed.")
+        lines.append("- Highlight 1–2 specific details from their moments so it feels personal.")
+        lines.append("- Offer exactly one simple suggestion for how they might revisit or build on these moments later.")
+        lines.append("- Use warm, conversational language and never give medical advice.")
+        lines.append("")
+        lines.append("Respond with valid JSON of the form: {\"text\": \"...\", \"emotionHint\": \"supportive\", \"tags\": [\"savoring\"]}")
+        return lines.joined(separator: "\n")
+    }
+
+    private func minimizeMarkdown(_ s: String) -> String {
+        var out = s
+        ["#", "##", "###", "####", "---"].forEach { token in
+            out = out.replacingOccurrences(of: token, with: "")
+        }
+        return out.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func extractTextFromResponse(_ raw: String) -> String {
+        var cleaned = raw
+        if let start = cleaned.range(of: "\"text\":"),
+           let end = cleaned.range(of: "\",", range: start.upperBound..<cleaned.endIndex) {
+            let textRange = start.upperBound..<end.lowerBound
+            cleaned = String(cleaned[textRange])
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .replacingOccurrences(of: "\"", with: "")
+        }
+        return cleaned
+    }
+}
+
 // MARK: - Panda Worry Tree Service
 
 final class PandaWorryTreeService {

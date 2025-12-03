@@ -20,14 +20,7 @@ struct ForestGardenViewRedesigned: View {
     @State private var showTreeSelection = false
     @State private var selectedTreeType: TreeType = .oak
     @State private var showTreeInfo = false
-    @State private var showZoomHint = false
-    @State private var scale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @GestureState private var magnificationState: CGFloat = 1.0
     @State private var selectedEntry: EmotionEntry?
-    
-    private let minScale: CGFloat = 0.5
-    private let maxScale: CGFloat = 2.0
     
     var body: some View {
         ZStack {
@@ -37,7 +30,7 @@ struct ForestGardenViewRedesigned: View {
             if grownTrees.isEmpty && currentTree == nil {
                 emptyStateView
             } else {
-                forestCanvasView
+                currentTreeCanvasView
             }
             
             // Floating action button
@@ -63,31 +56,29 @@ struct ForestGardenViewRedesigned: View {
             
             // Stats overlay
             statsOverlay
-            
-            // Zoom hint
-            if showZoomHint {
-                VStack {
-                    Spacer()
-                    
-                    Card(backgroundColor: .primaryGreen) {
-                        HStack(spacing: Spacing.sm) {
-                            Image(systemName: "hand.pinch")
-                                .font(.system(size: 20))
-                                .foregroundColor(.white)
-                            
-                            Text("Pinch to zoom, drag to explore your forest")
-                                .font(Typography.callout)
-                                .foregroundColor(.white)
-                        }
-                    }
-                    .padding(.horizontal, Layout.screenPadding)
-                    .padding(.bottom, 100)
-                }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
         }
         .navigationTitle("Your Garden")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                NavigationLink(destination: TestGardenView()) {
+                    Image(systemName: "flask.fill")
+                        .foregroundColor(.primaryGreen)
+                }
+            }
+            
+            ToolbarItem(placement: .navigationBarTrailing) {
+                if currentTree != nil {
+                    Button {
+                        showTreeInfo = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.primaryGreen)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
         .sheet(isPresented: $showTreeSelection) {
             TreeSelectionSheet(
                 selectedType: $selectedTreeType,
@@ -107,20 +98,6 @@ struct ForestGardenViewRedesigned: View {
         .onAppear {
             loadCurrentTree()
             checkForWatering()
-            
-            // Show zoom hint if user has multiple trees
-            if grownTrees.count >= 3 && !UserDefaults.standard.bool(forKey: "hasSeenZoomHint") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-                    showZoomHint = true
-                    UserDefaults.standard.set(true, forKey: "hasSeenZoomHint")
-                    
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
-                        withAnimation {
-                            showZoomHint = false
-                        }
-                    }
-                }
-            }
         }
     }
     
@@ -176,56 +153,59 @@ struct ForestGardenViewRedesigned: View {
         .padding(Layout.screenPadding)
     }
     
-    // MARK: - Forest Canvas View
+    // MARK: - Current Tree Canvas View
     
-    private var forestCanvasView: some View {
+    private var currentTreeCanvasView: some View {
         GeometryReader { geometry in
-            ZStack {
-                // Grown trees in 2D space (exclude current growing tree)
-                ForEach(grownTrees.filter({ $0.isFullyGrown })) { tree in
-                    TreeInForest(tree: tree, scale: scale)
-                        .position(
-                            x: geometry.size.width * tree.position.x,
-                            y: geometry.size.height * tree.position.y
-                        )
+            VStack {
+                Spacer()
+                
+                // Current growing tree (center)
+                if let tree = currentTree {
+                    CurrentTreeView(tree: tree)
                         .onTapGesture {
                             handleTreeTap(tree: tree)
                         }
                 }
                 
-                // Current growing tree (center)
-                if let tree = currentTree {
-                    CurrentTreeView(tree: tree)
-                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-                        .scaleEffect(scale)
-                        .onTapGesture {
-                            handleTreeTap(tree: tree)
+                Spacer()
+                
+                // All trees chip (only show if there are fully grown trees)
+                if fullyGrownTreeCount > 0 {
+                    NavigationLink(destination: FullGardenView()) {
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "tree.fill")
+                                .font(.system(size: 14, weight: .medium))
+                            
+                            Text("All trees")
+                                .font(Typography.callout)
+                            
+                            Text("\(fullyGrownTreeCount)")
+                                .font(Typography.footnote)
+                                .foregroundColor(.primaryGreen.opacity(0.8))
                         }
+                        .padding(.horizontal, Spacing.xl)
+                        .padding(.vertical, Spacing.sm)
+                        .background(
+                            Capsule()
+                                .fill(Color.cardBackground.opacity(0.95))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(Color.primaryGreen.opacity(0.25), lineWidth: 1)
+                                )
+                                .shadow(color: Color.black.opacity(0.12), radius: 6, x: 0, y: 2)
+                        )
+                        .foregroundColor(.primaryGreen)
+                    }
+                    .padding(.bottom, 120)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .offset(offset)
-            .gesture(
-                MagnificationGesture()
-                    .updating($magnificationState) { value, state, _ in
-                        state = value
-                    }
-                    .onEnded { value in
-                        scale = min(max(scale * value, minScale), maxScale)
-                    }
-            )
-            .simultaneousGesture(
-                DragGesture()
-                    .onChanged { value in
-                        offset = value.translation
-                    }
-                    .onEnded { _ in
-                        withAnimation(.spring()) {
-                            offset = .zero
-                        }
-                    }
-            )
         }
+    }
+    
+    private var fullyGrownTreeCount: Int {
+        grownTrees.filter { $0.isFullyGrown }.count
     }
     
     // MARK: - Action Button
@@ -252,14 +232,7 @@ struct ForestGardenViewRedesigned: View {
                         waterCurrentTree()
                     }
                 } else {
-                    // Info button
-                    ForestActionButton(
-                        icon: "info.circle.fill",
-                        label: "Tree Info",
-                        color: .primaryGreen
-                    ) {
-                        showTreeInfo = true
-                    }
+                    EmptyView()
                 }
             } else {
                 // Plant first tree

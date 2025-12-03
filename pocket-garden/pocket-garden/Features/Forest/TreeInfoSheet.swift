@@ -10,6 +10,12 @@ import SwiftUI
 struct TreeInfoSheet: View {
     @Environment(\.dismiss) private var dismiss
     let treeType: TreeType
+    @State private var selectedType: TreeType
+    
+    init(treeType: TreeType) {
+        self.treeType = treeType
+        _selectedType = State(initialValue: treeType)
+    }
     
     var body: some View {
         NavigationStack {
@@ -35,22 +41,54 @@ struct TreeInfoSheet: View {
                                 )
                                 .frame(width: 160, height: 160)
                             
-                            Text(treeType.emoji)
+                            Text(selectedType.emoji)
                                 .font(.system(size: 100))
                         }
                         .padding(.top, Spacing.xl)
                         
                         // Tree name and description
                         VStack(spacing: Spacing.md) {
-                            Text(treeType.name)
+                            Text(selectedType.name)
                                 .font(.system(size: 32, weight: .bold))
                                 .foregroundColor(.textPrimary)
                             
-                            Text(treeType.description)
+                            Text(selectedType.description)
                                 .font(Typography.body)
                                 .foregroundColor(.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, Layout.screenPadding)
+                        }
+                        
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: Spacing.sm) {
+                                ForEach(TreeType.allCases, id: \.self) { type in
+                                    Button(action: {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            selectedType = type
+                                        }
+                                    }) {
+                                        HStack(spacing: Spacing.xs) {
+                                            Text(type.emoji)
+                                                .font(.system(size: 18))
+                                            
+                                            Text(type.name)
+                                                .font(Typography.callout)
+                                        }
+                                        .padding(.horizontal, Spacing.md)
+                                        .padding(.vertical, Spacing.sm)
+                                        .background(
+                                            Capsule()
+                                                .fill(selectedType == type ? Color.primaryGreen.opacity(0.15) : Color.cardBackground)
+                                        )
+                                        .overlay(
+                                            Capsule()
+                                                .stroke(selectedType == type ? Color.primaryGreen : Color.clear, lineWidth: 1)
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, Layout.screenPadding)
                         }
                         
                         // Fun facts
@@ -59,7 +97,7 @@ struct TreeInfoSheet: View {
                                 .font(Typography.headline)
                                 .foregroundColor(.textPrimary)
                             
-                            ForEach(Array(treeType.funFacts.enumerated()), id: \.offset) { index, fact in
+                            ForEach(Array(selectedType.funFacts.enumerated()), id: \.offset) { index, fact in
                                 FactRow(number: index + 1, fact: fact)
                             }
                         }
@@ -80,7 +118,7 @@ struct TreeInfoSheet: View {
                                 
                                 VStack(alignment: .leading, spacing: Spacing.sm) {
                                     TipRow(icon: "drop.fill", text: "Journal daily to water your tree")
-                                    TipRow(icon: "calendar", text: "Takes \(treeType.daysToGrow) days to fully grow")
+                                    TipRow(icon: "calendar", text: "Takes \(selectedType.daysToGrow) days to fully grow")
                                     TipRow(icon: "leaf.fill", text: "Each journal entry helps it grow stronger")
                                 }
                             }

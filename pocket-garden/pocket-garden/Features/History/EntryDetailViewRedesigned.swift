@@ -60,6 +60,9 @@ struct EntryDetailViewRedesigned: View {
                     .foregroundColor(.primaryGreen)
                 }
             }
+            .onDisappear {
+                stopPlayback()
+            }
         }
     }
     
@@ -329,6 +332,23 @@ struct EntryDetailViewRedesigned: View {
 
         audioPlayer?.enableRate = true
         audioPlayer?.rate = playbackRate
+    }
+
+    private func stopPlayback() {
+        guard isPlaying || audioPlayer != nil else { return }
+
+        audioPlayer?.stop()
+        audioPlayer = nil
+        isPlaying = false
+
+        // Deactivate the audio session so playback fully stops when leaving
+        // this screen, while letting other audio (like music/podcasts) resume.
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setActive(false, options: [.notifyOthersOnDeactivation])
+        } catch {
+            print("Failed to deactivate audio session: \(error)")
+        }
     }
 }
 

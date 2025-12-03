@@ -11,18 +11,25 @@ struct AffirmationsView: View {
     @State private var allAffirmations: [Affirmation] = []
     @State private var affirmations: [Affirmation] = []
     @State private var dragOffset: CGSize = .zero
-    @State private var selectedCategory: AffirmationCategory? = nil
     @State private var hasSwiped: Bool = false
-    @State private var shufflesRemainingToday: Int = 10
+    @State private var shufflesRemainingToday: Int = 10 // Interpreted as swipes remaining today
+    @State private var showDailyIntro: Bool = false
+    
+    // Soft rose accent for affirmations theme
+    private let affirmationAccent = Color(red: 0.94, green: 0.54, blue: 0.60)
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
-            // Background gradient
+            // Background gradient with a gentle rose tint (dark mode compatible)
             LinearGradient(
                 colors: [
-                    Color.backgroundCream,
-                    Color.primaryGreen.opacity(0.1)
+                    Color(UIColor.systemBackground),
+                    Color(UIColor { traitCollection in
+                        traitCollection.userInterfaceStyle == .dark
+                            ? UIColor(red: 0.18, green: 0.12, blue: 0.14, alpha: 1.0)
+                            : UIColor(red: 1.0, green: 0.93, blue: 0.95, alpha: 1.0)
+                    })
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -44,109 +51,91 @@ struct AffirmationsView: View {
                 .padding(.top, 40)
                 .padding(.bottom, 16)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        AffirmationCategoryChip(
-                            title: "All",
-                            isSelected: selectedCategory == nil
-                        ) {
-                            selectedCategory = nil
-                            applyFilter()
-                        }
+                if showDailyIntro {
+                    Spacer()
+                    introView
+                    Spacer()
+                } else {
+                    Spacer()
 
-                        ForEach(AffirmationCategory.allCases, id: \.self) { category in
-                            AffirmationCategoryChip(
-                                title: category.rawValue,
-                                isSelected: selectedCategory == category
-                            ) {
-                                selectedCategory = category
-                                applyFilter()
+                    // Affirmation cards
+                    ZStack {
+                        // Show next 2 cards in background for depth
+                        ForEach(Array(affirmations.enumerated()), id: \.element.id) { index, affirmation in
+                            if index >= currentIndex && index < currentIndex + 3 {
+                                AffirmationCard(
+                                    affirmation: affirmation,
+                                    offset: index - currentIndex
+                                )
+                                .offset(dragOffset)
+                                .rotationEffect(.degrees(Double(dragOffset.width) / 20))
+                                .opacity(index == currentIndex ? 1.0 : 0.5)
+                                .scaleEffect(index == currentIndex ? 1.0 : 0.95 - CGFloat(index - currentIndex) * 0.05)
+                                .offset(y: CGFloat(index - currentIndex) * 10)
+                                .zIndex(Double(affirmations.count - index))
+                                .gesture(
+                                    index == currentIndex ? DragGesture()
+                                        .onChanged { value in
+                                            dragOffset = value.translation
+                                        }
+                                        .onEnded { value in
+                                            handleSwipe(value: value)
+                                        }
+                                    : nil
+                                )
                             }
                         }
                     }
+                    .frame(height: 400)
                     .padding(.horizontal, 24)
-                }
-                .padding(.bottom, 24)
 
-                Spacer()
+                    Spacer()
 
-                // Affirmation cards
-                ZStack {
-                    // Show next 2 cards in background for depth
-                    ForEach(Array(affirmations.enumerated()), id: \.element.id) { index, affirmation in
-                        if index >= currentIndex && index < currentIndex + 3 {
-                            AffirmationCard(
-                                affirmation: affirmation,
-                                offset: index - currentIndex
-                            )
-                            .offset(dragOffset)
-                            .rotationEffect(.degrees(Double(dragOffset.width) / 20))
-                            .opacity(index == currentIndex ? 1.0 : 0.5)
-                            .scaleEffect(index == currentIndex ? 1.0 : 0.95 - CGFloat(index - currentIndex) * 0.05)
-                            .offset(y: CGFloat(index - currentIndex) * 10)
-                            .zIndex(Double(affirmations.count - index))
-                            .gesture(
-                                index == currentIndex ? DragGesture()
-                                    .onChanged { value in
-                                        dragOffset = value.translation
-                                    }
-                                    .onEnded { value in
-                                        handleSwipe(value: value)
-                                    }
-                                : nil
-                            )
-                        }
-                    }
-                }
-                .frame(height: 400)
-                .padding(.horizontal, 24)
+                    // Instructions
+                    VStack(spacing: 16) {
+                        if !hasSwiped {
+                            HStack(spacing: 12) {
+                                Image("panda_supportive")
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(width: 50, height: 50)
 
-                Spacer()
-
-                // Instructions
-                VStack(spacing: 16) {
-                    if !hasSwiped {
-                        HStack(spacing: 12) {
-                            Image("panda_supportive")
-                                .resizable()
-                                .scaledToFit()
-                                .frame(width: 50, height: 50)
-
-                            Text("Swipe left or right to navigate")
-                                .font(.subheadline)
-                                .foregroundStyle(Color.textSecondary)
-                        }
-                        .padding(16)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.cardBackground)
-                        )
-                        .padding(.horizontal, 24)
-                    }
-
-                    Text("\(shufflesRemainingToday) shuffle\(shufflesRemainingToday == 1 ? "" : "s") remaining today")
-                        .font(.caption2)
-                        .foregroundStyle(Color.textSecondary.opacity(0.8))
-
-                    // Done button
-                    Button(action: {
-                        onComplete()
-                        dismiss()
-                    }) {
-                        Text("Done")
-                            .font(.headline)
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 56)
+                                Text("Swipe left or right to move through today's affirmations")
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                            .padding(16)
                             .background(
                                 RoundedRectangle(cornerRadius: 16)
-                                    .fill(Color.primaryGreen)
+                                    .fill(Color.cardBackground)
                             )
+                            .padding(.horizontal, 24)
+                        }
+
+                        Text("\(shufflesRemainingToday) swipe\(shufflesRemainingToday == 1 ? "" : "s") left today")
+                            .font(.caption2)
+                            .foregroundStyle(Color.textSecondary.opacity(0.8))
+
+                        // Done button
+                        Button(action: {
+                            onComplete()
+                            dismiss()
+                        }) {
+                            Text("Done")
+                                .font(.headline)
+                                .foregroundStyle(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 56)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .fill(affirmationAccent)
+                                )
+                        }
+                        .padding(.horizontal, 24)
+                        .buttonStyle(.plain)
                     }
-                    .padding(.horizontal, 24)
-                    .buttonStyle(.plain)
+                    .padding(.bottom, 40)
                 }
-                .padding(.bottom, 40)
             }
         }
         .onAppear {
@@ -155,29 +144,70 @@ struct AffirmationsView: View {
         .enableInjection()
     }
 
-    // MARK: - Setup
+    // MARK: - Intro & Setup
+
+    private var introView: some View {
+        VStack(spacing: 24) {
+            HStack(spacing: 12) {
+                Image("panda_supportive")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 56, height: 56)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Today's gentle affirmations")
+                        .font(.headline)
+                        .foregroundStyle(Color.textPrimary)
+
+                    Text("Here are 10 kind thoughts picked for you today. Swipe slowly and let each one sink in.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(16)
+            .background(Color.cardBackground)
+            .cornerRadius(16)
+            .padding(.horizontal, 24)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("How it works")
+                    .font(.headline)
+                    .foregroundStyle(Color.textPrimary)
+
+                Text("• You get up to 10 affirmation swipes each day.\n• Move forward with a gentle swipe left.\n• You can always swipe right to revisit a card you've already seen.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .background(Color.cardBackground.opacity(0.6))
+            .cornerRadius(16)
+            .padding(.horizontal, 24)
+
+            Button(action: {
+                showDailyIntro = false
+            }) {
+                Text("Show Today's Affirmations")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(affirmationAccent)
+                    )
+            }
+            .padding(.horizontal, 24)
+            .buttonStyle(.plain)
+        }
+    }
 
     private func setupAffirmations() {
         allAffirmations = Affirmation.defaultAffirmations
         loadShuffleCount()
-        applyFilter()
-    }
-
-    private func applyFilter() {
-        guard shufflesRemainingToday > 0 else {
-            affirmations = allAffirmations
-            currentIndex = 0
-            return
-        }
-        
-        var base = allAffirmations
-        if let category = selectedCategory {
-            base = base.filter { $0.category == category }
-        }
-        affirmations = base.shuffled()
+        affirmations = allAffirmations.shuffled()
         currentIndex = 0
-        
-        decrementShuffleCount()
     }
     
     private func loadShuffleCount() {
@@ -187,10 +217,12 @@ struct AffirmationsView: View {
         if let lastDate = defaults.object(forKey: "lastAffirmationShuffleDate") as? Date,
            Calendar.current.isDate(lastDate, inSameDayAs: today) {
             shufflesRemainingToday = max(0, defaults.integer(forKey: "affirmationShufflesRemaining"))
+            showDailyIntro = false
         } else {
             shufflesRemainingToday = 10
             defaults.set(today, forKey: "lastAffirmationShuffleDate")
             defaults.set(10, forKey: "affirmationShufflesRemaining")
+            showDailyIntro = true
         }
     }
     
@@ -213,8 +245,9 @@ struct AffirmationsView: View {
 
                 if value.translation.width < 0 {
                     // Swipe left - next affirmation
-                    if currentIndex < affirmations.count - 1 {
+                    if currentIndex < affirmations.count - 1 && shufflesRemainingToday > 0 {
                         currentIndex += 1
+                        decrementShuffleCount()
                     }
                 } else {
                     // Swipe right - previous affirmation
