@@ -14,6 +14,7 @@ struct AffirmationsView: View {
     @State private var hasSwiped: Bool = false
     @State private var shufflesRemainingToday: Int = 10 // Interpreted as swipes remaining today
     @State private var showDailyIntro: Bool = false
+    @State private var showInfoSheet: Bool = false
     
     // Soft rose accent for affirmations theme
     private let affirmationAccent = Color(red: 0.94, green: 0.54, blue: 0.60)
@@ -39,10 +40,25 @@ struct AffirmationsView: View {
             VStack(spacing: 0) {
                 // Header
                 VStack(spacing: 8) {
-                    Text("Gentle Affirmations")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(Color.textPrimary)
+                    HStack(spacing: 8) {
+                        Spacer()
+
+                        Text("Gentle Affirmations")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.textPrimary)
+
+                        Button {
+                            showInfoSheet = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 18, weight: .regular))
+                                .foregroundStyle(affirmationAccent.opacity(0.9))
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+                    }
 
                     Text("Speak kindly to yourself")
                         .font(.subheadline)
@@ -141,6 +157,9 @@ struct AffirmationsView: View {
         .onAppear {
             setupAffirmations()
         }
+        .sheet(isPresented: $showInfoSheet) {
+            affirmationsInfoSheet
+        }
         .enableInjection()
     }
 
@@ -200,6 +219,55 @@ struct AffirmationsView: View {
             }
             .padding(.horizontal, 24)
             .buttonStyle(.plain)
+        }
+    }
+
+    // Short science explainer for affirmations
+    private var affirmationsInfoSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Why this exercise helps")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+
+                    Text("Gentle affirmations invite you to focus on values and self-worth instead of only on flaws or mistakes. Writing or repeating kind statements about yourself can soften self-criticism, reduce defensiveness, and make it easier to take healthy actions.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text("Self-affirmation research shows that brief value-based reflection exercises can lower stress responses, improve openness to health messages, and support behavior change in areas like physical activity and medical adherence.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Source")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.textPrimary)
+
+                        if let url = URL(string: "https://pubmed.ncbi.nlm.nih.gov/24405362/") {
+                            Link("Cohen & Sherman, 2014 – The psychology of change: self-affirmation and social psychological intervention", destination: url)
+                                .font(.subheadline)
+                                .foregroundStyle(affirmationAccent)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 32)
+            }
+            .navigationTitle("Science behind this")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showInfoSheet = false
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(affirmationAccent)
+                }
+            }
         }
     }
 

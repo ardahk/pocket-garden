@@ -9,144 +9,195 @@ struct GroundingTechniqueView: View {
     @State private var currentStep = 0
     @State private var completedSteps: Set<Int> = []
     @State private var itemsCompletedForStep: Int = 0
+    @State private var iconPulse = false
+    @State private var bubbleScales: [CGFloat] = []
     @Environment(\.dismiss) private var dismiss
+    
+    // Cohesive teal/cyan grounding theme
+    private let groundingTeal = Color(hex: "5AC8C8")
+    private let groundingTealLight = Color(hex: "7DD8D8")
+    private let groundingTealDark = Color(hex: "3BA8A8")
 
     private let steps: [GroundingStep] = [
         GroundingStep(
             count: 5,
             sense: "See",
             icon: "eye.fill",
-            color: .blue,
-            prompt: "Name 5 things you can see around you"
+            prompt: "Name 5 things you can see"
         ),
         GroundingStep(
             count: 4,
             sense: "Touch",
             icon: "hand.raised.fill",
-            color: .green,
             prompt: "Name 4 things you can touch"
         ),
         GroundingStep(
             count: 3,
             sense: "Hear",
             icon: "ear.fill",
-            color: .purple,
             prompt: "Name 3 things you can hear"
         ),
         GroundingStep(
             count: 2,
             sense: "Smell",
             icon: "nose.fill",
-            color: .orange,
             prompt: "Name 2 things you can smell"
         ),
         GroundingStep(
             count: 1,
             sense: "Taste",
             icon: "mouth.fill",
-            color: .pink,
             prompt: "Name 1 thing you can taste"
         )
     ]
 
     var body: some View {
         ZStack {
-            Color.backgroundCream
-                .ignoresSafeArea()
+            // Subtle gradient background
+            LinearGradient(
+                colors: [
+                    Color.backgroundCream,
+                    groundingTeal.opacity(0.08),
+                    Color.backgroundCream
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .ignoresSafeArea()
 
             VStack(spacing: 0) {
                 // Header
                 VStack(spacing: 8) {
-                    Text("Grounding Exercise")
-                        .font(.title2)
-                        .fontWeight(.semibold)
+                    Text("Grounding")
+                        .font(.system(size: 28, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color.textPrimary)
 
-                    Text("Reconnect with the present moment")
+                    Text("5-4-3-2-1 technique")
                         .font(.subheadline)
                         .foregroundStyle(Color.textSecondary)
-                    Text("Step \(currentStep + 1) of \(steps.count)")
-                        .font(.caption)
-                        .foregroundStyle(Color.textSecondary.opacity(0.8))
                 }
                 .padding(.top, 40)
-                .padding(.bottom, 32)
+                .padding(.bottom, 24)
 
-                // Progress indicators
-                HStack(spacing: 8) {
+                // Progress indicators with step numbers
+                HStack(spacing: 12) {
                     ForEach(0..<steps.count, id: \.self) { index in
-                        Capsule()
-                            .fill(completedSteps.contains(index) ? Color.primaryGreen : Color.borderColor)
-                            .frame(height: 4)
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    index < currentStep ? groundingTeal :
+                                    index == currentStep ? groundingTeal.opacity(0.2) :
+                                    Color.borderColor.opacity(0.3)
+                                )
+                                .frame(width: 32, height: 32)
+                            
+                            if index < currentStep {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .foregroundStyle(.white)
+                            } else {
+                                Text("\(steps[index].count)")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundStyle(index == currentStep ? groundingTeal : Color.textSecondary.opacity(0.5))
+                            }
+                        }
+                        
+                        if index < steps.count - 1 {
+                            Rectangle()
+                                .fill(index < currentStep ? groundingTeal : Color.borderColor.opacity(0.3))
+                                .frame(height: 2)
+                                .frame(maxWidth: 20)
+                        }
                     }
                 }
-                .padding(.horizontal, 40)
-                .padding(.bottom, 40)
+                .padding(.horizontal, 32)
+                .padding(.bottom, 32)
 
                 // Current step
                 if currentStep < steps.count {
                     let step = steps[currentStep]
 
-                    VStack(spacing: 32) {
-                        // Icon
+                    VStack(spacing: 24) {
+                        // Animated icon with glow
                         ZStack {
+                            // Outer glow ring
+                            Circle()
+                                .fill(groundingTeal.opacity(0.1))
+                                .frame(width: 160, height: 160)
+                                .scaleEffect(iconPulse ? 1.1 : 1.0)
+                            
+                            // Inner gradient circle
                             Circle()
                                 .fill(
-                                    LinearGradient(
+                                    RadialGradient(
                                         colors: [
-                                            step.color.opacity(0.3),
-                                            step.color.opacity(0.1)
+                                            groundingTealLight.opacity(0.4),
+                                            groundingTeal.opacity(0.2),
+                                            groundingTeal.opacity(0.05)
                                         ],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
+                                        center: .center,
+                                        startRadius: 0,
+                                        endRadius: 70
                                     )
                                 )
                                 .frame(width: 140, height: 140)
 
+                            // Icon with subtle animation
                             Image(systemName: step.icon)
-                                .font(.system(size: 50))
-                                .foregroundStyle(step.color)
+                                .font(.system(size: 48, weight: .light))
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: [groundingTealLight, groundingTeal],
+                                        startPoint: .top,
+                                        endPoint: .bottom
+                                    )
+                                )
+                                .scaleEffect(iconPulse ? 1.05 : 1.0)
                         }
-                        .padding(.top, 20)
-
-                        // Prompt
-                        VStack(spacing: 16) {
-                            Text(step.prompt)
-                                .font(.title3)
-                                .fontWeight(.medium)
-                                .foregroundStyle(Color.textPrimary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
-                                .fixedSize(horizontal: false, vertical: true)
-
-                            Text("Take your time")
-                                .font(.subheadline)
-                                .foregroundStyle(Color.textSecondary)
-
-                            HStack(spacing: 12) {
-                                ForEach(0..<step.count, id: \.self) { index in
-                                    Circle()
-                                        .fill(index < itemsCompletedForStep ? Color.primaryGreen : Color.clear)
-                                        .frame(width: 24, height: 24)
-                                        .overlay(
-                                            Circle()
-                                                .stroke(Color.primaryGreen.opacity(0.4), lineWidth: 2)
-                                        )
-                                        .onTapGesture {
-                                            handleGroundingTap()
-                                        }
-                                }
+                        .onAppear {
+                            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+                                iconPulse = true
                             }
                         }
 
+                        // Sense label
+                        Text(step.sense.uppercased())
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundStyle(groundingTeal)
+                            Spacer()
+                        
+                        // Prompt
+                        Text(step.prompt)
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundStyle(Color.textPrimary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+
+                        // Interactive bubbles
+                        HStack(spacing: 16) {
+                            ForEach(0..<step.count, id: \.self) { index in
+                                GroundingBubble(
+                                    isFilled: index < itemsCompletedForStep,
+                                    accentColor: groundingTeal,
+                                    size: 44
+                                )
+                                .scaleEffect(bubbleScales.indices.contains(index) ? bubbleScales[index] : 1.0)
+                            }
+                        }
+                        .padding(.top, 8)
+
+                        Text("Tap anywhere as you notice each one")
+                            .font(.caption)
+                            .foregroundStyle(Color.textSecondary.opacity(0.7))
+
                         Spacer()
 
-                        // Panda encouragement
+                        // Bumblebee encouragement
                         HStack(spacing: 12) {
                             Image("panda_supportive")
                                 .resizable()
                                 .scaledToFit()
-                                .frame(width: 50, height: 50)
+                                .frame(width: 44, height: 44)
 
                             Text(encouragementText)
                                 .font(.subheadline)
@@ -157,20 +208,26 @@ struct GroundingTechniqueView: View {
                         .background(
                             RoundedRectangle(cornerRadius: 16)
                                 .fill(Color.cardBackground)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(groundingTeal.opacity(0.15), lineWidth: 1)
+                                )
                         )
                         .padding(.horizontal, 24)
 
                         Spacer()
-
-                        // Tap anywhere hint
-                        Text("Tap anywhere to continue")
-                            .font(.caption)
-                            .foregroundStyle(Color.textSecondary.opacity(0.7))
-                            .padding(.bottom, 40)
+                    }
+                    .onAppear {
+                        setupBubbleScales(for: step.count)
                     }
                     .contentShape(Rectangle())
                     .onTapGesture {
                         handleGroundingTap()
+                    }
+                    .onChange(of: currentStep) { _, _ in
+                        if currentStep < steps.count {
+                            setupBubbleScales(for: steps[currentStep].count)
+                        }
                     }
                     .transition(.asymmetric(
                         insertion: .move(edge: .trailing).combined(with: .opacity),
@@ -184,6 +241,10 @@ struct GroundingTechniqueView: View {
         }
         .enableInjection()
     }
+    
+    private func setupBubbleScales(for count: Int) {
+        bubbleScales = Array(repeating: 1.0, count: count)
+    }
 
     // MARK: - Completion View
 
@@ -191,45 +252,51 @@ struct GroundingTechniqueView: View {
         VStack(spacing: 32) {
             Spacer()
 
-            // Success icon
+            // Success icon with animation
             ZStack {
+                // Outer glow
+                Circle()
+                    .fill(groundingTeal.opacity(0.1))
+                    .frame(width: 160, height: 160)
+                
                 Circle()
                     .fill(
-                        LinearGradient(
+                        RadialGradient(
                             colors: [
-                                Color.primaryGreen.opacity(0.3),
-                                Color.primaryGreen.opacity(0.1)
+                                groundingTealLight.opacity(0.4),
+                                groundingTeal.opacity(0.2),
+                                groundingTeal.opacity(0.05)
                             ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 70
                         )
                     )
                     .frame(width: 140, height: 140)
 
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 60))
-                    .foregroundStyle(Color.primaryGreen)
+                Image(systemName: "checkmark")
+                    .font(.system(size: 50, weight: .medium))
+                    .foregroundStyle(groundingTeal)
             }
 
             VStack(spacing: 12) {
-                Text("Well Done!")
-                    .font(.title2)
-                    .fontWeight(.semibold)
+                Text("You're Grounded")
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.textPrimary)
 
-                Text("You're more grounded now")
+                Text("Take a moment to notice how you feel")
                     .font(.subheadline)
                     .foregroundStyle(Color.textSecondary)
             }
 
-            // Panda celebration
+            // Bumblebee celebration
             HStack(spacing: 12) {
                 Image("panda_happy")
                     .resizable()
                     .scaledToFit()
-                    .frame(width: 50, height: 50)
+                    .frame(width: 44, height: 44)
 
-                Text("You did great! Notice how you feel right now.")
+                Text("Wonderful! You've reconnected with the present moment.")
                     .font(.subheadline)
                     .foregroundStyle(Color.textSecondary)
                     .multilineTextAlignment(.leading)
@@ -238,6 +305,10 @@ struct GroundingTechniqueView: View {
             .background(
                 RoundedRectangle(cornerRadius: 16)
                     .fill(Color.cardBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(groundingTeal.opacity(0.15), lineWidth: 1)
+                    )
             )
             .padding(.horizontal, 24)
 
@@ -248,13 +319,13 @@ struct GroundingTechniqueView: View {
                 dismiss()
             }) {
                 Text("Done")
-                    .font(.headline)
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.primaryGreen)
+                            .fill(groundingTeal)
                     )
             }
             .padding(.horizontal, 24)
@@ -279,8 +350,9 @@ struct GroundingTechniqueView: View {
     // MARK: - Actions
 
     private func nextStep() {
-        let generator = UIImpactFeedbackGenerator(style: .medium)
-        generator.impactOccurred()
+        // Distinct haptic for step transition - success notification
+        let notificationGenerator = UINotificationFeedbackGenerator()
+        notificationGenerator.notificationOccurred(.success)
 
         completedSteps.insert(currentStep)
         itemsCompletedForStep = 0
@@ -295,13 +367,32 @@ struct GroundingTechniqueView: View {
         let step = steps[currentStep]
 
         if itemsCompletedForStep < step.count {
-            let generator = UIImpactFeedbackGenerator(style: .light)
-            generator.impactOccurred()
+            // Light haptic for each bubble fill
+            let generator = UIImpactFeedbackGenerator(style: .soft)
+            generator.impactOccurred(intensity: 0.6)
+            
+            // Animate the bubble
+            let index = itemsCompletedForStep
+            if bubbleScales.indices.contains(index) {
+                withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
+                    bubbleScales[index] = 1.3
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                        if bubbleScales.indices.contains(index) {
+                            bubbleScales[index] = 1.0
+                        }
+                    }
+                }
+            }
 
             itemsCompletedForStep += 1
 
             if itemsCompletedForStep >= step.count {
-                nextStep()
+                // Delay before moving to next step for visual feedback
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    nextStep()
+                }
             }
         }
     }
@@ -313,8 +404,55 @@ struct GroundingStep {
     let count: Int
     let sense: String
     let icon: String
-    let color: Color
     let prompt: String
+}
+
+// MARK: - Grounding Bubble Component
+
+struct GroundingBubble: View {
+    let isFilled: Bool
+    let accentColor: Color
+    let size: CGFloat
+    
+    @State private var fillAnimation = false
+    
+    var body: some View {
+        ZStack {
+            // Outer ring
+            Circle()
+                .stroke(
+                    isFilled ? accentColor : accentColor.opacity(0.3),
+                    lineWidth: 2
+                )
+                .frame(width: size, height: size)
+            
+            // Fill circle with animation
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            accentColor.opacity(0.9),
+                            accentColor
+                        ],
+                        center: .center,
+                        startRadius: 0,
+                        endRadius: size / 2
+                    )
+                )
+                .frame(width: size - 8, height: size - 8)
+                .scaleEffect(isFilled ? 1.0 : 0.0)
+                .opacity(isFilled ? 1.0 : 0.0)
+            
+            // Checkmark when filled
+            if isFilled {
+                Image(systemName: "checkmark")
+                    .font(.system(size: size * 0.35, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: isFilled)
+    }
 }
 
 #Preview {

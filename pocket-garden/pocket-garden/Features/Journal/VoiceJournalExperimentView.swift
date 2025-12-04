@@ -107,12 +107,12 @@ struct VoiceJournalExperimentView: View {
                         
                         Spacer()
                         
-                        // Panda emoji circle
+                        // Bumblebee emoji circle
                         Circle()
                             .fill(Color(light: "FFFFFF", dark: "2A2A2E"))
                             .frame(width: 50, height: 50)
                             .overlay(
-                                Text("🐼")
+                                Text("🐝")
                                     .font(.system(size: 28))
                             )
                     }

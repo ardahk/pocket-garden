@@ -177,7 +177,7 @@ struct ForestGardenViewRedesigned: View {
                             Image(systemName: "tree.fill")
                                 .font(.system(size: 14, weight: .medium))
                             
-                            Text("All trees")
+                            Text("Forest")
                                 .font(Typography.callout)
                             
                             Text("\(fullyGrownTreeCount)")

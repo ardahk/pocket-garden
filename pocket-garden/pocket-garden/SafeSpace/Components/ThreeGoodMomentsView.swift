@@ -29,6 +29,7 @@ struct ThreeGoodMomentsView: View {
     @State private var isGeneratingPanda: Bool = false
     @State private var usedAFM: Bool = false
     @State private var showContent = false
+    @State private var showInfoSheet: Bool = false
 
     @Environment(\.dismiss) private var dismiss
 
@@ -86,6 +87,9 @@ struct ThreeGoodMomentsView: View {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                 showContent = true
             }
+        }
+        .sheet(isPresented: $showInfoSheet) {
+            threeGoodMomentsInfoSheet
         }
         .enableInjection()
     }
@@ -161,9 +165,24 @@ struct ThreeGoodMomentsView: View {
             .scaleEffect(showContent ? 1 : 0.8)
             
             VStack(spacing: 12) {
-                Text("Three Good Moments")
-                    .font(.system(size: 26, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.textPrimary)
+                HStack(spacing: 8) {
+                    Spacer()
+
+                    Text("Three Good Moments")
+                        .font(.system(size: 26, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+
+                    Button {
+                        showInfoSheet = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(Color.primaryGreen.opacity(0.9))
+                    }
+                    .buttonStyle(.plain)
+
+                    Spacer()
+                }
                 
                 Text("A simple practice to train your brain to notice the good, even on hard days")
                     .font(.body)
@@ -182,7 +201,7 @@ struct ThreeGoodMomentsView: View {
                 
                 HowItWorksRow(number: 1, text: "Recall three small moments that felt okay")
                 HowItWorksRow(number: 2, text: "Savor one moment in more detail")
-                HowItWorksRow(number: 3, text: "Receive a personalized reflection from Panda")
+                HowItWorksRow(number: 3, text: "Receive a personalized reflection from Bumblebee")
             }
             .padding(20)
             .background(
@@ -193,7 +212,7 @@ struct ThreeGoodMomentsView: View {
             .opacity(showContent ? 1 : 0)
             .offset(y: showContent ? 0 : 30)
             
-            // Panda encouragement
+            // Bumblebee encouragement
             HStack(spacing: 12) {
                 Image("panda_supportive")
                     .resizable()
@@ -440,7 +459,7 @@ struct ThreeGoodMomentsView: View {
                     }
                     
                     VStack(spacing: 8) {
-                        Text("Panda is reflecting...")
+                        Text("Bumblebee is reflecting...")
                             .font(.system(size: 20, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color.textPrimary)
                         
@@ -465,7 +484,7 @@ struct ThreeGoodMomentsView: View {
                             .frame(width: 48, height: 48)
                         
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("Panda's Reflection")
+                            Text("Bumblebee's Reflection")
                                 .font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(Color.textPrimary)
                             
@@ -569,7 +588,7 @@ struct ThreeGoodMomentsView: View {
                     .padding(.horizontal, 16)
             }
             
-            // Panda message
+            // Bumblebee message
             HStack(spacing: 12) {
                 Image("panda_happy")
                     .resizable()
@@ -619,7 +638,7 @@ struct ThreeGoodMomentsView: View {
         switch currentStep {
         case .intro: return "Begin"
         case .moment1, .moment2, .moment3: return "Next"
-        case .savor: return "Get Panda's Reflection"
+        case .savor: return "Get Bumblebee's Reflection"
         case .reflection: return isGeneratingPanda ? "Please wait..." : "Continue"
         case .complete: return "Done"
         }
@@ -692,6 +711,56 @@ struct ThreeGoodMomentsView: View {
     private func finish() {
         onComplete()
         dismiss()
+    }
+
+    // MARK: - Science Sheet
+
+    private var threeGoodMomentsInfoSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Why this exercise helps")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+
+                    Text("Writing down three good things shifts attention toward moments of safety, connection, or relief—even on difficult days. Over time this practice trains your brain to notice helpful details instead of only scanning for problems.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text("Randomized controlled trials of ‘Three Good Things’ gratitude journaling have found improvements in wellbeing, mood, and sleep quality compared with control groups, including in busy health care workers completing a brief digital version of the exercise.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Source")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.textPrimary)
+
+                        if let url = URL(string: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10202508/") {
+                            Link("Gold et al., 2023 – ‘Three Good Things’ digital intervention among health care workers", destination: url)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.primaryGreen)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 32)
+            }
+            .navigationTitle("Science behind this")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showInfoSheet = false
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.primaryGreen)
+                }
+            }
+        }
     }
 }
 

@@ -17,6 +17,7 @@ struct BreathingExerciseView: View {
     @State private var hasStarted = false
     @State private var phaseSecondsRemaining: Int = 0
     @State private var ringProgress: CGFloat = 0
+    @State private var showInfoSheet: Bool = false
 
     @Environment(\.dismiss) private var dismiss
 
@@ -152,9 +153,21 @@ struct BreathingExerciseView: View {
 
                             // Pattern details - fixed height so pills don't jump
                             VStack(spacing: 8) {
-                                Text(selectedPattern.name)
-                                    .font(.system(size: 20, weight: .semibold))
-                                    .foregroundStyle(Color(.label))
+                                HStack(spacing: 8) {
+                                    Text(selectedPattern.name)
+                                        .font(.system(size: 20, weight: .semibold))
+                                        .foregroundStyle(Color(.label))
+
+                                    // Info button only before session begins
+                                    Button {
+                                        showInfoSheet = true
+                                    } label: {
+                                        Image(systemName: "info.circle")
+                                            .font(.system(size: 16, weight: .regular))
+                                            .foregroundStyle(breathingAccent.opacity(0.9))
+                                    }
+                                    .buttonStyle(.plain)
+                                }
 
                                 Text(selectedPattern.description)
                                     .font(.system(size: 15))
@@ -249,6 +262,9 @@ struct BreathingExerciseView: View {
         .onDisappear {
             stopBreathing()
         }
+        .sheet(isPresented: $showInfoSheet) {
+            breathingInfoSheet
+        }
         .enableInjection()
     }
 
@@ -263,6 +279,95 @@ struct BreathingExerciseView: View {
         let minutes = timeRemaining / 60
         let seconds = timeRemaining % 60
         return String(format: "%d:%02d", minutes, seconds)
+    }
+
+    // Science sheet explaining why these patterns help
+    private var breathingInfoSheet: some View {
+        // Capture the current pattern for a stable explanation
+        let pattern = selectedPattern
+        let info = scienceInfo(for: pattern)
+
+        return NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Why this breathing helps")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color(.label))
+
+                    Text(info.summary)
+                        .font(.body)
+                        .foregroundStyle(Color(.secondaryLabel))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text(info.evidence)
+                        .font(.body)
+                        .foregroundStyle(Color(.secondaryLabel))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Source")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color(.label))
+
+                        if let url = URL(string: info.url) {
+                            Link(info.linkTitle, destination: url)
+                                .font(.subheadline)
+                                .foregroundStyle(breathingAccent)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 32)
+            }
+            .navigationTitle("Science behind this")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showInfoSheet = false
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(breathingAccent)
+                }
+            }
+        }
+    }
+
+    private func scienceInfo(for pattern: BreathingPattern) -> (summary: String, evidence: String, linkTitle: String, url: String) {
+        switch pattern {
+        case .boxBreathing:
+            // Equal 4-4-4-4 pattern used in many stress protocols
+            let summary = "Box breathing pairs steady inhales, holds, and exhales. This kind of structured breath slows your breathing rate, nudges the body toward a parasympathetic (rest-and-digest) state, and gives your mind a simple rhythm to focus on instead of racing thoughts."
+            let evidence = "A 2023 randomized controlled study from Stanford asked adults to practice 5 minutes per day of simple breathwork patterns (including box-style breathing) or mindfulness meditation for 1 month. Breathwork produced larger improvements in positive mood and greater reductions in physiological arousal than mindfulness alone."
+            let linkTitle = "Balban et al., 2023 – Brief structured respiration practices enhance mood and reduce physiological arousal"
+            let url = "https://pmc.ncbi.nlm.nih.gov/articles/PMC9873947/"
+            return (summary, evidence, linkTitle, url)
+
+        case .relaxingBreath:
+            // 4-7-8 breathing
+            let summary = "The 4-7-8 pattern uses a short inhale, a longer hold, and an even longer exhale. Lengthening the exhale is a simple way to activate the vagus nerve and calm the body, which is why this pattern is often used for winding down and easing pre-sleep tension."
+            let evidence = "A randomized controlled trial with patients after bariatric surgery compared usual care, general deep breathing, and the 4-7-8 technique. Both breathing groups showed reduced anxiety and better quality-of-life scores over time, with the 4-7-8 pattern providing additional benefit for state anxiety."
+            let linkTitle = "Erdem et al., 2022 – Deep breathing and 4-7-8 techniques after bariatric surgery"
+            let url = "https://pubmed.ncbi.nlm.nih.gov/36480101/"
+            return (summary, evidence, linkTitle, url)
+
+        case .coherentBreathing:
+            // ~5–6 breaths per minute resonance / coherent breathing
+            let summary = "Coherent breathing keeps you near 5–6 breaths per minute with smooth, even inhales and exhales. Breathing at this rhythm lines up your heart and breath oscillations, which can increase heart rate variability (HRV) and support a more flexible, resilient stress response."
+            let evidence = "In a randomized controlled study of young adults, practicing resonance (coherent) breathing for a few weeks increased vagally mediated HRV and improved scores on perceived stress and cognitive tests compared with controls. Other reviews highlight this 5–6 breaths-per-minute range as optimal for HRV biofeedback."
+            let linkTitle = "Chaitanya et al., 2022 – Resonance breathing, HRV, and cognition in young adults"
+            let url = "https://pmc.ncbi.nlm.nih.gov/articles/PMC8924557/"
+            return (summary, evidence, linkTitle, url)
+
+        default:
+            let summary = "Slow, deliberate breathing with a slightly longer exhale helps shift your nervous system away from " +
+                "fight-or-flight and toward rest-and-digest. Paying attention to the breath also gives your mind a gentle anchor, which can reduce mental chatter."
+            let evidence = "Across multiple clinical and experimental studies, simple paced-breathing exercises have been shown to lower momentary stress, support heart rate variability, and improve mood compared with passive rest."
+            let linkTitle = "Balban et al., 2023 – Brief structured respiration practices and mood"
+            let url = "https://pmc.ncbi.nlm.nih.gov/articles/PMC9873947/"
+            return (summary, evidence, linkTitle, url)
+        }
     }
 
     // MARK: - Breathing Logic

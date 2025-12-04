@@ -56,13 +56,13 @@ struct GardenMascot: View {
     }
 
     private var mascotBody: some View {
-        Image(pandaImageName)
+        Image(mascotImageName)
             .resizable()
             .aspectRatio(contentMode: .fit)
             .frame(width: size, height: size)
     }
     
-    private var pandaImageName: String {
+    private var mascotImageName: String {
         switch emotion {
         case .happy:
             return "panda_happy"
@@ -316,7 +316,7 @@ struct Triangle: Shape {
     }
 }
 
-// MARK: - Panda Feedback Integration (on-device)
+// MARK: - Bumblebee Feedback Integration (on-device)
 
 extension MascotFeedbackView {
     private var activeEmotion: MascotEmotion { emotionOverride ?? mascotEmotion }
@@ -362,7 +362,7 @@ fileprivate final class PandaFeedbackService {
                 return (afm.text, clamped, true)
             }
         }
-        let local = PandaLocalFeedbackEngine.shared.generate(entry: entry)
+        let local = BumblebeeLocalFeedbackEngine.shared.generate(entry: entry)
         return (local.text, local.emotion, false)
     }
 
@@ -412,7 +412,7 @@ fileprivate final class PandaFeedbackService {
     }
 
     private func instructionsText() -> String {
-        "You are Panda, a warm and thoughtful emotional wellness companion. Read the user's emotion rating and journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Always take the emotion rating into account together with the text.\n2. If the rating is 8, 9, or 10 out of 10, the overall tone MUST be clearly celebratory and proud. You may briefly acknowledge remaining stress, but focus mainly on what went well and why the user feels capable or hopeful.\n3. If the rating is 4–7, use a balanced, supportive tone that recognizes both difficulties and strengths.\n4. If the rating is 1–3, use a very gentle, compassionate tone and avoid minimizing their experience.\n5. Acknowledge at least one concrete detail they mentioned so it feels specific.\n6. Offer exactly one gentle, actionable suggestion (no long lists).\n7. Use warm, conversational language and vary your phrasing each time.\n8. Never diagnose, give medical advice, or repeat recent responses.\n\nMake it feel personal and genuine, not scripted."
+        "You are Bumblebee, a warm and thoughtful emotional wellness companion. Read the user's emotion rating and journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Always take the emotion rating into account together with the text.\n2. If the rating is 8, 9, or 10 out of 10, the overall tone MUST be clearly celebratory and proud. You may briefly acknowledge remaining stress, but focus mainly on what went well and why the user feels capable or hopeful.\n3. If the rating is 4–7, use a balanced, supportive tone that recognizes both difficulties and strengths.\n4. If the rating is 1–3, use a very gentle, compassionate tone and avoid minimizing their experience.\n5. Acknowledge at least one concrete detail they mentioned so it feels specific.\n6. Offer exactly one gentle, actionable suggestion (no long lists).\n7. When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (for example: box breathing, the grounding exercise, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations). Mention \"in Sanctuary\" so they know where to go.\n8. Use warm, conversational language and vary your phrasing each time.\n9. Never diagnose, give medical advice, or repeat recent responses.\n\nMake it feel personal and genuine, not scripted."
     }
 
     @MainActor
@@ -567,13 +567,13 @@ final class PandaWeeklyFeedbackService {
         let suggestion: String
         switch avgRating {
         case 8...10:
-            suggestion = " This weekend, consider writing down one or two things that have been working especially well, so you can return to them when you need a boost."
+            suggestion = " This weekend, consider writing down one or two things that have been working especially well, so you can return to them when you need a boost. If you’d like, you could also spend a few minutes with Three Good Moments or affirmations in Sanctuary to help you really soak it in."
         case 6..<8:
-            suggestion = " Over the next few days, try repeating one small habit that helped you feel a bit more grounded—like a short walk, a mindful pause, or journaling before bed."
+            suggestion = " Over the next few days, try repeating one small habit that helped you feel a bit more grounded—like a short walk, a mindful pause, or journaling before bed. You might also choose one quick practice in Sanctuary—like box breathing or the grounding exercise—when you want a small reset."
         case 4..<6:
-            suggestion = " In the coming days, choose one tiny act of kindness toward yourself—something that feels doable, like a five‑minute break or a gentle walk."
+            suggestion = " In the coming days, choose one tiny act of kindness toward yourself—something that feels doable, like a five‑minute break or a gentle walk. When you feel up for it, you could try a short Body Scan or grounding exercise in Sanctuary to give your system a gentler pace."
         default:
-            suggestion = " For the rest of this week, see if you can give yourself permission to move slowly and choose just one small thing that feels supportive, even if it's simply taking a deeper breath."
+            suggestion = " For the rest of this week, see if you can give yourself permission to move slowly and choose just one small thing that feels supportive, even if it's simply taking a deeper breath. If it helps, you might spend a few minutes in Sanctuary—perhaps with the Safe Place visualization, a grounding exercise, or a few rounds of box breathing."
         }
 
         return base + consistency + detailLine + " " + suggestion
@@ -584,13 +584,14 @@ final class PandaWeeklyFeedbackService {
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE"
 
-        lines.append("You are Panda, a warm and thoughtful emotional wellness companion.")
+        lines.append("You are Bumblebee, a warm and thoughtful emotional wellness companion.")
         lines.append("You are reading the user's journal entries for this week so far (from the start of the week up to today). In your response:")
         lines.append("- Write 3–6 sentences, maximum 120 words.")
         lines.append("- Clearly refer to 'this week' or 'this week so far'.")
         lines.append("- Acknowledge at least one concrete detail from their entries so it feels specific.")
         lines.append("- Describe any noticeable pattern in how they have been feeling.")
         lines.append("- Offer exactly one gentle, actionable suggestion for the coming days.")
+        lines.append("- When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (for example: box breathing, the grounding exercise, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations). Mention \"in Sanctuary\" so they know where to go.")
         lines.append("- Use warm, conversational language and never give medical advice.")
         lines.append("")
         lines.append("Here are the entries for this week:")
@@ -709,7 +710,7 @@ final class PandaSavoringService {
             base += " The way you described it—\"\(d.prefix(160))\"—is something you can mentally return to when you need a small lift."
         }
 
-        base += " Coming back to these moments now and then can gently train your brain to notice what supports you."
+        base += " Coming back to these moments now and then can gently train your brain to notice what supports you. When you want to reconnect with this feeling, you could run a short Three Good Moments or Body Scan in Sanctuary."
         return base
     }
 
@@ -719,7 +720,7 @@ final class PandaSavoringService {
         detail: String?
     ) -> String {
         var lines: [String] = []
-        lines.append("You are Panda, a warm and thoughtful emotional wellness companion.")
+        lines.append("You are Bumblebee, a warm and thoughtful emotional wellness companion.")
         lines.append("The user has just completed a 'Three Good Moments' savoring exercise in a wellbeing app.")
         lines.append("")
         lines.append("Their moments:")
@@ -739,6 +740,7 @@ final class PandaSavoringService {
         lines.append("- Gently reinforce that noticing good moments is meaningful, even when the day is mixed.")
         lines.append("- Highlight 1–2 specific details from their moments so it feels personal.")
         lines.append("- Offer exactly one simple suggestion for how they might revisit or build on these moments later.")
+        lines.append("- When it fits, suggest one Sanctuary practice that matches the feeling of their moments (for example: revisiting them with Three Good Moments in Sanctuary, trying a short Body Scan in Sanctuary, or doing a Safe Place visualization there). Mention \"in Sanctuary\" so they know where to go.")
         lines.append("- Use warm, conversational language and never give medical advice.")
         lines.append("")
         lines.append("Respond with valid JSON of the form: {\"text\": \"...\", \"emotionHint\": \"supportive\", \"tags\": [\"savoring\"]}")
@@ -766,13 +768,13 @@ final class PandaSavoringService {
     }
 }
 
-// MARK: - Panda Worry Tree Service
+// MARK: - Bumblebee Worry Tree Service
 
 final class PandaWorryTreeService {
     static let shared = PandaWorryTreeService()
     private init() {}
 
-    /// Generate Panda feedback for a completed Worry Tree.
+    /// Generate Bumblebee feedback for a completed Worry Tree.
     /// Uses Apple Intelligence when available, with a simple local fallback.
     func generate(
         worryText: String,
@@ -872,6 +874,8 @@ final class PandaWorryTreeService {
             }
         }
 
+        lines.append("If you’d like a bit more support after this, you might spend a few minutes in Sanctuary—for example with the grounding exercise, the Safe Place visualization, or a few rounds of box breathing there.")
+
         return lines.joined(separator: " ")
     }
 
@@ -883,7 +887,7 @@ final class PandaWorryTreeService {
         historySummary: String
     ) -> String {
         var lines: [String] = []
-        lines.append("You are Panda, a warm, practical emotional support companion.")
+        lines.append("You are Bumblebee, a warm, practical emotional support companion.")
         lines.append("The user has just completed a 'Worry Tree' exercise in a wellbeing app.")
         lines.append("")
         lines.append("Your goals in this context:")
@@ -893,6 +897,7 @@ final class PandaWorryTreeService {
         lines.append("- If they created an action plan, refine it into 1–3 tiny, concrete steps they can actually do.")
         lines.append("- If the worry is outside their control, focus on acceptance, self-compassion, and shifting attention back to what they can influence.")
         lines.append("- Optionally, connect to patterns you notice from previous Worry Tree entries without overwhelming them.")
+        lines.append("- Gently suggest exactly one practice from the Sanctuary space that could help them unwind or feel safer (for example: the grounding exercise in Sanctuary, box breathing in Sanctuary, a Safe Place visualization in Sanctuary, or writing another worry in Sanctuary using the Worry Tree).")
         lines.append("- Never give medical advice or make diagnoses. Stay supportive, non-clinical, and non-judgmental.")
         lines.append("")
         lines.append("Response format:")
@@ -900,6 +905,7 @@ final class PandaWorryTreeService {
         lines.append("- Maximum ~150 words.")
         lines.append("- Use warm, conversational language, as if talking directly to the user.")
         lines.append("- Always sound encouraging and realistic—no toxic positivity.")
+        lines.append("- End with that Sanctuary suggestion in a friendly, encouraging tone.")
         lines.append("")
         lines.append("Here is the current Worry Tree result:")
         lines.append("- Worry: \(worryText)")
@@ -945,8 +951,10 @@ final class PandaWorryTreeService {
     }
 }
 
-fileprivate final class PandaLocalFeedbackEngine {
-    static let shared = PandaLocalFeedbackEngine()
+// MARK: - Bumblebee Local Feedback Engine
+
+fileprivate final class BumblebeeLocalFeedbackEngine {
+    static let shared = BumblebeeLocalFeedbackEngine()
     private init() {}
 
     func generate(entry: EmotionEntry) -> (text: String, emotion: MascotEmotion) {
@@ -998,13 +1006,13 @@ fileprivate final class PandaLocalFeedbackEngine {
         switch emotion {
         case .happy:
             let opening = variations[0].randomElement()!
-            return "\(opening)It's clear something positive happened today. Consider jotting down what made this moment special—it helps us recreate these feelings. What small thing brought you joy? 🌟"
+            return "\(opening)It's clear something positive happened today. Consider jotting down what made this moment special—it helps us recreate these feelings. What small thing brought you joy? If you’d like to keep the glow going, you could also spend a few minutes with Three Good Moments or affirmations in Sanctuary. 🌟"
         case .supportive:
             let opening = variations[1].randomElement()!
-            return "\(opening)Your feelings are completely valid. When things feel uncertain, try this: take three slow breaths, then name one thing you can control right now. Sometimes the smallest step forward is enough. 💚"
+            return "\(opening)Your feelings are completely valid. When things feel uncertain, try this: take three slow breaths, then name one thing you can control right now. Sometimes the smallest step forward is enough. If you want a bit more support, you might try box breathing or the grounding exercise in Sanctuary. 💚"
         case .concerned:
             let opening = variations[2].randomElement()!
-            return "\(opening)I'm right here with you. When everything feels heavy, let's ground together: place your feet flat, take a slow breath, and name five things you can see. You don't have to carry this alone. 🤗"
+            return "\(opening)I'm right here with you. When everything feels heavy, let's ground together: place your feet flat, take a slow breath, and name five things you can see. You don't have to carry this alone. If it feels okay, you could also spend a few minutes with the Safe Place visualization or a grounding exercise in Sanctuary. 🤗"
         default:
             return "Thanks for sharing your thoughts with me. Taking time to check in with yourself matters, and I'm here for every step of your journey."
         }
@@ -1021,7 +1029,7 @@ fileprivate final class PandaSessionManager {
         if let existing = session {
             return existing
         }
-        let instructions = "You are Panda, a warm and thoughtful emotional wellness companion. Read the user's journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Acknowledge something specific they mentioned to show you're listening\n2. Validate their feelings with empathy\n3. Offer one gentle, actionable suggestion\n4. Use warm, conversational language and vary your phrasing each time\n5. Never diagnose, give medical advice, or repeat recent responses\n\nMake it feel personal and genuine, not scripted."
+        let instructions = "You are Bumblebee, a warm and thoughtful emotional wellness companion. Read the user's journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Acknowledge something specific they mentioned to show you're listening\n2. Validate their feelings with empathy\n3. Offer one gentle, actionable suggestion\n4. When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (for example: box breathing, the grounding exercise, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations). Mention \"in Sanctuary\" so they know where to go.\n5. Use warm, conversational language and vary your phrasing each time\n6. Never diagnose, give medical advice, or repeat recent responses\n\nMake it feel personal and genuine, not scripted."
         let newSession = LanguageModelSession(instructions: instructions)
         session = newSession
         return newSession
@@ -1049,7 +1057,7 @@ fileprivate final class PandaFoundationManager {
                 notAvailableReason = "This device is not eligible for Apple Intelligence."
                 return false
             case .unavailable(.appleIntelligenceNotEnabled):
-                notAvailableReason = "Enable Apple Intelligence in Settings to get richer Panda feedback."
+                notAvailableReason = "Enable Apple Intelligence in Settings to get richer Bumblebee feedback."
                 return false
             case .unavailable(.modelNotReady):
                 notAvailableReason = "Apple Intelligence is downloading models. Connect to power and Wi‑Fi, then try again."

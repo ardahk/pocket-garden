@@ -20,6 +20,7 @@ struct WorryTreeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \WorryTreeEntry.date, order: .reverse) private var previousEntries: [WorryTreeEntry]
     @Environment(\.dismiss) private var dismiss
+    @State private var showInfoSheet: Bool = false
     
     var body: some View {
         ZStack {
@@ -38,10 +39,25 @@ struct WorryTreeView: View {
                     VStack(spacing: 32) {
                         // Header
                         VStack(spacing: 8) {
-                            Text("Worry Tree")
-                                .font(.title2)
-                                .fontWeight(.semibold)
-                                .foregroundStyle(Color.textPrimary)
+                            HStack(spacing: 8) {
+                                Spacer()
+
+                                Text("Worry Tree")
+                                    .font(.title2)
+                                    .fontWeight(.semibold)
+                                    .foregroundStyle(Color.textPrimary)
+
+                                Button {
+                                    showInfoSheet = true
+                                } label: {
+                                    Image(systemName: "info.circle")
+                                        .font(.system(size: 18, weight: .regular))
+                                        .foregroundStyle(Color.orange.opacity(0.9))
+                                }
+                                .buttonStyle(.plain)
+
+                                Spacer()
+                            }
                             
                             Text(stepDescription)
                                 .font(.subheadline)
@@ -128,6 +144,9 @@ struct WorryTreeView: View {
         }
         .sheet(isPresented: $showHistory) {
             WorryTreeHistoryView(entries: previousEntries)
+        }
+        .sheet(isPresented: $showInfoSheet) {
+            worryTreeInfoSheet
         }
         .enableInjection()
     }
@@ -423,7 +442,7 @@ struct WorryTreeView: View {
                         .scaledToFit()
                         .frame(width: 32, height: 32)
                     
-                    Text("Panda's suggestion")
+                    Text("Bumblebee's suggestion")
                         .font(.caption)
                         .fontWeight(.semibold)
                         .foregroundStyle(Color.textSecondary)
@@ -435,7 +454,7 @@ struct WorryTreeView: View {
                         .foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.leading)
                 } else if isLoadingPanda {
-                    Text("Panda is thinking about a gentle plan for you…")
+                    Text("Bumblebee is thinking about a gentle plan for you…")
                         .font(.body)
                         .foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.leading)
@@ -574,6 +593,56 @@ struct WorryTreeView: View {
             return "Practice acceptance and release"
         case .complete:
             return "You've processed your worry"
+        }
+    }
+
+    // MARK: - Science Sheet
+
+    private var worryTreeInfoSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Why this exercise helps")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+
+                    Text("The Worry Tree is a cognitive-behavioral tool that helps you sort worries into two groups: things you can do something about and things you can’t control. Walking through clear questions reduces rumination and nudges you toward either a small action plan or a conscious decision to let go.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Text("CBT programs for generalized anxiety often include step-by-step worry flowcharts like this one. Studies show that learning to postpone, problem-solve, or release chronic worry can lower anxiety symptoms and make worries feel more manageable in daily life.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Source")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.textPrimary)
+
+                        if let url = URL(string: "https://www.getselfhelp.co.uk/worry-tree/") {
+                            Link("Getselfhelp.co.uk – CBT Worry Tree worksheet and rationale", destination: url)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.orange)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 32)
+            }
+            .navigationTitle("Science behind this")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showInfoSheet = false
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Color.orange)
+                }
+            }
         }
     }
 }
@@ -796,7 +865,7 @@ struct WorryEntryCard: View {
                             .scaledToFit()
                             .frame(width: 16, height: 16)
                         
-                        Text("Panda helped")
+                        Text("Bumblebee helped")
                             .font(.caption2)
                             .foregroundStyle(Color.textSecondary)
                     }
@@ -1028,7 +1097,7 @@ struct PandaSuggestionCard: View {
                     .frame(width: 36, height: 36)
                 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Panda's Suggestion")
+                    Text("Bumblebee's Suggestion")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundStyle(Color.textPrimary)
                     
