@@ -229,7 +229,7 @@ struct EmptyStateCard: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             if showMascot {
-                // Sleeping panda for empty states
+                // Sleeping Bumblebee for empty states
                 GardenMascot(emotion: .sleeping, size: 100)
             } else {
                 Image(systemName: icon)

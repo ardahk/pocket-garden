@@ -177,24 +177,18 @@ struct FullGardenView: View {
     
     private var statsBar: some View {
         VStack(spacing: Spacing.sm) {
-            // Main stats row
-            HStack(spacing: Spacing.lg) {
+            // Main stats row - capsule style matching ForestGardenViewRedesigned
+            HStack(alignment: .top, spacing: Spacing.md) {
                 // Tree count
-                statItem(icon: "tree.fill", value: "\(fullyGrownTrees.count)", label: "Trees", color: .primaryGreen)
-                
-                Divider()
-                    .frame(height: 24)
+                statsCard(icon: "tree.fill", value: "\(fullyGrownTrees.count)", label: "Trees", color: .primaryGreen)
                 
                 // Total waterings
-                statItem(icon: "drop.fill", value: "\(totalWaterings)", label: "Waterings", color: .emotionContent)
-                
-                Divider()
-                    .frame(height: 24)
+                statsCard(icon: "drop.fill", value: "\(totalWaterings)", label: "Waterings", color: .emotionContent)
                 
                 // Garden age
                 if let oldest = oldestTree {
                     let days = Calendar.current.dateComponents([.day], from: oldest.plantedDate, to: Date()).day ?? 0
-                    statItem(icon: "calendar", value: "\(days)", label: "Days", color: .accentGold)
+                    statsCard(icon: "calendar", value: "\(days)", label: "Days", color: .accentGold)
                 }
             }
             
@@ -216,7 +210,7 @@ struct FullGardenView: View {
         }
         .padding(Spacing.md)
         .background(
-            RoundedRectangle(cornerRadius: CornerRadius.lg)
+            Capsule()
                 .fill(Color.cardBackground.opacity(0.95))
                 .shadow(color: Color.black.opacity(0.1), radius: 8, x: 0, y: 2)
         )
@@ -224,22 +218,22 @@ struct FullGardenView: View {
         .padding(.top, Spacing.sm)
     }
     
-    private func statItem(icon: String, value: String, label: String, color: Color) -> some View {
-        HStack(spacing: Spacing.xs) {
+    private func statsCard(icon: String, value: String, label: String, color: Color) -> some View {
+        VStack(spacing: Spacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 14))
+                .font(.system(size: 16))
                 .foregroundColor(color)
+                .frame(width: 24, height: 24)
             
-            VStack(alignment: .leading, spacing: 0) {
-                Text(value)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.textPrimary)
-                
-                Text(label)
-                    .font(.system(size: 10))
-                    .foregroundColor(.textSecondary)
-            }
+            Text(value)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.textPrimary)
+            
+            Text(label)
+                .font(Typography.caption)
+                .foregroundColor(.textSecondary)
         }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
     
     // MARK: - Helper Functions

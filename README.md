@@ -4,7 +4,7 @@ Pocket Garden is a **privacy-first** iOS app for daily emotional wellness. All p
 
 #### What it does 📝
 - **Daily Check-in** - Log how you feel (1–10) and add a short note or voice journal
-- **AI-Powered Insights** - On-device transcription with cleanup; friendly panda feedback after saving
+- **AI-Powered Insights** - On-device transcription with cleanup; friendly Bumblebee feedback after saving
 - **Smart Quotes** - Daily/weekly quotes with AFM (iOS 26+) and robust fallback
 - **Forest Garden** - Trees grow with your consistency; tap trees to view entries, zoom/pan around your forest
 - **Sanctuary Activities** - Guided wellness exercises:

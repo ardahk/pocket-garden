@@ -2,7 +2,7 @@
 //  WeeklyInsightDetailView.swift
 //  pocket-garden
 //
-//  Weekly Insight Detail with Panda Motivation
+//  Weekly Insight Detail with Bumblebee Motivation
 //
 
 import SwiftUI
@@ -21,9 +21,16 @@ struct WeeklyInsightDetailView: View {
     @State private var weeklyPandaMessage: String?
     @State private var isLoadingPandaMessage = false
     
-    // Calendar state
-    @State private var isCalendarExpanded = false
+    // Calendar state - initialize expanded if requested
+    @State private var isCalendarExpanded: Bool
     @State private var selectedMonth = Date()
+    
+    init(entries: [EmotionEntry], startWithCalendarExpanded: Bool = false) {
+        self.entries = entries
+        self.startWithCalendarExpanded = startWithCalendarExpanded
+        // Initialize calendar state directly to avoid animation jump
+        self._isCalendarExpanded = State(initialValue: startWithCalendarExpanded)
+    }
     
     // Navigation to entry detail
     @State private var selectedDateForEntry: Date?
@@ -54,7 +61,7 @@ struct WeeklyInsightDetailView: View {
                 
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
-                        // Activity Calendar (replaces panda section)
+                        // Activity Calendar (replaces mascot section)
                         activityCalendarSection
                         
                         // Quote of the Week
@@ -66,7 +73,7 @@ struct WeeklyInsightDetailView: View {
                         // Detailed insights
                         insightsSection
                         
-                        // Panda's personalized motivation for the week
+                        // Bumblebee's personalized motivation for the week
                         motivationSection
                     }
                     .padding(.horizontal, Layout.screenPadding)
@@ -131,7 +138,7 @@ struct WeeklyInsightDetailView: View {
                 
                 StatCard(
                     value: String(format: "%.1f", weeklyAverageRating),
-                    label: "Avg Rating",
+                    label: "Avg Mood",
                     icon: "chart.line.uptrend.xyaxis",
                     color: .emotionContent
                 )
@@ -191,7 +198,7 @@ struct WeeklyInsightDetailView: View {
     
     private var motivationSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            Text("Panda's message for your week so far")
+            Text("Bumblebee's message for your week so far")
                 .font(Typography.headline)
                 .foregroundColor(.textPrimary)
             
@@ -205,7 +212,7 @@ struct WeeklyInsightDetailView: View {
                                 HStack(spacing: Spacing.sm) {
                                     ProgressView()
                                         .scaleEffect(0.8)
-                                    Text("Panda is reflecting on your week...")
+                                    Text("Bumblebee is reflecting on your week...")
                                         .font(Typography.body)
                                         .foregroundColor(.textSecondary)
                                 }
@@ -343,15 +350,31 @@ struct WeeklyInsightDetailView: View {
         return days.count
     }
     
+    private enum InsightCacheKeys {
+        static let trendText = "WeeklyInsightLastTrendText"
+        static let mostCommonMood = "WeeklyInsightLastMostCommonMood"
+        static let bestTimeOfDay = "WeeklyInsightLastBestTimeOfDay"
+    }
+    
     private var trendText: String {
+        // If there are no entries this week, reuse last cached value
+        if thisWeekEntries.isEmpty {
+            if let cached = UserDefaults.standard.string(forKey: InsightCacheKeys.trendText) {
+                return cached
+            }
+        }
+        
+        let value: String
         switch weeklyInsight.moodTrend {
         case .improving:
-            return "Improving 📈"
+            value = "Improving 📈"
         case .stable:
-            return "Stable ➡️"
+            value = "Stable ➡️"
         case .declining:
-            return "Challenging 📉"
+            value = "Challenging 📉"
         }
+        UserDefaults.standard.set(value, forKey: InsightCacheKeys.trendText)
+        return value
     }
     
     private var trendColor: Color {
@@ -359,17 +382,33 @@ struct WeeklyInsightDetailView: View {
     }
     
     private var mostCommonMood: String {
-        guard !thisWeekEntries.isEmpty else { return "N/A" }
+        if thisWeekEntries.isEmpty {
+            if let cached = UserDefaults.standard.string(forKey: InsightCacheKeys.mostCommonMood) {
+                return cached
+            }
+        }
         
         let avgRating = weeklyAverageRating
-        if avgRating >= 8 { return "Joyful 😊" }
-        if avgRating >= 6 { return "Content 😌" }
-        if avgRating >= 4 { return "Okay 😐" }
-        return "Struggling 😔"
+        let value: String
+        if avgRating >= 8 {
+            value = "Joyful 😊"
+        } else if avgRating >= 6 {
+            value = "Content 😌"
+        } else if avgRating >= 4 {
+            value = "Okay 😐"
+        } else {
+            value = "Struggling 😔"
+        }
+        UserDefaults.standard.set(value, forKey: InsightCacheKeys.mostCommonMood)
+        return value
     }
     
     private var bestTimeOfDay: String {
-        guard !thisWeekEntries.isEmpty else { return "N/A" }
+        if thisWeekEntries.isEmpty {
+            if let cached = UserDefaults.standard.string(forKey: InsightCacheKeys.bestTimeOfDay) {
+                return cached
+            }
+        }
         
         let calendar = Calendar.current
         let hours = thisWeekEntries.map { calendar.component(.hour, from: $0.date) }
@@ -379,9 +418,16 @@ struct WeeklyInsightDetailView: View {
         let eveningCount = hours.filter { $0 >= 17 }.count
         
         let max = Swift.max(morningCount, afternoonCount, eveningCount)
-        if max == morningCount { return "Morning 🌅" }
-        if max == afternoonCount { return "Afternoon ☀️" }
-        return "Evening 🌙"
+        let value: String
+        if max == morningCount {
+            value = "Morning 🌅"
+        } else if max == afternoonCount {
+            value = "Afternoon ☀️"
+        } else {
+            value = "Evening 🌙"
+        }
+        UserDefaults.standard.set(value, forKey: InsightCacheKeys.bestTimeOfDay)
+        return value
     }
     
     // MARK: - Weekly Quote Section
@@ -411,15 +457,32 @@ struct WeeklyInsightDetailView: View {
 
     // MARK: - Weekly Panda Message
 
+    private enum PandaCacheKeys {
+        static let weeklyMessage = "WeeklyPandaLastMessage"
+        static let weeklyMessageEntryCount = "WeeklyPandaLastEntryCount"
+    }
+
     private func loadWeeklyPandaMessage() async {
+        let currentCount = entries.count
+        let defaults = UserDefaults.standard
+
+        if let cached = defaults.string(forKey: PandaCacheKeys.weeklyMessage),
+           defaults.integer(forKey: PandaCacheKeys.weeklyMessageEntryCount) == currentCount {
+            await MainActor.run {
+                weeklyPandaMessage = cached
+            }
+            return
+        }
+
         guard !isLoadingPandaMessage else { return }
         isLoadingPandaMessage = true
 
-        let entriesForWeek = thisWeekEntries
-        let result = await PandaWeeklyFeedbackService.shared.generate(for: entriesForWeek)
+        let result = await PandaWeeklyFeedbackService.shared.generate(for: thisWeekEntries)
 
         await MainActor.run {
             weeklyPandaMessage = result.text
+            defaults.set(result.text, forKey: PandaCacheKeys.weeklyMessage)
+            defaults.set(currentCount, forKey: PandaCacheKeys.weeklyMessageEntryCount)
             isLoadingPandaMessage = false
         }
     }
@@ -700,10 +763,11 @@ struct ActivityCalendarView: View {
                 Button(action: { navigateMonth(by: -1) }) {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.primaryGreen)
+                        .foregroundColor(canNavigateBackward ? .primaryGreen : .textSecondary.opacity(0.3))
                         .frame(width: 36, height: 36)
-                        .background(Circle().fill(Color.primaryGreen.opacity(0.1)))
+                        .background(Circle().fill(canNavigateBackward ? Color.primaryGreen.opacity(0.1) : Color.clear))
                 }
+                .disabled(!canNavigateBackward)
                 
                 Spacer()
                 
@@ -930,20 +994,41 @@ struct ActivityCalendarView: View {
         return streak
     }
     
+    // Earliest and latest months that contain at least one entry
+    private var earliestEntryMonth: Date? {
+        guard let minDate = entries.map({ $0.date }).min() else { return nil }
+        return startOfMonth(for: minDate)
+    }
+    
+    private var latestEntryMonth: Date? {
+        guard let maxDate = entries.map({ $0.date }).max() else { return nil }
+        return startOfMonth(for: maxDate)
+    }
+    
+    private var canNavigateBackward: Bool {
+        guard let earliest = earliestEntryMonth else { return false }
+        let selected = startOfMonth(for: selectedMonth)
+        return selected > earliest
+    }
+    
     private var canNavigateForward: Bool {
-        let currentMonth = calendar.component(.month, from: Date())
-        let currentYear = calendar.component(.year, from: Date())
-        let selectedMonthNum = calendar.component(.month, from: selectedMonth)
-        let selectedYear = calendar.component(.year, from: selectedMonth)
-        
-        return selectedYear < currentYear || (selectedYear == currentYear && selectedMonthNum < currentMonth)
+        guard let latest = latestEntryMonth else { return false }
+        let selected = startOfMonth(for: selectedMonth)
+        return selected < latest
     }
     
     private func navigateMonth(by value: Int) {
         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            if let newMonth = calendar.date(byAdding: .month, value: value, to: selectedMonth) {
-                selectedMonth = newMonth
+            guard let rawNewMonth = calendar.date(byAdding: .month, value: value, to: selectedMonth) else { return }
+            var newMonth = startOfMonth(for: rawNewMonth)
+            
+            if let earliest = earliestEntryMonth, newMonth < earliest {
+                newMonth = earliest
             }
+            if let latest = latestEntryMonth, newMonth > latest {
+                newMonth = latest
+            }
+            selectedMonth = newMonth
         }
         Theme.Haptics.light()
     }
@@ -975,6 +1060,11 @@ struct ActivityCalendarView: View {
         }
         
         return days
+    }
+
+    private func startOfMonth(for date: Date) -> Date {
+        let components = calendar.dateComponents([.year, .month], from: date)
+        return calendar.date(from: components) ?? date
     }
     
     private func entriesInMonth(_ month: Date) -> [EmotionEntry] {

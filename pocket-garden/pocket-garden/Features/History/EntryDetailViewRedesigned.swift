@@ -43,7 +43,7 @@ struct EntryDetailViewRedesigned: View {
                         
                         // What Panda Says (AI Feedback)
                         if entry.hasAIFeedback {
-                            pandaFeedbackCard
+                            bumblebeeFeedbackCard
                         }
                     }
                     .padding(Layout.screenPadding)
@@ -215,17 +215,17 @@ struct EntryDetailViewRedesigned: View {
         .slideInFromBottom(delay: 0.2)
     }
     
-    // MARK: - Panda Feedback Card
+    // MARK: - Bumblebee Feedback Card
     
-    private var pandaFeedbackCard: some View {
+    private var bumblebeeFeedbackCard: some View {
         Card(backgroundColor: Color.accentGold.opacity(0.08)) {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 // Header with panda
                 HStack(spacing: Spacing.sm) {
-                    Text("🐼")
+                    Text("🐝")
                         .font(.system(size: 24))
                     
-                    Text("What Panda Says")
+                    Text("What Bumblebee Says")
                         .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(.textPrimary)
                     

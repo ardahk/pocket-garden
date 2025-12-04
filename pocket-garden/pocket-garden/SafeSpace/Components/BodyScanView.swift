@@ -57,14 +57,17 @@ struct BodyScanView: View {
                             .font(.system(size: 28, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color.textPrimary)
 
-                        Button {
-                            showInfoSheet = true
-                        } label: {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 18, weight: .regular))
-                                .foregroundStyle(Color.textSecondary.opacity(0.8))
+                        // Show info button only before the exercise begins
+                        if !hasStarted {
+                            Button {
+                                showInfoSheet = true
+                            } label: {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 18, weight: .regular))
+                                    .foregroundStyle(lavenderAccent.opacity(0.9))
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
 
                         Spacer()
                     }
@@ -261,7 +264,7 @@ struct BodyScanView: View {
                             destination: URL(string: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10844009/")!
                         )
                         .font(.subheadline)
-                        .foregroundStyle(Color.primaryGreen)
+                        .foregroundStyle(lavenderAccent)
                     }
                 }
                 .padding(.horizontal, 24)
@@ -634,7 +637,7 @@ struct IntroAnimatedView: View {
             .scaleEffect(showContent ? 1 : 0.8)
             .padding(.bottom, 8)
             
-            // Panda card
+            // Bumblebee card
             HStack(spacing: 12) {
                 Image("panda_supportive")
                     .resizable()
@@ -826,7 +829,7 @@ struct CompletionCelebrationView: View {
             .opacity(showContent ? 1 : 0)
             .offset(y: showContent ? 0 : 20)
             
-            // Panda message
+            // Bumblebee message
             HStack(spacing: 12) {
                 Image("panda_supportive")
                     .resizable()

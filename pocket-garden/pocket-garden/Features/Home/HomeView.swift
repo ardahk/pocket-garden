@@ -25,6 +25,7 @@ struct HomeView: View {
     @State private var anotherRating: Int = 7
     @State private var showWeeklyInsightDetail = false
     @State private var openWeeklyInsightWithCalendar = false
+    @State private var showMoodTrendChart = false
     
     // Quote of the day
     @State private var dailyQuote: Quote?
@@ -124,6 +125,9 @@ struct HomeView: View {
         .fullScreenCover(isPresented: $showSafeSpace) {
             SafeSpaceView(modelContext: modelContext)
         }
+        .sheet(isPresented: $showMoodTrendChart) {
+            MoodTrendChartView(entries: entries)
+        }
         .onAppear {
             checkTodayEntry()
         }
@@ -194,11 +198,16 @@ struct HomeView: View {
     }
 
     // MARK: - Today Entry Card
+    
+    /// Get the current growing tree (not fully grown)
+    private var currentGrowingTree: GrowingTree? {
+        allTrees.first(where: { !$0.isFullyGrown })
+    }
 
     private var todayEntryCard: some View {
         Group {
             if let todayEntry = entries.first(where: { $0.isToday }) {
-                let stage = TreeStage(rawValue: todayEntry.treeStage) ?? .seed
+                let treeInfo = currentTreeGrowthInfo
                 Card {
                     VStack(spacing: Spacing.lg) {
                         HStack {
@@ -238,10 +247,10 @@ struct HomeView: View {
                                     .foregroundColor(.textSecondary)
 
                                 HStack(spacing: Spacing.xs) {
-                                    Text(stage.emoji)
+                                    Text(treeInfo.emoji)
                                         .font(.system(size: 24))
 
-                                    Text(growthSummaryTitle(for: stage))
+                                    Text(treeInfo.title)
                                         .font(Typography.callout)
                                         .foregroundColor(.textPrimary)
                                         .lineLimit(1)
@@ -282,6 +291,49 @@ struct HomeView: View {
                 }
                 .slideInFromBottom(delay: 0.1)
             }
+        }
+    }
+    
+    /// Get growth info based on current tree's actual watering progress
+    private var currentTreeGrowthInfo: (emoji: String, title: String) {
+        guard let tree = currentGrowingTree else {
+            // No tree yet - first entry plants a seed
+            return ("🌱", "New seed planted")
+        }
+        
+        let waterCount = max(tree.waterCount, 0)
+        let daysToGrow = max(tree.daysToGrow, 1)
+        let treeType = TreeType(rawValue: tree.treeType) ?? .oak
+        let stage = tree.growthStage
+        let emoji = treeType.emojiForStage(stage)
+        let remainingDays = max(daysToGrow - waterCount, 0)
+
+        // Use the normalized growthStage (0–5) so stages line up correctly
+        // for different tree lengths: Oak (7 days), Pine (10), Cherry (14).
+        switch stage {
+        case 0:
+            // Just planted (day 1 for any tree type)
+            return (emoji, "New seed planted")
+        case 1:
+            // Very early growth
+            return (emoji, "Watering your seedling")
+        case 2:
+            // Early-middle
+            return (emoji, "Your sprout is growing")
+        case 3:
+            // Middle stage
+            return (emoji, "Your young tree is taking root")
+        case 4, 5:
+            // Late stages depend on remaining days
+            if remainingDays == 0 || tree.isFullyGrown {
+                return (emoji, "Tree fully grown! 🎉")
+            } else if remainingDays <= 2 {
+                return (emoji, "Almost fully grown")
+            } else {
+                return (emoji, "Your tree is growing strong")
+            }
+        default:
+            return (emoji, "Your tree is growing")
         }
     }
 
@@ -343,6 +395,10 @@ struct HomeView: View {
                     icon: "chart.line.uptrend.xyaxis",
                     color: .primaryGreen
                 )
+                .onTapGesture {
+                    showMoodTrendChart = true
+                    Theme.Haptics.light()
+                }
 
                 StatCard(
                     value: "\(totalTrees)",
@@ -463,21 +519,6 @@ struct HomeView: View {
 
     private var totalTrees: Int {
         allTrees.count
-    }
-    
-    private func growthSummaryTitle(for stage: TreeStage) -> String {
-        switch stage {
-        case .seed:
-            return "New seed planted"
-        case .sprout:
-            return "Your sprout is waking up"
-        case .youngTree:
-            return "Your tree is taking root"
-        case .matureTree:
-            return "Your tree is standing strong"
-        case .bloomingTree:
-            return "Your tree is in bloom"
-        }
     }
     
     private func growthSummarySubtitle(for rating: Int) -> String {
