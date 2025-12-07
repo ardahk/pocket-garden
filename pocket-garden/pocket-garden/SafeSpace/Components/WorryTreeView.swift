@@ -7,6 +7,8 @@ struct WorryTreeView: View {
     
     let onComplete: () -> Void
     
+    @State private var showIntro: Bool = true
+    @State private var showContent: Bool = false
     @State private var currentStep: WorryTreeStep = .identify
     @State private var worryText: String = ""
     @State private var canControl: Bool? = nil
@@ -35,6 +37,9 @@ struct WorryTreeView: View {
             .ignoresSafeArea()
             
             VStack(spacing: 0) {
+                if showIntro {
+                    worryTreeIntroView
+                } else {
                 ScrollView {
                     VStack(spacing: 32) {
                         // Header
@@ -133,13 +138,19 @@ struct WorryTreeView: View {
                 }
             }
             
-            if showPrimaryBottomButton {
+            if showPrimaryBottomButton && !showIntro {
                 VStack {
                     Spacer()
                     primaryBottomButton
                         .padding(.horizontal, 24)
                         .padding(.bottom, 40)
                 }
+            }
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                showContent = true
             }
         }
         .sheet(isPresented: $showHistory) {
@@ -149,6 +160,138 @@ struct WorryTreeView: View {
             worryTreeInfoSheet
         }
         .enableInjection()
+    }
+    
+    // MARK: - Intro View
+    
+    private var worryTreeIntroView: some View {
+        VStack(spacing: 32) {
+            Spacer()
+            
+            // Icon with glow
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.orange.opacity(0.2),
+                                Color.orange.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 140, height: 140)
+                
+                Image(systemName: "tree.fill")
+                    .font(.system(size: 50, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.orange, Color.orange.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+            .opacity(showContent ? 1 : 0)
+            .scaleEffect(showContent ? 1 : 0.8)
+            
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Spacer()
+                    
+                    Text("Worry Tree")
+                        .font(.system(size: 26, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                    
+                    Button {
+                        showInfoSheet = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(Color.orange.opacity(0.9))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                }
+                
+                Text("A structured way to process worries\nand decide what to do with them")
+                    .font(.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .lineSpacing(2)
+            }
+            .opacity(showContent ? 1 : 0)
+            .offset(y: showContent ? 0 : 20)
+            
+            // How it works
+            VStack(alignment: .leading, spacing: 16) {
+                Text("How it works")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.textSecondary)
+                
+                WorryTreeHowItWorksRow(number: 1, text: "Name the worry that's on your mind")
+                WorryTreeHowItWorksRow(number: 2, text: "Decide if you can do something about it")
+                WorryTreeHowItWorksRow(number: 3, text: "Make a plan or practice letting go")
+                WorryTreeHowItWorksRow(number: 4, text: "Get a gentle reflection from Bumblebee")
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.cardBackground)
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
+            )
+            .padding(.horizontal, 24)
+            .opacity(showContent ? 1 : 0)
+            .offset(y: showContent ? 0 : 30)
+            
+            // Bumblebee encouragement
+            HStack(spacing: 12) {
+                Image("panda_supportive")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 44, height: 44)
+                
+                Text("Worries are normal. Let's sort through this one together and find some clarity.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.cardBackground.opacity(0.8))
+            )
+            .padding(.horizontal, 24)
+            .opacity(showContent ? 1 : 0)
+            .offset(y: showContent ? 0 : 40)
+            
+            Spacer()
+            
+            // Begin button
+            Button(action: {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showIntro = false
+                }
+            }) {
+                Text("Begin")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.orange)
+                    )
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 40)
+            .buttonStyle(.plain)
+        }
     }
     
     @ViewBuilder
@@ -1133,6 +1276,31 @@ struct PandaSuggestionCard: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(Color.orange.opacity(0.1), lineWidth: 1)
         )
+    }
+}
+
+// MARK: - Worry Tree How It Works Row
+
+struct WorryTreeHowItWorksRow: View {
+    let number: Int
+    let text: String
+    
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(Color.orange.opacity(0.15))
+                    .frame(width: 28, height: 28)
+                
+                Text("\(number)")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.orange)
+            }
+            
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(Color.textPrimary)
+        }
     }
 }
 

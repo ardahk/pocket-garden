@@ -11,6 +11,9 @@ struct GroundingTechniqueView: View {
     @State private var itemsCompletedForStep: Int = 0
     @State private var iconPulse = false
     @State private var bubbleScales: [CGFloat] = []
+    @State private var showIntro = true
+    @State private var showContent = false
+    @State private var showInfoSheet = false
     @Environment(\.dismiss) private var dismiss
     
     // Cohesive teal/cyan grounding theme
@@ -66,18 +69,36 @@ struct GroundingTechniqueView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // Header
-                VStack(spacing: 8) {
-                    Text("Grounding")
-                        .font(.system(size: 28, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.textPrimary)
+                if showIntro {
+                    introView
+                } else {
+                    // Header
+                    VStack(spacing: 8) {
+                        HStack(spacing: 8) {
+                            Spacer()
+                            
+                            Text("Grounding")
+                                .font(.system(size: 28, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color.textPrimary)
+                            
+                            Button {
+                                showInfoSheet = true
+                            } label: {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 18, weight: .regular))
+                                    .foregroundStyle(groundingTeal.opacity(0.9))
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Spacer()
+                        }
 
-                    Text("5-4-3-2-1 technique")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.textSecondary)
-                }
-                .padding(.top, 40)
-                .padding(.bottom, 24)
+                        Text("5-4-3-2-1 technique")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    .padding(.top, 40)
+                    .padding(.bottom, 24)
 
                 // Progress indicators with step numbers
                 HStack(spacing: 12) {
@@ -237,9 +258,201 @@ struct GroundingTechniqueView: View {
                     // Completion view
                     completionView
                 }
+                }
             }
         }
+        .onAppear {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+                showContent = true
+            }
+        }
+        .sheet(isPresented: $showInfoSheet) {
+            groundingInfoSheet
+        }
         .enableInjection()
+    }
+    
+    // MARK: - Intro View
+    
+    private var introView: some View {
+        VStack(spacing: 32) {
+            Spacer()
+            
+            // Icon with glow
+            ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                groundingTeal.opacity(0.2),
+                                groundingTeal.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 80
+                        )
+                    )
+                    .frame(width: 140, height: 140)
+                
+                Image(systemName: "hand.point.down.fill")
+                    .font(.system(size: 50, weight: .medium))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [groundingTealLight, groundingTeal],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+            }
+            .opacity(showContent ? 1 : 0)
+            .scaleEffect(showContent ? 1 : 0.8)
+            
+            VStack(spacing: 12) {
+                HStack(spacing: 8) {
+                    Spacer()
+                    
+                    Text("Grounding")
+                        .font(.system(size: 26, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                    
+                    Button {
+                        showInfoSheet = true
+                    } label: {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 18, weight: .regular))
+                            .foregroundStyle(groundingTeal.opacity(0.9))
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                }
+                
+                Text("A quick way to anchor yourself\nin the present moment when overwhelmed")
+                    .font(.body)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+                    .lineSpacing(2)
+            }
+            .opacity(showContent ? 1 : 0)
+            .offset(y: showContent ? 0 : 20)
+            
+            // How it works
+            VStack(alignment: .leading, spacing: 16) {
+                Text("How it works")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.textSecondary)
+                
+                HowItWorksRow(number: 5, text: "Name 5 things you can see")
+                HowItWorksRow(number: 4, text: "Name 4 things you can touch")
+                HowItWorksRow(number: 3, text: "Name 3 things you can hear")
+                HowItWorksRow(number: 2, text: "Name 2 things you can smell")
+                HowItWorksRow(number: 1, text: "Name 1 thing you can taste")
+            }
+            .padding(20)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.cardBackground)
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
+            )
+            .padding(.horizontal, 24)
+            .opacity(showContent ? 1 : 0)
+            .offset(y: showContent ? 0 : 30)
+            
+            // Bumblebee encouragement
+            HStack(spacing: 12) {
+                Image("panda_supportive")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 44, height: 44)
+                
+                Text("This simple technique can help calm your nervous system in just a few minutes.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.cardBackground.opacity(0.8))
+            )
+            .padding(.horizontal, 24)
+            .opacity(showContent ? 1 : 0)
+            .offset(y: showContent ? 0 : 40)
+            
+            Spacer()
+            
+            // Begin button
+            Button(action: {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    showIntro = false
+                }
+            }) {
+                Text("Begin")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(groundingTeal)
+                    )
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 40)
+            .buttonStyle(.plain)
+        }
+    }
+    
+    // MARK: - Info Sheet
+    
+    private var groundingInfoSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    Text("Why this exercise helps")
+                        .font(.system(size: 20, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                    
+                    Text("The 5-4-3-2-1 grounding technique uses your five senses to shift attention away from anxious thoughts and back to the present moment. By systematically noticing what you can see, touch, hear, smell, and taste, you interrupt the worry cycle and activate your body's calming response.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    Text("Grounding exercises like this one are commonly used in trauma-informed care and anxiety treatment. Research shows that sensory-based techniques can reduce physiological arousal and help people feel more in control during moments of distress.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Source")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.textPrimary)
+                        
+                        if let url = URL(string: "https://www.urmc.rochester.edu/behavioral-health-partners/bhp-blog/april-2018/5-4-3-2-1-coping-technique-for-anxiety.aspx") {
+                            Link("University of Rochester Medical Center – 5-4-3-2-1 Coping Technique for Anxiety", destination: url)
+                                .font(.subheadline)
+                                .foregroundStyle(groundingTeal)
+                        }
+                    }
+                }
+                .padding(.horizontal, 24)
+                .padding(.top, 24)
+                .padding(.bottom, 32)
+            }
+            .navigationTitle("Science behind this")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") {
+                        showInfoSheet = false
+                    }
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(groundingTeal)
+                }
+            }
+        }
     }
     
     private func setupBubbleScales(for count: Int) {

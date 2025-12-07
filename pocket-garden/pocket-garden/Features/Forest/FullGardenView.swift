@@ -30,6 +30,15 @@ struct FullGardenView: View {
         grownTrees.filter { $0.isFullyGrown }
     }
     
+    private var currentlyGrowingTree: GrowingTree? {
+        grownTrees.first(where: { !$0.isFullyGrown })
+    }
+    
+    private var totalTreeCount: Int {
+        // Count fully grown trees + 1 if there's a tree currently growing
+        fullyGrownTrees.count + (currentlyGrowingTree != nil ? 1 : 0)
+    }
+    
     private var canvasSize: CGFloat {
         // Dynamic canvas size based on tree count
         let baseSize: CGFloat = 600
@@ -42,7 +51,7 @@ struct FullGardenView: View {
             // Background
             ForestBackgroundView(weather: .sunny, scrollOffset: 0)
             
-            if fullyGrownTrees.isEmpty {
+            if fullyGrownTrees.isEmpty && currentlyGrowingTree == nil {
                 emptyGardenView
             } else {
                 gardenCanvasView
@@ -118,12 +127,22 @@ struct FullGardenView: View {
             let bounds = calculateBounds(positions: treePositions, screenSize: geometry.size)
             
             ZStack {
-                // Trees
+                // Fully grown trees
                 ForEach(Array(zip(fullyGrownTrees, treePositions)), id: \.0.id) { tree, position in
                     GardenTreeView(tree: tree, globalScale: scale)
                         .position(position)
                         .onTapGesture {
                             handleTreeTap(tree: tree)
+                        }
+                }
+                
+                // Currently growing tree (shown with its current stage emoji)
+                if let growingTree = currentlyGrowingTree {
+                    let growingPosition = calculateGrowingTreePosition(in: geometry.size, existingPositions: treePositions)
+                    GrowingTreeInGardenView(tree: growingTree, globalScale: scale)
+                        .position(growingPosition)
+                        .onTapGesture {
+                            handleTreeTap(tree: growingTree)
                         }
                 }
             }
@@ -179,8 +198,8 @@ struct FullGardenView: View {
         VStack(spacing: Spacing.sm) {
             // Main stats row - capsule style matching ForestGardenViewRedesigned
             HStack(alignment: .top, spacing: Spacing.md) {
-                // Tree count
-                statsCard(icon: "tree.fill", value: "\(fullyGrownTrees.count)", label: "Trees", color: .primaryGreen)
+                // Tree count (includes growing tree)
+                statsCard(icon: "tree.fill", value: "\(totalTreeCount)", label: "Trees", color: .primaryGreen)
                 
                 // Total waterings
                 statsCard(icon: "drop.fill", value: "\(totalWaterings)", label: "Waterings", color: .emotionContent)
@@ -192,15 +211,18 @@ struct FullGardenView: View {
                 }
             }
             
-            // Tree type breakdown
+            // Tree type breakdown (including growing tree)
             HStack(spacing: Spacing.md) {
                 ForEach(TreeType.allCases, id: \.self) { type in
-                    let count = fullyGrownTrees.filter { $0.treeType == type.rawValue }.count
-                    if count > 0 {
+                    let fullyGrownCount = fullyGrownTrees.filter { $0.treeType == type.rawValue }.count
+                    let growingCount = (currentlyGrowingTree?.treeType == type.rawValue) ? 1 : 0
+                    let totalCount = fullyGrownCount + growingCount
+                    
+                    if totalCount > 0 {
                         HStack(spacing: 4) {
                             Text(type.emoji)
                                 .font(.system(size: 14))
-                            Text("\(count)")
+                            Text("\(totalCount)")
                                 .font(Typography.caption)
                                 .foregroundColor(.textSecondary)
                         }
@@ -308,10 +330,29 @@ struct FullGardenView: View {
     }
     
     private func autoZoomToFit() {
-        let treeCount = fullyGrownTrees.count
+        let treeCount = totalTreeCount
         if treeCount > 5 {
             scale = max(minScale, 1.0 - CGFloat(treeCount) * 0.03)
         }
+    }
+    
+    private func calculateGrowingTreePosition(in size: CGSize, existingPositions: [CGPoint]) -> CGPoint {
+        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+        
+        // If no fully grown trees, place growing tree at center
+        if existingPositions.isEmpty {
+            return center
+        }
+        
+        // Otherwise place it in a new position using the same algorithm
+        let count = existingPositions.count
+        let angle = Double(count) * (2 * .pi / Double(max(1, count))) - .pi / 2
+        let radius = min(size.width, size.height) * 0.28
+        
+        return CGPoint(
+            x: center.x + CGFloat(Darwin.cos(angle)) * radius,
+            y: center.y + CGFloat(Darwin.sin(angle)) * radius
+        )
     }
     
     private func handleTreeTap(tree: GrowingTree) {
@@ -375,6 +416,78 @@ struct GardenTreeView: View {
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double.random(in: 0...0.2))) {
                 isAnimating = true
+            }
+        }
+    }
+}
+
+// MARK: - Growing Tree In Garden View (shows current growth stage)
+
+struct GrowingTreeInGardenView: View {
+    let tree: GrowingTree
+    let globalScale: CGFloat
+    
+    @State private var isAnimating = false
+    @State private var isPulsing = false
+    
+    private var treeType: TreeType {
+        TreeType(rawValue: tree.treeType) ?? .oak
+    }
+    
+    private var currentStageEmoji: String {
+        treeType.emojiForStage(tree.growthStage)
+    }
+    
+    private var progressLabel: String {
+        "Day \(tree.waterCount)/\(tree.daysToGrow)"
+    }
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            // Tree with pulsing glow to indicate it's growing
+            ZStack {
+                // Pulsing glow effect
+                Circle()
+                    .fill(Color.primaryGreen.opacity(0.2))
+                    .frame(width: 70, height: 70)
+                    .scaleEffect(isPulsing ? 1.2 : 0.9)
+                    .opacity(isPulsing ? 0.3 : 0.6)
+                
+                // Shadow
+                Text(currentStageEmoji)
+                    .font(.system(size: 50))
+                    .opacity(0.3)
+                    .blur(radius: 3)
+                    .offset(x: 3, y: 5)
+                
+                // Current stage emoji
+                Text(currentStageEmoji)
+                    .font(.system(size: 50))
+                    .scaleEffect(isAnimating ? 1.0 : 0.8)
+            }
+            
+            // Label with progress (visible when zoomed in)
+            if globalScale > 0.5 {
+                VStack(spacing: 2) {
+                    Text(treeType.name)
+                        .font(.system(size: 11))
+                        .foregroundColor(.textSecondary)
+                    
+                    Text(progressLabel)
+                        .font(.system(size: 9, weight: .medium))
+                        .foregroundColor(.primaryGreen)
+                }
+                .opacity(globalScale > 0.7 ? 1.0 : (globalScale - 0.5) * 5.0)
+            }
+        }
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double.random(in: 0...0.2))) {
+                isAnimating = true
+            }
+            
+            // Start pulsing animation
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                isPulsing = true
             }
         }
     }

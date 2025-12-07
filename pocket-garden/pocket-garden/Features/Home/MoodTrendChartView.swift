@@ -13,7 +13,6 @@ struct MoodTrendChartView: View {
     @Environment(\.dismiss) private var dismiss
     
     @State private var weekOffset: Int = 0
-    @State private var selectedDataPoint: ChartDataPoint?
     
     // MARK: - Computed Properties
     
@@ -238,12 +237,7 @@ struct MoodTrendChartView: View {
                         y: .value("Mood", dataPoint.rating)
                     )
                     .foregroundStyle(Color.emotionColor(for: dataPoint.rating))
-                    .symbolSize(selectedDataPoint?.id == dataPoint.id ? 150 : 80)
-                    .annotation(position: .top, spacing: 8) {
-                        if selectedDataPoint?.id == dataPoint.id {
-                            annotationView(for: dataPoint)
-                        }
-                    }
+                    .symbolSize(80)
                 }
             }
             .chartYScale(domain: 1...10)
@@ -271,60 +265,13 @@ struct MoodTrendChartView: View {
                     }
                 }
             }
-            .chartOverlay { proxy in
-                GeometryReader { geometry in
-                    Rectangle()
-                        .fill(Color.clear)
-                        .contentShape(Rectangle())
-                        .gesture(
-                            DragGesture(minimumDistance: 0)
-                                .onChanged { value in
-                                    handleChartInteraction(at: value.location, proxy: proxy, geometry: geometry)
-                                }
-                                .onEnded { _ in
-                                    withAnimation(.easeOut(duration: 0.2)) {
-                                        selectedDataPoint = nil
-                                    }
-                                }
-                        )
-                }
+            .chartOverlay { _ in
+                // Disable interaction - just display the chart
+                Color.clear
+                    .contentShape(Rectangle())
+                    .allowsHitTesting(false)
             }
             .frame(height: 200)
-        }
-    }
-    
-    private func annotationView(for dataPoint: ChartDataPoint) -> some View {
-        VStack(spacing: 2) {
-            Text(Theme.emotionLabel(for: dataPoint.rating))
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.textPrimary)
-            
-            Text("\(dataPoint.rating)")
-                .font(.system(size: 13, weight: .bold, design: .rounded))
-                .foregroundStyle(Color.emotionColor(for: dataPoint.rating))
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(Color.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .shadow(color: Color.shadowColor, radius: 4, x: 0, y: 2)
-    }
-    
-    private func handleChartInteraction(at location: CGPoint, proxy: ChartProxy, geometry: GeometryProxy) {
-        let xPosition = location.x - geometry[proxy.plotFrame!].origin.x
-        
-        guard let date: Date = proxy.value(atX: xPosition) else { return }
-        
-        // Find the closest data point
-        let closest = weekEntriesWithData.min { a, b in
-            abs(a.date.timeIntervalSince(date)) < abs(b.date.timeIntervalSince(date))
-        }
-        
-        if let closest = closest {
-            withAnimation(.easeOut(duration: 0.15)) {
-                selectedDataPoint = closest
-            }
-            Theme.Haptics.selection()
         }
     }
     

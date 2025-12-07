@@ -19,13 +19,14 @@ struct HomeView: View {
     @State private var capturedRating: Int = 7
     @State private var showJournalSheet = false
     @State private var showExperimentalJournalSheet = false
-    @State private var hasSubmittedToday = false
     @State private var selectedEntry: EmotionEntry?
     @State private var showMoodRatingSheet = false
     @State private var anotherRating: Int = 7
+    @State private var isFirstEntryOfSession = true
     @State private var showWeeklyInsightDetail = false
     @State private var openWeeklyInsightWithCalendar = false
     @State private var showMoodTrendChart = false
+    @State private var showForestView = false
     
     // Quote of the day
     @State private var dailyQuote: Quote?
@@ -42,40 +43,38 @@ struct HomeView: View {
                 .ignoresSafeArea()
 
             // Vertical-only scrolling to avoid horizontal panning
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(spacing: Spacing.xl) {
-                    // Header
-                    headerSection
-                        .padding(.top, Spacing.md)
-                    
-                    // Quote of the Day
-                    quoteOfTheDaySection
+            GeometryReader { geometry in
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: Spacing.xl) {
+                        // Header
+                        headerSection
+                            .padding(.top, Spacing.md)
+                        
+                        // Quote of the Day
+                        quoteOfTheDaySection
 
-                    // Safe Space - Always visible
-                    safeSpaceSection
+                        // Safe Space - Always visible
+                        safeSpaceSection
 
-                    // Daily Challenge Card
-                    if !hasSubmittedToday {
-                        dailyChallengeSection
+                        // Daily Challenge / Today summary
+                        if !hasEntryToday {
+                            dailyChallengeSection
+                        } else {
+                            todayEntryCard
+                        }
+
+                        // Stats Overview
+                        statsSection
+
+                        // Weekly Insight (show if user has entries)
+                        if !entries.isEmpty {
+                            weeklyInsightSection
+                        }
                     }
-
-                    // Daily Rating Card
-                    if !hasSubmittedToday {
-                        dailyRatingCard
-                    } else {
-                        todayEntryCard
-                    }
-
-                    // Stats Overview
-                    statsSection
-
-                    // Weekly Insight (show if user has entries)
-                    if !entries.isEmpty {
-                        weeklyInsightSection
-                    }
+                    .padding(.horizontal, Layout.screenPadding)
+                    .padding(.bottom, Spacing.xxxl)
+                    .frame(width: geometry.size.width)
                 }
-                .padding(.horizontal, Layout.screenPadding)
-                .padding(.bottom, Spacing.xxxl)
             }
         }
         .navigationBarHidden(true)
@@ -98,7 +97,7 @@ struct HomeView: View {
                         .ignoresSafeArea()
                     VStack(spacing: Spacing.xl) {
                         VStack(spacing: Spacing.sm) {
-                            Text("How are you feeling now?")
+                            Text(moodPromptTitle)
                                 .font(Typography.title2)
                                 .foregroundColor(.textPrimary)
                                 .multilineTextAlignment(.center)
@@ -127,9 +126,6 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showMoodTrendChart) {
             MoodTrendChartView(entries: entries)
-        }
-        .onAppear {
-            checkTodayEntry()
         }
         .enableInjection()
     }
@@ -160,42 +156,18 @@ struct HomeView: View {
 
             DailyChallengeCard(
                 challenge: DailyChallenge.todaysChallenge(),
-                hasCompletedToday: hasSubmittedToday
+                hasCompletedToday: hasEntryToday
             ) {
-                // Show mood rating first
+                // Always route through mood rating before journaling
+                // isFirstEntryOfSession stays true until first journal is completed
+                anotherRating = todayRating
                 showMoodRatingSheet = true
             }
         }
         .slideInFromBottom(delay: 0.05)
     }
 
-    // MARK: - Daily Rating Card
-
-    private var dailyRatingCard: some View {
-        Card {
-            VStack(spacing: Spacing.xl) {
-                VStack(spacing: Spacing.sm) {
-                    Text("How are you feeling today?")
-                        .font(Typography.title2)
-                        .foregroundColor(.textPrimary)
-                        .multilineTextAlignment(.center)
-
-                    Text("Rate your emotional wellness")
-                        .font(Typography.callout)
-                        .foregroundColor(.textSecondary)
-                }
-
-                EmotionSlider(rating: $todayRating)
-
-                PrimaryButton("Continue to Journal", icon: "arrow.right") {
-                    capturedRating = todayRating
-                    showJournalSheet = true
-                }
-            }
-            .padding(.vertical, Spacing.md)
-        }
-        .slideInFromBottom(delay: 0.1)
-    }
+    // (Daily rating card removed – mood rating now appears only when starting journaling)
 
     // MARK: - Today Entry Card
     
@@ -270,8 +242,9 @@ struct HomeView: View {
                         .background(Color.backgroundCream.opacity(0.5))
                         .cornerRadius(CornerRadius.sm)
 
-                        // Record another journal for testing or multiple entries per day
+                        // Record another journal for multiple entries per day
                         PrimaryButton("Record Another Journal", icon: "mic.fill") {
+                            isFirstEntryOfSession = false
                             anotherRating = todayRating
                             showMoodRatingSheet = true
                             Theme.Haptics.light()
@@ -406,9 +379,18 @@ struct HomeView: View {
                     icon: "leaf.fill",
                     color: .emotionContent
                 )
+                .onTapGesture {
+                    showForestView = true
+                    Theme.Haptics.light()
+                }
             }
         }
         .slideInFromBottom(delay: 0.3)
+        .sheet(isPresented: $showForestView) {
+            NavigationStack {
+                FullGardenView()
+            }
+        }
     }
 
     // MARK: - Weekly Insight Section
@@ -459,8 +441,10 @@ struct HomeView: View {
                     description: "Start your emotional wellness journey today",
                     actionTitle: "Create First Entry",
                     action: {
-                        capturedRating = todayRating
-                        showJournalSheet = true
+                        // First entry goes through mood rating sheet as well
+                        // isFirstEntryOfSession stays true until first journal is completed
+                        anotherRating = todayRating
+                        showMoodRatingSheet = true
                     },
                     showMascot: true
                 )
@@ -521,6 +505,15 @@ struct HomeView: View {
         allTrees.count
     }
     
+    private var moodPromptTitle: String {
+        isFirstEntryOfSession ? "How are you feeling today?" : "How are you feeling now?"
+    }
+    
+    /// Computed property that directly checks entries for today
+    private var hasEntryToday: Bool {
+        entries.contains { $0.isToday }
+    }
+    
     private func growthSummarySubtitle(for rating: Int) -> String {
         let avg = averageRating
         guard avg > 0 else {
@@ -538,12 +531,6 @@ struct HomeView: View {
         }
     }
 
-    // MARK: - Helper Methods
-
-    private func checkTodayEntry() {
-        hasSubmittedToday = entries.contains { $0.isToday }
-    }
-    
     // MARK: - Quote of the Day Section
     
     private var quoteOfTheDaySection: some View {

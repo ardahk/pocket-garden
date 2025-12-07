@@ -15,6 +15,7 @@ struct EntriesListViewRedesigned: View {
     @State private var searchText = ""
     @State private var selectedEntry: EmotionEntry?
     @State private var showFavoritesOnly = false
+    @State private var showSettings = false
     
     private var entries: [EmotionEntry] {
         showFavoritesOnly ? allEntries.filter { $0.isFavorite } : allEntries
@@ -36,16 +37,28 @@ struct EntriesListViewRedesigned: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    // Favorites filter button
-                    Button(action: {
-                        withAnimation {
-                            showFavoritesOnly.toggle()
+                    HStack(spacing: Spacing.md) {
+                        // Favorites filter button
+                        Button(action: {
+                            withAnimation {
+                                showFavoritesOnly.toggle()
+                            }
+                            Theme.Haptics.light()
+                        }) {
+                            Image(systemName: showFavoritesOnly ? "heart.fill" : "heart")
+                                .foregroundColor(showFavoritesOnly ? .errorRed : .textSecondary)
+                                .font(.system(size: 20))
                         }
-                        Theme.Haptics.light()
-                    }) {
-                        Image(systemName: showFavoritesOnly ? "heart.fill" : "heart")
-                            .foregroundColor(showFavoritesOnly ? .errorRed : .textSecondary)
-                            .font(.system(size: 20))
+                        
+                        // Settings button
+                        Button(action: {
+                            showSettings = true
+                            Theme.Haptics.light()
+                        }) {
+                            Image(systemName: "gearshape")
+                                .foregroundColor(.textSecondary)
+                                .font(.system(size: 20))
+                        }
                     }
                 }
             }
@@ -55,6 +68,9 @@ struct EntriesListViewRedesigned: View {
             )
             .sheet(item: $selectedEntry) { entry in
                 EntryDetailViewRedesigned(entry: entry)
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
             }
         }
     }
