@@ -12,9 +12,11 @@ struct AffirmationsView: View {
     @State private var affirmations: [Affirmation] = []
     @State private var dragOffset: CGSize = .zero
     @State private var hasSwiped: Bool = false
-    @State private var shufflesRemainingToday: Int = 10 // Interpreted as swipes remaining today
+    @State private var maxViewedIndex: Int = 0 // Tracks the furthest card the user has seen today
     @State private var showDailyIntro: Bool = false
     @State private var showInfoSheet: Bool = false
+    @State private var showIntroContent: Bool = false
+    @State private var heartScale: CGFloat = 1.0
     
     // Soft rose accent for affirmations theme
     private let affirmationAccent = Color(red: 0.94, green: 0.54, blue: 0.60)
@@ -110,15 +112,19 @@ struct AffirmationsView: View {
                     // Instructions
                     VStack(spacing: 16) {
                         if !hasSwiped {
-                            HStack(spacing: 12) {
-                                Image("panda_supportive")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: 50, height: 50)
+                            VStack(spacing: 12) {
+                                HStack(spacing: 12) {
+                                    Image("panda_supportive")
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 50, height: 50)
 
-                                Text("Swipe left or right to move through today's affirmations")
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color.textSecondary)
+                                    Text("Swipe left or right to move through today's affirmations")
+                                        .font(.subheadline)
+                                        .foregroundStyle(Color.textSecondary)
+                                        .multilineTextAlignment(.leading)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
                             }
                             .padding(16)
                             .background(
@@ -128,7 +134,8 @@ struct AffirmationsView: View {
                             .padding(.horizontal, 24)
                         }
 
-                        Text("\(shufflesRemainingToday) swipe\(shufflesRemainingToday == 1 ? "" : "s") left today")
+                        // Show progress indicator
+                        Text("\(currentIndex + 1) of \(affirmations.count)")
                             .font(.caption2)
                             .foregroundStyle(Color.textSecondary.opacity(0.8))
 
@@ -166,59 +173,150 @@ struct AffirmationsView: View {
     // MARK: - Intro & Setup
 
     private var introView: some View {
-        VStack(spacing: 24) {
-            HStack(spacing: 12) {
-                Image("panda_supportive")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 56, height: 56)
+        GeometryReader { geometry in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // Animated heart icon with glow
+                    ZStack {
+                        // Glow effect
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        affirmationAccent.opacity(0.25),
+                                        affirmationAccent.opacity(0.08),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 20,
+                                    endRadius: 70
+                                )
+                            )
+                            .frame(width: 120, height: 120)
+                            .scaleEffect(heartScale)
+                        
+                        // Floating hearts decoration
+                        ForEach(0..<3, id: \.self) { i in
+                            Image(systemName: "heart.fill")
+                                .font(.system(size: 14))
+                                .foregroundStyle(affirmationAccent.opacity(0.3))
+                                .offset(
+                                    x: CGFloat([-30, 35, -20][i]),
+                                    y: CGFloat([-25, -15, 30][i])
+                                )
+                                .scaleEffect(heartScale * 0.8)
+                        }
+                        
+                        // Main heart
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 48, weight: .medium))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [affirmationAccent, affirmationAccent.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .scaleEffect(heartScale)
+                    }
+                    .padding(.top, geometry.safeAreaInsets.top > 50 ? 16 : 8)
+                    .opacity(showIntroContent ? 1 : 0)
+                    .onAppear {
+                        withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                            showIntroContent = true
+                        }
+                        // Gentle pulsing animation
+                        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                            heartScale = 1.08
+                        }
+                    }
+                    
+                    // Bumblebee message
+                    HStack(spacing: 12) {
+                        Image("panda_supportive")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 48, height: 48)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Today's gentle affirmations")
-                        .font(.headline)
-                        .foregroundStyle(Color.textPrimary)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Today's gentle affirmations")
+                                .font(.headline)
+                                .foregroundStyle(Color.textPrimary)
 
-                    Text("Here are 10 kind thoughts picked for you today. Swipe slowly and let each one sink in.")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.textSecondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            .padding(16)
-            .background(Color.cardBackground)
-            .cornerRadius(16)
-            .padding(.horizontal, 24)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("How it works")
-                    .font(.headline)
-                    .foregroundStyle(Color.textPrimary)
-
-                Text("• You get up to 10 affirmation swipes each day.\n• Move forward with a gentle swipe left.\n• You can always swipe right to revisit a card you've already seen.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(16)
-            .background(Color.cardBackground.opacity(0.6))
-            .cornerRadius(16)
-            .padding(.horizontal, 24)
-
-            Button(action: {
-                showDailyIntro = false
-            }) {
-                Text("Show Today's Affirmations")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                            Text("Here are 10 kind thoughts picked for you today. Swipe slowly and let each one sink in.")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(16)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(affirmationAccent)
+                            .fill(Color.cardBackground)
+                            .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
                     )
+                    .padding(.horizontal, 24)
+                    .opacity(showIntroContent ? 1 : 0)
+                    .offset(y: showIntroContent ? 0 : 20)
+
+                    // How it works
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("How it works")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.textSecondary)
+                        
+                        VStack(alignment: .leading, spacing: 10) {
+                            howItWorksRow(icon: "sparkles", text: "10 affirmations selected for you each day")
+                            howItWorksRow(icon: "hand.draw", text: "Swipe left or right to move through them")
+                            howItWorksRow(icon: "arrow.clockwise", text: "Come back anytime to revisit")
+                        }
+                    }
+                    .padding(18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.cardBackground.opacity(0.7))
+                    )
+                    .padding(.horizontal, 24)
+                    .opacity(showIntroContent ? 1 : 0)
+                    .offset(y: showIntroContent ? 0 : 30)
+
+                    // Begin button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showDailyIntro = false
+                        }
+                    }) {
+                        Text("Show Today's Affirmations")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(affirmationAccent)
+                            )
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
+                    .padding(.bottom, 24)
+                    .buttonStyle(.plain)
+                    .opacity(showIntroContent ? 1 : 0)
+                }
+                .frame(minHeight: geometry.size.height)
             }
-            .padding(.horizontal, 24)
-            .buttonStyle(.plain)
+        }
+    }
+    
+    private func howItWorksRow(icon: String, text: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(affirmationAccent)
+                .frame(width: 24)
+            
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(Color.textSecondary)
         }
     }
 
@@ -273,30 +371,56 @@ struct AffirmationsView: View {
 
     private func setupAffirmations() {
         allAffirmations = Affirmation.defaultAffirmations
-        loadShuffleCount()
-        affirmations = allAffirmations.shuffled()
-        currentIndex = 0
+        loadDailyAffirmations()
     }
     
-    private func loadShuffleCount() {
+    private func loadDailyAffirmations() {
         let today = Calendar.current.startOfDay(for: Date())
         let defaults = UserDefaults.standard
         
+        // Check if we have affirmations saved for today
         if let lastDate = defaults.object(forKey: "lastAffirmationShuffleDate") as? Date,
-           Calendar.current.isDate(lastDate, inSameDayAs: today) {
-            shufflesRemainingToday = max(0, defaults.integer(forKey: "affirmationShufflesRemaining"))
+           Calendar.current.isDate(lastDate, inSameDayAs: today),
+           let savedData = defaults.data(forKey: "todayAffirmations"),
+           let savedAffirmations = try? JSONDecoder().decode([Affirmation].self, from: savedData),
+           !savedAffirmations.isEmpty {
+            // Returning user - restore today's affirmations
+            affirmations = savedAffirmations
+            currentIndex = defaults.integer(forKey: "affirmationCurrentIndex")
+            maxViewedIndex = defaults.integer(forKey: "affirmationMaxViewedIndex")
             showDailyIntro = false
         } else {
-            shufflesRemainingToday = 10
-            defaults.set(today, forKey: "lastAffirmationShuffleDate")
-            defaults.set(10, forKey: "affirmationShufflesRemaining")
+            // New day - shuffle and pick 10 affirmations
+            let shuffled = allAffirmations.shuffled()
+            affirmations = Array(shuffled.prefix(10))
+            currentIndex = 0
+            maxViewedIndex = 0
             showDailyIntro = true
+            
+            // Save for today
+            defaults.set(today, forKey: "lastAffirmationShuffleDate")
+            saveTodayAffirmations()
         }
     }
     
-    private func decrementShuffleCount() {
-        shufflesRemainingToday = max(0, shufflesRemainingToday - 1)
-        UserDefaults.standard.set(shufflesRemainingToday, forKey: "affirmationShufflesRemaining")
+    private func saveTodayAffirmations() {
+        let defaults = UserDefaults.standard
+        if let data = try? JSONEncoder().encode(affirmations) {
+            defaults.set(data, forKey: "todayAffirmations")
+        }
+        defaults.set(currentIndex, forKey: "affirmationCurrentIndex")
+        defaults.set(maxViewedIndex, forKey: "affirmationMaxViewedIndex")
+    }
+    
+    private func saveCurrentIndex() {
+        UserDefaults.standard.set(currentIndex, forKey: "affirmationCurrentIndex")
+    }
+    
+    private func updateMaxViewedIndex() {
+        if currentIndex > maxViewedIndex {
+            maxViewedIndex = currentIndex
+            UserDefaults.standard.set(maxViewedIndex, forKey: "affirmationMaxViewedIndex")
+        }
     }
 
     // MARK: - Swipe Handling
@@ -313,14 +437,16 @@ struct AffirmationsView: View {
 
                 if value.translation.width < 0 {
                     // Swipe left - next affirmation
-                    if currentIndex < affirmations.count - 1 && shufflesRemainingToday > 0 {
+                    if currentIndex < affirmations.count - 1 {
                         currentIndex += 1
-                        decrementShuffleCount()
+                        updateMaxViewedIndex()
+                        saveCurrentIndex()
                     }
                 } else {
                     // Swipe right - previous affirmation
                     if currentIndex > 0 {
                         currentIndex -= 1
+                        saveCurrentIndex()
                     }
                 }
             }

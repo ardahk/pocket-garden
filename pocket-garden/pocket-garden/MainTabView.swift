@@ -10,7 +10,7 @@ import SwiftData
 
 struct MainTabView: View {
     @State private var selectedTab = 0
-
+    
     var body: some View {
         TabView(selection: $selectedTab) {
             // Home Tab
@@ -41,6 +41,12 @@ struct MainTabView: View {
             .tag(2)
         }
         .accentColor(.primaryGreen)
+        .onReceive(NotificationCenter.default.publisher(for: .showJournalFromForest)) { _ in
+            selectedTab = 0
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                NotificationCenter.default.post(name: .triggerJournalFromNotification, object: nil)
+            }
+        }
         .onAppear {
             let appearance = UITabBarAppearance()
             appearance.configureWithOpaqueBackground()
@@ -49,6 +55,12 @@ struct MainTabView: View {
             UITabBar.appearance().scrollEdgeAppearance = appearance
         }
     }
+}
+
+// MARK: - Additional Notification Extension
+
+extension Notification.Name {
+    static let triggerJournalFromNotification = Notification.Name("triggerJournalFromNotification")
 }
 
 #Preview {

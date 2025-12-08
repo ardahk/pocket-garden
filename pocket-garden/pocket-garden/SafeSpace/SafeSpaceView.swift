@@ -11,6 +11,7 @@ struct SafeSpaceView: View {
     @State private var viewModel: SafeSpaceViewModel
     @State private var selectedActivity: CalmActivity?
     @State private var dragOffset: CGFloat = 0
+    @State private var isDismissing: Bool = false
 
     init(modelContext: ModelContext? = nil) {
         _viewModel = State(initialValue: SafeSpaceViewModel(modelContext: modelContext))
@@ -30,48 +31,70 @@ struct SafeSpaceView: View {
                 )
                 .ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 32) {
+                GeometryReader { proxy in
+                    let isCompactHeight = proxy.size.height < 750
+
+                    VStack(spacing: isCompactHeight ? 24 : 32) {
                         // Header
                         VStack(spacing: 8) {
+                            // Drag indicator
+                            Capsule()
+                                .fill(Color.textSecondary.opacity(0.3))
+                                .frame(width: 36, height: 5)
+                                .padding(.top, isCompactHeight ? 4 : 8)
+                            
                             Text("Sanctuary")
-                                .font(.system(size: 34, weight: .bold))
+                                .font(.system(size: isCompactHeight ? 30 : 34, weight: .bold))
                                 .foregroundStyle(Color.textPrimary)
-                                .padding(.top, 20)
+                                .padding(.top, 12)
                             
                             Text("A quiet place to pause and reset")
                                 .font(.subheadline)
                                 .foregroundStyle(Color.textSecondary)
                         }
 
-                        // Ambient sounds
-                        ambientSoundsSection
+                        // Main content (non-scrollable)
+                        VStack(spacing: isCompactHeight ? 20 : 32) {
+                            // Ambient sounds
+                            ambientSoundsSection
 
-                        // Quick practices Grid
-                        quickPracticesSection
-
-                        // Spacer
-                        Color.clear.frame(height: 40)
+                            // Quick practices Grid
+                            quickPracticesSection
+                        }
                     }
                     .padding(.horizontal, 24)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .scaleEffect(isCompactHeight ? 0.94 : 1.0)
+                    .contentShape(Rectangle())
+                    .gesture(
+                        DragGesture()
+                            .onChanged { value in
+                                // Only consider downward vertical pulls (ignore mostly-horizontal swipes)
+                                if value.translation.height > 0,
+                                   abs(value.translation.height) > abs(value.translation.width) {
+                                    dragOffset = value.translation.height
+                                }
+                            }
+                            .onEnded { _ in
+                                if dragOffset > 120 {
+                                    withAnimation(.easeOut(duration: 0.18)) {
+                                        isDismissing = true
+                                    }
+                                    viewModel.endSession()
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
+                                        dismiss()
+                                    }
+                                } else {
+                                    withAnimation(.spring(response: 0.3)) {
+                                        dragOffset = 0
+                                    }
+                                }
+                            }
+                    )
+                    .opacity(isDismissing ? 0 : 1)
+                    .scaleEffect(isDismissing ? 0.97 : 1)
+                    .animation(.easeOut(duration: 0.18), value: isDismissing)
                 }
-                .contentShape(Rectangle())
-                .gesture(
-                    DragGesture()
-                        .onChanged { value in
-                            // Only consider downward pulls
-                            if value.translation.height > 0 {
-                                dragOffset = value.translation.height
-                            }
-                        }
-                        .onEnded { _ in
-                            if dragOffset > 140 {
-                                viewModel.endSession()
-                                dismiss()
-                            }
-                            dragOffset = 0
-                        }
-                )
             }
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {

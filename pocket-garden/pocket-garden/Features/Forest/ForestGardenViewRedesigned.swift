@@ -31,15 +31,15 @@ struct ForestGardenViewRedesigned: View {
                 emptyStateView
             } else {
                 currentTreeCanvasView
-            }
-            
-            // Floating action button
-            VStack {
-                Spacer()
-                HStack {
+                
+                // Floating action button (only show when there's a current tree)
+                VStack {
                     Spacer()
-                    actionButton
-                        .padding(Spacing.xl)
+                    HStack {
+                        Spacer()
+                        actionButton
+                            .padding(Spacing.xl)
+                    }
                 }
             }
             
@@ -60,13 +60,6 @@ struct ForestGardenViewRedesigned: View {
         .navigationTitle("Your Garden")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                NavigationLink(destination: TestGardenView()) {
-                    Image(systemName: "flask.fill")
-                        .foregroundColor(.primaryGreen)
-                }
-            }
-            
             ToolbarItem(placement: .navigationBarTrailing) {
                 if currentTree != nil {
                     Button {
@@ -138,17 +131,23 @@ struct ForestGardenViewRedesigned: View {
                         .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Spacing.xl)
-                    
-                    Text("💡 Tap the button below to choose your first tree")
-                        .font(Typography.callout)
-                        .foregroundColor(.primaryGreen)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, Spacing.xl)
                 }
                 .fadeIn(delay: 0.2)
+
+                // Call-to-action button directly under description
+                ForestActionButton(
+                    icon: "leaf.fill",
+                    label: "Plant Tree",
+                    color: .primaryGreen
+                ) {
+                    showTreeSelection = true
+                }
+                .padding(.top, Spacing.lg)
+                .scaleEffect(1.05)
+                .shadow(color: Color.primaryGreen.opacity(0.45), radius: 18, x: 0, y: 6)
             }
             
-            Spacer()
+            Spacer(minLength: Spacing.lg)
         }
         .padding(Layout.screenPadding)
     }
@@ -365,6 +364,24 @@ struct ForestGardenViewRedesigned: View {
         modelContext.insert(newTree)
         currentTree = newTree
         
+        // Auto-water the newly planted tree if journaled today
+        if hasJournaledToday {
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
+                showWateringAnimation = true
+            }
+            
+            newTree.water()
+            try? modelContext.save()
+            
+            Theme.Haptics.success()
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation {
+                    showWateringAnimation = false
+                }
+            }
+        }
+        
         withAnimation(.spring(response: 0.8, dampingFraction: 0.6)) {
             showPlantingAnimation = true
         }
@@ -481,6 +498,42 @@ struct TreeInForest: View {
     }
 }
 
+// MARK: - Tree Status Messages
+
+struct TreeStatusMessages {
+    static let fullyGrown = [
+        "🎉 Your tree is fully grown! Plant a new one to continue your journey.",
+        "🌳 Amazing! Your tree has reached its full potential. Ready for the next one?",
+        "🌱 What a beautiful tree! Time to plant another and grow your forest.",
+        "✨ Your tree is thriving! Plant a new seed to keep growing."
+    ]
+    
+    static let newlyPlanted = [
+        "🌱 Your seed is planted! Come back tomorrow to give it some water.",
+        "🌿 A new beginning! Return tomorrow to help your tree grow.",
+        "🌳 Your journey starts now! Check back tomorrow to water your seedling.",
+        "💚 Tiny tree planted! Tomorrow's watering will help it sprout."
+    ]
+    
+    static let needsWater = [
+        "💧 Your tree is thirsty! Journal today to give it some water.",
+        "🌊 Time to water! Your daily journal will help your tree grow.",
+        "💦 Your tree needs care! Share your thoughts and watch it grow.",
+        "🌿 Ready to grow? Journal today to water your tree."
+    ]
+    
+    static let wateredToday = [
+        "✅ All watered! Your tree is happy. See you tomorrow!",
+        "💚 Great job! Your tree is nourished. Come back tomorrow.",
+        "🌳 Perfect! Your tree is growing strong. Return tomorrow for more care.",
+        "💧 Well done! Your tree is thriving. Tomorrow brings new growth."
+    ]
+    
+    static func getRandomMessage(from messages: [String]) -> String {
+        return messages.randomElement() ?? messages[0]
+    }
+}
+
 struct CurrentTreeView: View {
     let tree: GrowingTree
     
@@ -554,17 +607,22 @@ struct CurrentTreeView: View {
                     .frame(height: 8)
                     
                     if tree.isFullyGrown {
-                        Text("🎉 Fully grown! Plant a new tree to continue.")
+                        Text(TreeStatusMessages.getRandomMessage(from: TreeStatusMessages.fullyGrown))
+                            .font(Typography.callout)
+                            .foregroundColor(.primaryGreen)
+                            .multilineTextAlignment(.center)
+                    } else if tree.waterCount == 1 && tree.daysToGrow > 1 {
+                        Text(TreeStatusMessages.getRandomMessage(from: TreeStatusMessages.newlyPlanted))
                             .font(Typography.callout)
                             .foregroundColor(.primaryGreen)
                             .multilineTextAlignment(.center)
                     } else if tree.canWaterToday() {
-                        Text("💧 Journal today to water your tree!")
+                        Text(TreeStatusMessages.getRandomMessage(from: TreeStatusMessages.needsWater))
                             .font(Typography.callout)
                             .foregroundColor(.emotionContent)
                             .multilineTextAlignment(.center)
                     } else {
-                        Text("✅ Watered today! Come back tomorrow.")
+                        Text(TreeStatusMessages.getRandomMessage(from: TreeStatusMessages.wateredToday))
                             .font(Typography.callout)
                             .foregroundColor(.textSecondary)
                             .multilineTextAlignment(.center)
@@ -630,11 +688,11 @@ struct TreeSelectionSheet: View {
                         }
                     }
                     
-                    Spacer()
+                    Spacer(minLength: Spacing.lg)
                     
                     if !hasJournaledToday {
                         Card(backgroundColor: .secondaryTerracotta.opacity(0.1)) {
-                            VStack(spacing: Spacing.sm) {
+                            VStack(spacing: Spacing.md) {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.system(size: 32))
                                     .foregroundColor(.secondaryTerracotta)
@@ -647,13 +705,19 @@ struct TreeSelectionSheet: View {
                                     .font(Typography.callout)
                                     .foregroundColor(.textSecondary)
                                     .multilineTextAlignment(.center)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                            .padding(.vertical, Spacing.md)
+                            .padding(.vertical, Spacing.lg)
+                            .padding(.horizontal, Spacing.md)
                         }
                         .padding(.horizontal, Layout.screenPadding)
                         
-                        PrimaryButton("Go to Home", icon: "house.fill") {
+                        PrimaryButton("Journal", icon: "leaf.fill") {
+                            // Navigate to home tab and show journal
                             dismiss()
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                NotificationCenter.default.post(name: .showJournalFromForest, object: nil)
+                            }
                         }
                         .padding(.horizontal, Layout.screenPadding)
                     } else {
@@ -679,6 +743,12 @@ struct TreeSelectionSheet: View {
     }
 }
 
+// MARK: - Notification Extension
+
+extension Notification.Name {
+    static let showJournalFromForest = Notification.Name("showJournalFromForest")
+}
+
 struct TreeTypeCard: View {
     let type: TreeType
     let isSelected: Bool
@@ -702,15 +772,16 @@ struct TreeTypeCard: View {
                         .font(Typography.callout)
                         .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
                 
                 Spacer()
                 
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 24))
-                        .foregroundColor(.primaryGreen)
-                }
+                // Reserve space for checkmark to prevent text reflow
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(isSelected ? .primaryGreen : .clear)
+                    .opacity(isSelected ? 1.0 : 0.0)
             }
             .padding(Spacing.lg)
             .background(
@@ -729,26 +800,130 @@ struct TreeTypeCard: View {
 
 struct PlantingAnimationView: View {
     @State private var phase: CGFloat = 0
+    @State private var seedScale: CGFloat = 0.1
+    @State private var seedOpacity: Double = 0
+    @State private var waterDrops: [WaterDrop] = []
+    @State private var showGlow = false
+    @State private var glowOpacity: Double = 0
     
     var body: some View {
         ZStack {
-            Color.black.opacity(0.3)
+            // Semi-transparent background
+            Color.black.opacity(0.4)
                 .ignoresSafeArea()
             
+            // Glow effect
+            if showGlow {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.primaryGreen.opacity(glowOpacity * 0.6),
+                                Color.primaryGreen.opacity(glowOpacity * 0.2),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 150
+                        )
+                    )
+                    .frame(width: 300, height: 300)
+                    .scaleEffect(1.0 + Darwin.sin(phase) * 0.1)
+            }
+            
             VStack(spacing: Spacing.xl) {
-                Text("🌱")
-                    .font(.system(size: 100))
-                    .scaleEffect(1.0 + Darwin.sin(phase) * 0.2)
-                    .rotationEffect(.degrees(Darwin.sin(phase) * 10))
+                // Animated seed that grows
+                ZStack {
+                    // Ground/hole
+                    Ellipse()
+                        .fill(Color.brown.opacity(0.8))
+                        .frame(width: 120, height: 40)
+                        .scaleEffect(x: 1.2, y: 0.5)
+                    
+                    // Seed emoji
+                    Text("🌱")
+                        .font(.system(size: 80))
+                        .scaleEffect(seedScale)
+                        .opacity(seedOpacity)
+                        .rotationEffect(.degrees(Darwin.sin(phase) * 5))
+                        .offset(y: -20 + Darwin.sin(phase) * 10)
+                }
                 
-                Text("Planting your tree...")
-                    .font(Typography.title2)
-                    .foregroundColor(.white)
+                // Progress text
+                VStack(spacing: Spacing.sm) {
+                    Text("Planting your tree...")
+                        .font(Typography.title2)
+                        .foregroundColor(.white)
+                        .opacity(seedOpacity)
+                    
+                    // Progress dots
+                    HStack(spacing: Spacing.xs) {
+                        ForEach(0..<3) { index in
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 8, height: 8)
+                                .scaleEffect(1.0 + Darwin.sin(phase + Double(index) * 0.5) * 0.3)
+                                .opacity(0.6 + Darwin.sin(phase + Double(index) * 0.5) * 0.4)
+                        }
+                    }
+                }
+            }
+            
+            // Water drops animation
+            ForEach(waterDrops) { drop in
+                Text("💧")
+                    .font(.system(size: 25))
+                    .position(x: drop.x, y: drop.y)
+                    .opacity(drop.opacity)
             }
         }
         .onAppear {
-            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                phase = .pi * 2
+            startPlantingAnimation()
+        }
+    }
+    
+    private func startPlantingAnimation() {
+        // Phase 1: Show glow
+        withAnimation(.easeIn(duration: 0.5)) {
+            showGlow = true
+            glowOpacity = 1.0
+        }
+        
+        // Phase 2: Seed appears and grows
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            withAnimation(.spring(response: 1.2, dampingFraction: 0.6)) {
+                seedScale = 1.0
+                seedOpacity = 1.0
+            }
+        }
+        
+        // Phase 3: Add water drops
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            addWaterDrops()
+        }
+        
+        // Continuous animation
+        withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
+            phase = .pi
+        }
+    }
+    
+    private func addWaterDrops() {
+        for i in 0..<8 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.15) {
+                let drop = WaterDrop(
+                    x: CGFloat.random(in: 140...260),
+                    y: 100,
+                    opacity: 1.0
+                )
+                waterDrops.append(drop)
+                
+                withAnimation(.easeIn(duration: 1.2)) {
+                    if let index = waterDrops.firstIndex(where: { $0.id == drop.id }) {
+                        waterDrops[index].y = 350
+                        waterDrops[index].opacity = 0
+                    }
+                }
             }
         }
     }

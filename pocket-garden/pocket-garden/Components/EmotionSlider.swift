@@ -44,28 +44,37 @@ struct EmotionSlider: View {
 
     private var emojiDisplay: some View {
         ZStack {
-            // Glow effect
+            // Ambient background glow
+            Circle()
+                .fill(Color.emotionColor(for: rating).opacity(0.15))
+                .frame(width: 200, height: 200)
+                .blur(radius: 30)
+
+            // Inner vibrant glow
             Circle()
                 .fill(
                     RadialGradient(
                         colors: [
-                            Color.emotionColor(for: rating).opacity(0.3),
+                            Color.emotionColor(for: rating).opacity(0.4),
                             Color.clear
                         ],
                         center: .center,
                         startRadius: 0,
-                        endRadius: 80
+                        endRadius: 100
                     )
                 )
-                .frame(width: 160, height: 160)
-                .blur(radius: 20)
+                .frame(width: 180, height: 180)
+                .blur(radius: 10)
+                .scaleEffect(isDragging ? 1.1 : 1.0)
+                .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isDragging)
 
             // Emoji
             Text(Theme.emoji(for: rating))
-                .font(.system(size: 80))
+                .font(.system(size: 90))
                 .scaleEffect(emojiScale)
+                .shadow(color: Color.emotionColor(for: rating).opacity(0.3), radius: 10, x: 0, y: 5)
         }
-        .frame(height: 120)
+        .frame(height: 140)
     }
 
     // MARK: - Slider
@@ -75,8 +84,8 @@ struct EmotionSlider: View {
             ZStack(alignment: .leading) {
                 // Track background
                 Capsule()
-                    .fill(Color.borderColor)
-                    .frame(height: 8)
+                    .fill(Color.gray.opacity(0.1))
+                    .frame(height: 12)
 
                 // Progress gradient
                 Capsule()
@@ -87,33 +96,37 @@ struct EmotionSlider: View {
                             endPoint: .trailing
                         )
                     )
-                    .frame(width: progressWidth(in: geometry.size.width), height: 8)
+                    .frame(width: progressWidth(in: geometry.size.width), height: 12)
 
                 // Thumb
-                Circle()
-                    .fill(Color.cardBackground)
-                    .frame(width: 32, height: 32)
-                    .shadow(color: Color.emotionColor(for: rating).opacity(0.5), radius: 8)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.emotionColor(for: rating), lineWidth: 3)
-                    )
-                    .scaleEffect(isDragging ? 1.2 : 1.0)
-                    .offset(x: thumbOffset(in: geometry.size.width))
-                    .gesture(
-                        DragGesture(minimumDistance: 0)
-                            .onChanged { gesture in
-                                if !isDragging {
-                                    isDragging = true
-                                    Theme.Haptics.light()
-                                }
-                                updateRating(from: gesture, in: geometry.size.width)
+                ZStack {
+                    Circle()
+                        .fill(Color.white)
+                        .frame(width: 36, height: 36)
+                        .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
+
+                    Circle()
+                        .fill(Color.emotionColor(for: rating))
+                        .frame(width: 20, height: 20)
+                }
+                .scaleEffect(isDragging ? 1.2 : 1.0)
+                .offset(x: thumbOffset(in: geometry.size.width))
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { gesture in
+                            if !isDragging {
+                                isDragging = true
+                                Theme.Haptics.light()
                             }
-                            .onEnded { _ in
-                                isDragging = false
-                                Theme.Haptics.medium()
-                            }
-                    )
+                            updateRating(from: gesture, in: geometry.size.width)
+                        }
+                        .onEnded { _ in
+                            isDragging = false
+                            Theme.Haptics.medium()
+                        }
+                )
+                .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.7), value: rating)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isDragging)
             }
         }
         .frame(height: 44)
@@ -124,11 +137,25 @@ struct EmotionSlider: View {
     private var ratingLabels: some View {
         HStack {
             ForEach(1...10, id: \.self) { number in
-                Text("\(number)")
-                    .font(Typography.caption)
-                    .foregroundColor(rating == number ? Color.emotionColor(for: rating) : .textSecondary)
-                    .fontWeight(rating == number ? .bold : .regular)
-                    .frame(maxWidth: .infinity)
+                ZStack {
+                    if rating == number {
+                        Circle()
+                            .fill(Color.emotionColor(for: rating).opacity(0.2))
+                            .frame(width: 24, height: 24)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+
+                    Text("\(number)")
+                        .font(.system(size: 12, weight: rating == number ? .bold : .medium, design: .rounded))
+                        .foregroundColor(rating == number ? Color.emotionColor(for: rating) : .textSecondary.opacity(0.6))
+                        .scaleEffect(rating == number ? 1.2 : 1.0)
+                }
+                .frame(maxWidth: .infinity)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7), value: rating)
+                .onTapGesture {
+                    rating = number
+                    Theme.Haptics.selection()
+                }
             }
         }
     }
@@ -137,20 +164,24 @@ struct EmotionSlider: View {
 
     private var emotionLabelView: some View {
         HStack(spacing: Spacing.sm) {
-            Circle()
-                .fill(Color.emotionColor(for: rating))
-                .frame(width: 12, height: 12)
-
             Text(Theme.emotionLabel(for: rating))
-                .font(Typography.title3)
-                .foregroundColor(.textPrimary)
+                .font(.system(size: 18, weight: .semibold, design: .rounded))
+                .foregroundColor(Color.emotionColor(for: rating))
         }
-        .padding(.vertical, Spacing.sm)
-        .padding(.horizontal, Spacing.lg)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 24)
         .background(
             Capsule()
-                .fill(Color.emotionColor(for: rating).opacity(0.1))
+                .fill(Color.white)
+                .shadow(color: Color.emotionColor(for: rating).opacity(0.15), radius: 10, x: 0, y: 4)
         )
+        .overlay(
+            Capsule()
+                .stroke(Color.emotionColor(for: rating).opacity(0.2), lineWidth: 1)
+        )
+        .scaleEffect(isDragging ? 1.05 : 1.0)
+        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: rating)
+        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: isDragging)
     }
 
     // MARK: - Helper Methods

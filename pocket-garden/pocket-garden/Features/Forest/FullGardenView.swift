@@ -65,14 +65,6 @@ struct FullGardenView: View {
         }
         .navigationTitle("My Garden")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: TestGardenView()) {
-                    Image(systemName: "flask.fill")
-                        .foregroundColor(.primaryGreen)
-                }
-            }
-        }
         .sheet(item: $selectedEntry) { entry in
             EntryDetailViewRedesigned(entry: entry)
         }

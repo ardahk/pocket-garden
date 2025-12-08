@@ -78,18 +78,17 @@ struct HomeView: View {
             }
         }
         .navigationBarHidden(true)
+        .onReceive(NotificationCenter.default.publisher(for: .triggerJournalFromNotification)) { _ in
+            // Trigger the journal flow when coming from forest
+            anotherRating = todayRating
+            showMoodRatingSheet = true
+        }
         .sheet(isPresented: $showJournalSheet) {
             VoiceJournalExperimentView(emotionRating: capturedRating, onComplete: {
                 // After journal is complete, switch to garden tab
                 selectedTab = 1
             })
         }
-        // Keep old Apple Speech version as backup (commented out)
-        /*
-        .sheet(isPresented: $showExperimentalJournalSheet) {
-            VoiceJournalView(emotionRating: capturedRating)
-        }
-        */
         .sheet(isPresented: $showMoodRatingSheet) {
             NavigationStack {
                 ZStack {
@@ -105,7 +104,11 @@ struct HomeView: View {
                                 .font(Typography.callout)
                                 .foregroundColor(.textSecondary)
                         }
+                        .padding(.top, Spacing.lg)
+
                         EmotionSlider(rating: $anotherRating)
+                            .padding(.vertical, Spacing.lg)
+                        
                         PrimaryButton("Continue to Journal", icon: "arrow.right") {
                             capturedRating = anotherRating
                             showMoodRatingSheet = false
@@ -113,13 +116,15 @@ struct HomeView: View {
                                 showJournalSheet = true
                             }
                         }
+                        .padding(.top, Spacing.md)
+                        .shadow(color: Color.primaryGreen.opacity(0.3), radius: 15, x: 0, y: 5)
                     }
-                    .padding()
+                    .padding(.horizontal, Layout.screenPadding)
                 }
             }
         }
         .sheet(item: $selectedEntry) { entry in
-            EntryDetailView(entry: entry)
+            EntryDetailViewRedesigned(entry: entry)
         }
         .fullScreenCover(isPresented: $showSafeSpace) {
             SafeSpaceView(modelContext: modelContext)
@@ -228,11 +233,6 @@ struct HomeView: View {
                                         .lineLimit(1)
                                         .minimumScaleFactor(0.9)
                                 }
-
-                                Text(growthSummarySubtitle(for: todayEntry.emotionRating))
-                                    .font(Typography.caption)
-                                    .foregroundColor(.textSecondary)
-                                    .fixedSize(horizontal: false, vertical: true)
                             }
 
                             Spacer()
@@ -250,16 +250,6 @@ struct HomeView: View {
                             Theme.Haptics.light()
                         }
                         .padding(.top, Spacing.sm)
-                        
-                        // Fallback to Apple Speech (commented out - backup only)
-                        /*
-                        Button("🔄 Use Apple Speech (Fallback)") {
-                            showExperimentalJournalSheet = true
-                            Theme.Haptics.light()
-                        }
-                        .font(Typography.caption)
-                        .foregroundColor(.textSecondary)
-                        */
                     }
                 }
                 .slideInFromBottom(delay: 0.1)
@@ -513,23 +503,6 @@ struct HomeView: View {
     private var hasEntryToday: Bool {
         entries.contains { $0.isToday }
     }
-    
-    private func growthSummarySubtitle(for rating: Int) -> String {
-        let avg = averageRating
-        guard avg > 0 else {
-            return "Every check-in helps your garden grow."
-        }
-        let diff = Double(rating) - avg
-        let formattedAvg = String(format: "%.1f", avg)
-        
-        if diff >= 1.0 {
-            return "Brighter than your recent days (avg \(formattedAvg))."
-        } else if diff <= -1.0 {
-            return "A bit below your usual (avg \(formattedAvg))—thanks for checking in."
-        } else {
-            return "About the same as your recent days (avg \(formattedAvg))."
-        }
-    }
 
     // MARK: - Quote of the Day Section
     
@@ -611,9 +584,21 @@ struct SafeSpaceCard: View {
 
                 // Content
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    Text("Need a Moment?")
-                        .font(Typography.headline)
-                        .foregroundColor(.textPrimary)
+                    HStack(spacing: Spacing.sm) {
+                        Text("Need a Moment?")
+                            .font(Typography.headline)
+                            .foregroundColor(.textPrimary)
+                        
+                        Text("Sanctuary")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.emotionCalm)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(
+                                Capsule()
+                                    .fill(Color.emotionCalm.opacity(0.15))
+                            )
+                    }
 
                     Text("Take a breath, find your calm")
                         .font(Typography.callout)

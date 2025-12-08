@@ -81,7 +81,7 @@ extension CalmActivity {
 
     static let worryTree = CalmActivity(
         title: "Worry Tree",
-        icon: "arrow.up.bin.fill",
+        icon: "tree.fill",
         duration: 5,
         description: "Guide your worries to a solution",
         color: .orange.opacity(0.7),

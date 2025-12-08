@@ -350,6 +350,59 @@ fileprivate struct PandaFeedback: Codable {
     let tags: [String]?
 }
 
+// MARK: - Language Detection Helper
+
+/// Languages officially supported by Apple Foundation Models (iOS 26)
+fileprivate let afmSupportedLanguages: Set<String> = [
+    "en", "de", "es", "fr", "it", "ja", "ko", "pt", "zh-Hans", "zh-Hant", "tr"
+]
+
+fileprivate func detectLanguageCode(from text: String) -> String? {
+    guard !text.isEmpty else { return nil }
+    let recognizer = NLLanguageRecognizer()
+    recognizer.processString(text)
+    return recognizer.dominantLanguage?.rawValue
+}
+
+fileprivate func detectLanguage(from text: String) -> String? {
+    guard !text.isEmpty else { return nil }
+    let recognizer = NLLanguageRecognizer()
+    recognizer.processString(text)
+    guard let language = recognizer.dominantLanguage else { return nil }
+    // Return the language name for use in prompts
+    let locale = Locale(identifier: "en")
+    return locale.localizedString(forLanguageCode: language.rawValue)
+}
+
+fileprivate func isLanguageSupportedByAFM(_ text: String) -> Bool {
+    guard let langCode = detectLanguageCode(from: text) else { return true }
+    // Check if the base language code is supported
+    let baseCode = langCode.components(separatedBy: "-").first ?? langCode
+    return afmSupportedLanguages.contains(langCode) || afmSupportedLanguages.contains(baseCode)
+}
+
+fileprivate func languageInstruction(for text: String?) -> String {
+    guard let text = text, !text.isEmpty,
+          let detectedLanguage = detectLanguage(from: text),
+          detectedLanguage.lowercased() != "english" else {
+        return ""
+    }
+    
+    // Strong instruction to respond in the user's language with ACTUAL feedback
+    return """
+    
+    CRITICAL LANGUAGE & RESPONSE RULES:
+    - The user wrote in \(detectedLanguage). You MUST respond entirely in \(detectedLanguage).
+    - DO NOT just paraphrase or summarize what the user wrote.
+    - DO NOT restate their entry back to them.
+    - You MUST provide ORIGINAL therapeutic feedback that:
+      1. Validates their emotions with empathy
+      2. Acknowledges specific details they mentioned
+      3. Offers ONE helpful suggestion (like box breathing, Body Scan, or another Sanctuary practice)
+    - Your response should feel like a caring friend giving advice, NOT a summary of what they said.
+    """
+}
+
 fileprivate final class PandaFeedbackService {
     static let shared = PandaFeedbackService()
     private init() {}
@@ -402,6 +455,11 @@ fileprivate final class PandaFeedbackService {
         if let t = entry.transcription, !t.isEmpty {
             lines.append("\nUser's journal entry:")
             lines.append("\"\(t.prefix(1200))\"")
+            // Add language instruction if entry is not in English
+            let langInstruction = languageInstruction(for: t)
+            if !langInstruction.isEmpty {
+                lines.append(langInstruction)
+            }
         }
         if !recentHints.isEmpty {
             lines.append("\nYour recent replies (vary your wording and avoid repeating these):")
@@ -583,6 +641,10 @@ final class PandaWeeklyFeedbackService {
         var lines: [String] = []
         let formatter = DateFormatter()
         formatter.dateFormat = "EEEE"
+        
+        // Detect dominant language from entries
+        let allText = entries.compactMap { $0.cleanedTranscription ?? $0.transcription }.joined(separator: " ")
+        let langInstruction = languageInstruction(for: allText)
 
         lines.append("You are Bumblebee, a warm and thoughtful emotional wellness companion.")
         lines.append("You are reading the user's journal entries for this week so far (from the start of the week up to today). In your response:")
@@ -593,6 +655,9 @@ final class PandaWeeklyFeedbackService {
         lines.append("- Offer exactly one gentle, actionable suggestion for the coming days.")
         lines.append("- When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (for example: box breathing, the grounding exercise, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations). Mention \"in Sanctuary\" so they know where to go.")
         lines.append("- Use warm, conversational language and never give medical advice.")
+        if !langInstruction.isEmpty {
+            lines.append(langInstruction)
+        }
         lines.append("")
         lines.append("Here are the entries for this week:")
 
@@ -720,6 +785,11 @@ final class PandaSavoringService {
         detail: String?
     ) -> String {
         var lines: [String] = []
+        
+        // Detect language from moments and detail
+        let allText = moments.joined(separator: " ") + " " + (focusMoment ?? "") + " " + (detail ?? "")
+        let langInstruction = languageInstruction(for: allText)
+        
         lines.append("You are Bumblebee, a warm and thoughtful emotional wellness companion.")
         lines.append("The user has just completed a 'Three Good Moments' savoring exercise in a wellbeing app.")
         lines.append("")
@@ -742,6 +812,9 @@ final class PandaSavoringService {
         lines.append("- Offer exactly one simple suggestion for how they might revisit or build on these moments later.")
         lines.append("- When it fits, suggest one Sanctuary practice that matches the feeling of their moments (for example: revisiting them with Three Good Moments in Sanctuary, trying a short Body Scan in Sanctuary, or doing a Safe Place visualization there). Mention \"in Sanctuary\" so they know where to go.")
         lines.append("- Use warm, conversational language and never give medical advice.")
+        if !langInstruction.isEmpty {
+            lines.append(langInstruction)
+        }
         lines.append("")
         lines.append("Respond with valid JSON of the form: {\"text\": \"...\", \"emotionHint\": \"supportive\", \"tags\": [\"savoring\"]}")
         return lines.joined(separator: "\n")
@@ -887,6 +960,11 @@ final class PandaWorryTreeService {
         historySummary: String
     ) -> String {
         var lines: [String] = []
+        
+        // Detect language from worry text and notes
+        let allText = worryText + " " + (actionPlan ?? "") + " " + (letGoNote ?? "")
+        let langInstruction = languageInstruction(for: allText)
+        
         lines.append("You are Bumblebee, a warm, practical emotional support companion.")
         lines.append("The user has just completed a 'Worry Tree' exercise in a wellbeing app.")
         lines.append("")
@@ -899,6 +977,9 @@ final class PandaWorryTreeService {
         lines.append("- Optionally, connect to patterns you notice from previous Worry Tree entries without overwhelming them.")
         lines.append("- Gently suggest exactly one practice from the Sanctuary space that could help them unwind or feel safer (for example: the grounding exercise in Sanctuary, box breathing in Sanctuary, a Safe Place visualization in Sanctuary, or writing another worry in Sanctuary using the Worry Tree).")
         lines.append("- Never give medical advice or make diagnoses. Stay supportive, non-clinical, and non-judgmental.")
+        if !langInstruction.isEmpty {
+            lines.append(langInstruction)
+        }
         lines.append("")
         lines.append("Response format:")
         lines.append("- 3–7 sentences.")
@@ -1023,13 +1104,46 @@ fileprivate final class BumblebeeLocalFeedbackEngine {
 fileprivate final class PandaSessionManager {
     static let shared = PandaSessionManager()
     private var session: LanguageModelSession?
+    private static let instructionsVersion = 3 // Increment to force session refresh
+    private var sessionVersion: Int = 0
     private init() {}
     
     func getSession() -> LanguageModelSession {
-        if let existing = session {
+        // Check if we need to refresh due to updated instructions
+        if let existing = session, sessionVersion == Self.instructionsVersion {
             return existing
         }
-        let instructions = "You are Bumblebee, a warm and thoughtful emotional wellness companion. Read the user's journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Acknowledge something specific they mentioned to show you're listening\n2. Validate their feelings with empathy\n3. Offer one gentle, actionable suggestion\n4. When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (for example: box breathing, the grounding exercise, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations). Mention \"in Sanctuary\" so they know where to go.\n5. Use warm, conversational language and vary your phrasing each time\n6. Never diagnose, give medical advice, or repeat recent responses\n\nMake it feel personal and genuine, not scripted."
+        // Reset session if version changed
+        session = nil
+        sessionVersion = Self.instructionsVersion
+        
+        let instructions = """
+        You are Bumblebee, a warm and thoughtful emotional wellness companion.
+        
+        YOUR ROLE: Provide supportive, therapeutic feedback - NOT summaries or paraphrases.
+        
+        RESPONSE RULES (3-5 sentences, max 75 words):
+        1. Start by validating their emotions with genuine empathy
+        2. Acknowledge ONE specific detail they mentioned
+        3. Offer ONE gentle, actionable suggestion from the Sanctuary space (box breathing, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations)
+        4. Use warm, conversational language
+        5. Never diagnose or give medical advice
+        
+        CRITICAL - WHAT NOT TO DO:
+        - NEVER paraphrase or summarize what the user wrote
+        - NEVER restate their journal entry back to them
+        - NEVER just reword their text in any language
+        
+        LANGUAGE RULES:
+        - Always respond in the SAME LANGUAGE as the user's entry
+        - Turkish entry → Turkish response with actual feedback
+        - Spanish entry → Spanish response with actual feedback
+        - Your response must be ORIGINAL advice, not a rewording of their text
+        
+        GOOD RESPONSE: "It sounds like you're carrying a lot right now with exams coming up. That mix of excitement and stress is completely normal. Try the box breathing exercise in Sanctuary - even 2 minutes can help you feel more centered before studying."
+        
+        BAD RESPONSE: "Today was a good day! You went to a soccer match and studied. You have exams next week and feel a bit stressed but overall excited." (This is just paraphrasing - DON'T do this)
+        """
         let newSession = LanguageModelSession(instructions: instructions)
         session = newSession
         return newSession

@@ -459,6 +459,8 @@ struct WeeklyInsightCard: View {
                 .font(Typography.title2)
                 .fontWeight(.bold)
                 .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
 
             Text(label)
                 .font(Typography.caption)

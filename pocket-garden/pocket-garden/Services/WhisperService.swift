@@ -10,11 +10,6 @@ import SwiftUI
 import AVFoundation
 import SwiftWhisper
 
-// AVAssetExportSession is not declared Sendable by AVFoundation, but we only
-// use it on a single thread while exporting. Mark it as unchecked Sendable so
-// it can be captured in @Sendable closures under Swift 6 concurrency checks.
-extension AVAssetExportSession: @unchecked Sendable {}
-
 @Observable
 class WhisperService {
     // MARK: - Published Properties
@@ -357,11 +352,13 @@ class WhisperService {
             var currentTime = CMTime.zero
             for url in sourceURLs {
                 let asset = AVURLAsset(url: url)
-                let timeRange = CMTimeRange(start: .zero, duration: asset.duration)
-                if let assetTrack = asset.tracks(withMediaType: .audio).first {
+                let duration = try await asset.load(.duration)
+                let audioTracks = try await asset.loadTracks(withMediaType: .audio)
+                if let assetTrack = audioTracks.first {
+                    let timeRange = CMTimeRange(start: .zero, duration: duration)
                     do {
                         try track.insertTimeRange(timeRange, of: assetTrack, at: currentTime)
-                        currentTime = CMTimeAdd(currentTime, asset.duration)
+                        currentTime = CMTimeAdd(currentTime, duration)
                     } catch {
                         print("Failed to append segment: \(error)")
                     }
@@ -378,16 +375,20 @@ class WhisperService {
         exportSession.outputURL = destinationURL
         exportSession.outputFileType = .m4a
 
+        // Wrap export session in a local box so we don't need to change
+        // AVAssetExportSession's global protocol conformances.
+        let sessionBox = ExportSessionBox(session: exportSession)
+
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            exportSession.exportAsynchronously {
-                switch exportSession.status {
+            sessionBox.session.exportAsynchronously {
+                switch sessionBox.session.status {
                 case .completed:
                     continuation.resume(returning: ())
                 case .failed, .cancelled:
-                    let message = exportSession.error?.localizedDescription ?? "Export failed"
+                    let message = sessionBox.session.error?.localizedDescription ?? "Export failed"
                     continuation.resume(throwing: WhisperError.recordingFailed(message))
                 default:
-                    let message = exportSession.error?.localizedDescription ?? "Export did not complete"
+                    let message = sessionBox.session.error?.localizedDescription ?? "Export did not complete"
                     continuation.resume(throwing: WhisperError.recordingFailed(message))
                 }
             }
@@ -425,6 +426,14 @@ class WhisperService {
             self.audioLevel = 0
         }
     }
+}
+
+// MARK: - Helper Types
+
+/// Lightweight box to allow capturing an export session in @Sendable closures
+/// without changing AVAssetExportSession's global protocol conformances.
+private struct ExportSessionBox: @unchecked Sendable {
+    let session: AVAssetExportSession
 }
 
 // MARK: - Whisper Delegate (for future implementation)

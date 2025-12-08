@@ -36,65 +36,12 @@ struct WorryTreeView: View {
             )
             .ignoresSafeArea()
             
-            VStack(spacing: 0) {
-                if showIntro {
-                    worryTreeIntroView
-                } else {
-                ScrollView {
-                    VStack(spacing: 32) {
-                        // Header
-                        VStack(spacing: 8) {
-                            HStack(spacing: 8) {
-                                Spacer()
-
-                                Text("Worry Tree")
-                                    .font(.title2)
-                                    .fontWeight(.semibold)
-                                    .foregroundStyle(Color.textPrimary)
-
-                                Button {
-                                    showInfoSheet = true
-                                } label: {
-                                    Image(systemName: "info.circle")
-                                        .font(.system(size: 18, weight: .regular))
-                                        .foregroundStyle(Color.orange.opacity(0.9))
-                                }
-                                .buttonStyle(.plain)
-
-                                Spacer()
-                            }
-                            
-                            Text(stepDescription)
-                                .font(.subheadline)
-                                .foregroundStyle(Color.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .padding(.horizontal, 32)
-                        }
-                        .padding(.top, 40)
-
-                        // History button
-                        HStack {
-                            Spacer()
-                            Button(action: { showHistory = true }) {
-                                HStack(spacing: 6) {
-                                    Image(systemName: "clock.arrow.circlepath")
-                                        .font(.system(size: 12, weight: .medium))
-                                    Text("Previous worries")
-                                        .font(.system(size: 13, weight: .medium))
-                                }
-                                .foregroundStyle(Color.orange)
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .fill(Color.orange.opacity(0.12))
-                                )
-                            }
-                            .buttonStyle(.plain)
-                            .padding(.horizontal, 24)
-                        }
-                        
-                        // Progress indicator
+            if showIntro {
+                worryTreeIntroView
+            } else {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: 20) {
+                        // Progress indicator at top
                         HStack(spacing: 12) {
                             ForEach(WorryTreeStep.allCases, id: \.self) { step in
                                 VStack(spacing: 6) {
@@ -120,32 +67,35 @@ struct WorryTreeView: View {
                                 }
                             }
                         }
-                        .padding(.bottom, 16)
+                        .padding(.top, 16)
                         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: currentStep)
                         
                         // Current step content
                         stepContent
                             .padding(.horizontal, 24)
-                        
-                        // Use less spacer when we're on the completion step so Panda's card sits higher
-                        if currentStep == .complete {
-                            Spacer().frame(height: 12)
-                        } else {
-                            Spacer()
-                        }
                     }
                     .padding(.bottom, showPrimaryBottomButton ? 140 : 40)
                 }
-            }
-            
-            if showPrimaryBottomButton && !showIntro {
-                VStack {
-                    Spacer()
-                    primaryBottomButton
-                        .padding(.horizontal, 24)
-                        .padding(.bottom, 40)
+                .safeAreaInset(edge: .bottom) {
+                    if showPrimaryBottomButton {
+                        VStack(spacing: 0) {
+                            primaryBottomButton
+                                .padding(.horizontal, 24)
+                                .padding(.bottom, 20)
+                                .padding(.top, 12)
+                        }
+                        .background(
+                            LinearGradient(
+                                colors: [
+                                    Color.backgroundCream.opacity(0),
+                                    Color.backgroundCream
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                    }
                 }
-            }
             }
         }
         .onAppear {
@@ -165,132 +115,152 @@ struct WorryTreeView: View {
     // MARK: - Intro View
     
     private var worryTreeIntroView: some View {
-        VStack(spacing: 32) {
-            Spacer()
-            
-            // Icon with glow
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.orange.opacity(0.2),
-                                Color.orange.opacity(0.05),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 80
-                        )
-                    )
-                    .frame(width: 140, height: 140)
-                
-                Image(systemName: "tree.fill")
-                    .font(.system(size: 50, weight: .medium))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.orange, Color.orange.opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            }
-            .opacity(showContent ? 1 : 0)
-            .scaleEffect(showContent ? 1 : 0.8)
-            
-            VStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    Spacer()
-                    
-                    Text("Worry Tree")
-                        .font(.system(size: 26, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.textPrimary)
-                    
-                    Button {
-                        showInfoSheet = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 18, weight: .regular))
-                            .foregroundStyle(Color.orange.opacity(0.9))
+        GeometryReader { geometry in
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 24) {
+                    // Icon with glow - properly sized
+                    ZStack {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        Color.orange.opacity(0.2),
+                                        Color.orange.opacity(0.05),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 20,
+                                    endRadius: 60
+                                )
+                            )
+                            .frame(width: 100, height: 100)
+                        
+                        Image(systemName: "tree.fill")
+                            .font(.system(size: 44, weight: .medium))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [Color.orange, Color.orange.opacity(0.7)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                     }
-                    .buttonStyle(.plain)
+                    .padding(.top, geometry.safeAreaInsets.top > 50 ? 20 : 12)
+                    .opacity(showContent ? 1 : 0)
+                    .scaleEffect(showContent ? 1 : 0.8)
                     
-                    Spacer()
-                }
-                
-                Text("A structured way to process worries\nand decide what to do with them")
-                    .font(.body)
-                    .foregroundStyle(Color.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .lineSpacing(2)
-            }
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 20)
-            
-            // How it works
-            VStack(alignment: .leading, spacing: 16) {
-                Text("How it works")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.textSecondary)
-                
-                WorryTreeHowItWorksRow(number: 1, text: "Name the worry that's on your mind")
-                WorryTreeHowItWorksRow(number: 2, text: "Decide if you can do something about it")
-                WorryTreeHowItWorksRow(number: 3, text: "Make a plan or practice letting go")
-                WorryTreeHowItWorksRow(number: 4, text: "Get a gentle reflection from Bumblebee")
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.cardBackground)
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
-            )
-            .padding(.horizontal, 24)
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 30)
-            
-            // Bumblebee encouragement
-            HStack(spacing: 12) {
-                Image("panda_supportive")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 44, height: 44)
-                
-                Text("Worries are normal. Let's sort through this one together and find some clarity.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.cardBackground.opacity(0.8))
-            )
-            .padding(.horizontal, 24)
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 40)
-            
-            Spacer()
-            
-            // Begin button
-            Button(action: {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    showIntro = false
-                }
-            }) {
-                Text("Begin")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                    // Title and description
+                    VStack(spacing: 10) {
+                        HStack(spacing: 8) {
+                            Text("Worry Tree")
+                                .font(.system(size: 26, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color.textPrimary)
+                            
+                            Button {
+                                showInfoSheet = true
+                            } label: {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 18, weight: .regular))
+                                    .foregroundStyle(Color.orange.opacity(0.9))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        
+                        Text("A structured way to process worries\nand decide what to do with them")
+                            .font(.body)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .lineSpacing(2)
+                    }
+                    .opacity(showContent ? 1 : 0)
+                    .offset(y: showContent ? 0 : 20)
+                    
+                    // How it works
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("How it works")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.textSecondary)
+                        
+                        WorryTreeHowItWorksRow(number: 1, text: "Name the worry that's on your mind")
+                        WorryTreeHowItWorksRow(number: 2, text: "Decide if you can do something about it")
+                        WorryTreeHowItWorksRow(number: 3, text: "Make a plan or practice letting go")
+                        WorryTreeHowItWorksRow(number: 4, text: "Get a gentle reflection from Bumblebee")
+                    }
+                    .padding(18)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.orange)
+                            .fill(Color.cardBackground)
+                            .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
                     )
+                    .padding(.horizontal, 24)
+                    .opacity(showContent ? 1 : 0)
+                    .offset(y: showContent ? 0 : 30)
+                    
+                    // Bumblebee encouragement
+                    HStack(spacing: 12) {
+                        Image("panda_supportive")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 40, height: 40)
+                        
+                        Text("Worries are normal. Let's sort through this one together and find some clarity.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.cardBackground.opacity(0.8))
+                    )
+                    .padding(.horizontal, 24)
+                    .opacity(showContent ? 1 : 0)
+                    .offset(y: showContent ? 0 : 40)
+                    
+                    // Previous worries button (centered)
+                    Button(action: { showHistory = true }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "clock.arrow.circlepath")
+                                .font(.system(size: 14, weight: .medium))
+                            Text("View Previous Worries")
+                                .font(.system(size: 14, weight: .medium))
+                        }
+                        .foregroundStyle(Color.orange)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule()
+                                .fill(Color.orange.opacity(0.12))
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(showContent ? 1 : 0)
+                    .offset(y: showContent ? 0 : 24)
+                    .padding(.top, 4)
+                    
+                    // Begin button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showIntro = false
+                        }
+                    }) {
+                        Text("Begin")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 54)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(Color.orange)
+                            )
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 8)
+                    .padding(.bottom, 24)
+                    .buttonStyle(.plain)
+                }
+                .frame(minHeight: geometry.size.height)
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 40)
-            .buttonStyle(.plain)
         }
     }
     
@@ -354,92 +324,142 @@ struct WorryTreeView: View {
     }
     
     private var identifyWorryView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "cloud.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(Color.orange.opacity(0.7))
-                .padding(.top, 20)
+        VStack(spacing: 20) {
+            // Compact header with icon
+            HStack(spacing: 12) {
+                Image(systemName: "cloud.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(Color.orange.opacity(0.8))
+                
+                Text("What's worrying you?")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color.textPrimary)
+            }
+            .padding(.top, 8)
             
-            Text("What's worrying you?")
-                .font(.headline)
-                .foregroundStyle(Color.textPrimary)
-            
-            TextEditor(text: $worryText)
-                .frame(height: 150)
-                .padding(12)
-                .background(Color.cardBackground)
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.borderColor, lineWidth: 1)
-                )
-                .onChange(of: worryText) { _, newValue in
-                    guard currentStep == .identify, newValue.last == "\n" else { return }
-                    worryText = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if primaryBottomButtonEnabled {
-                        handlePrimaryBottomButtonTap()
+            // Text entry with placeholder
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $worryText)
+                    .font(.body)
+                    .padding(14)
+                    .frame(minHeight: 140)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.cardBackground)
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(worryText.isEmpty ? Color.borderColor : Color.orange.opacity(0.5), lineWidth: 1.5)
+                    )
+                    .onChange(of: worryText) { _, newValue in
+                        guard currentStep == .identify, newValue.last == "\n" else { return }
+                        worryText = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if primaryBottomButtonEnabled {
+                            handlePrimaryBottomButtonTap()
+                        }
                     }
+                
+                if worryText.isEmpty {
+                    Text("Describe what's on your mind...")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary.opacity(0.6))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 22)
+                        .allowsHitTesting(false)
                 }
+            }
+            
+            // Gentle encouragement
+            HStack(spacing: 10) {
+                Image("panda_supportive")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 36, height: 36)
+                
+                Text("Take your time. There's no right or wrong way to express this.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground.opacity(0.7))
+            )
         }
     }
     
     private var canControlView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "hand.raised.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(Color.orange.opacity(0.7))
-                .padding(.top, 20)
-            
-            VStack(spacing: 12) {
-                Text("Can you do anything about this right now?")
-                    .font(.headline)
+        VStack(spacing: 20) {
+            // Header
+            HStack(spacing: 12) {
+                Image(systemName: "hand.raised.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(Color.orange.opacity(0.8))
+                
+                Text("Can you take action?")
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(Color.textPrimary)
-                    .multilineTextAlignment(.center)
+            }
+            .padding(.top, 8)
+            
+            // Show the worry they entered
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Your worry:")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(Color.textSecondary)
                 
                 Text(worryText)
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
-                    .padding()
+                    .font(.body)
+                    .foregroundStyle(Color.textPrimary)
+                    .padding(14)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(Color.cardBackground)
                     .cornerRadius(12)
             }
             
-            VStack(spacing: 16) {
+            Text("Is there something you can do about this right now?")
+                .font(.subheadline)
+                .foregroundStyle(Color.textSecondary)
+                .multilineTextAlignment(.center)
+            
+            VStack(spacing: 12) {
                 Button(action: {
                     canControl = true
-                    withAnimation {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         currentStep = .actionable
                     }
                 }) {
-                    HStack {
+                    HStack(spacing: 10) {
                         Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 20))
                         Text("Yes, I can do something")
+                            .font(.headline)
                     }
-                    .font(.headline)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+                    .frame(height: 54)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.green)
+                            .fill(Color.primaryGreen)
                     )
                 }
                 .buttonStyle(.plain)
                 
                 Button(action: {
                     canControl = false
-                    withAnimation {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                         currentStep = .letGo
                     }
                 }) {
-                    HStack {
-                        Image(systemName: "xmark.circle.fill")
-                        Text("No, it's out of my control")
+                    HStack(spacing: 10) {
+                        Image(systemName: "leaf.fill")
+                            .font(.system(size: 20))
+                        Text("No, it's outside my control")
+                            .font(.headline)
                     }
-                    .font(.headline)
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 50)
+                    .frame(height: 54)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
                             .fill(Color.blue)
@@ -451,104 +471,145 @@ struct WorryTreeView: View {
     }
     
     private var actionableView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "list.clipboard.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(Color.green.opacity(0.7))
-                .padding(.top, 20)
-            
-            Text("What's your action plan?")
-                .font(.headline)
-                .foregroundStyle(Color.textPrimary)
-            
-            TextEditor(text: $actionPlan)
-                .frame(height: 150)
-                .padding(12)
-                .background(Color.cardBackground)
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.borderColor, lineWidth: 1)
-                )
-                .onChange(of: actionPlan) { _, newValue in
-                    guard currentStep == .actionable, newValue.last == "\n" else { return }
-                    actionPlan = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if primaryBottomButtonEnabled {
-                        handlePrimaryBottomButtonTap()
-                    }
-                }
-            
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Tips for your action plan:")
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.textSecondary)
+        VStack(spacing: 20) {
+            // Header
+            HStack(spacing: 12) {
+                Image(systemName: "list.clipboard.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(Color.primaryGreen.opacity(0.8))
                 
-                VStack(alignment: .leading, spacing: 4) {
-                    bulletPoint("Break it into small, specific steps")
-                    bulletPoint("Set a realistic timeline")
-                    bulletPoint("Identify what you need")
+                Text("What's your plan?")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color.textPrimary)
+            }
+            .padding(.top, 8)
+            
+            // Text entry with placeholder
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $actionPlan)
+                    .font(.body)
+                    .padding(14)
+                    .frame(minHeight: 120)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.cardBackground)
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(actionPlan.isEmpty ? Color.borderColor : Color.primaryGreen.opacity(0.5), lineWidth: 1.5)
+                    )
+                    .onChange(of: actionPlan) { _, newValue in
+                        guard currentStep == .actionable, newValue.last == "\n" else { return }
+                        actionPlan = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if primaryBottomButtonEnabled {
+                            handlePrimaryBottomButtonTap()
+                        }
+                    }
+                
+                if actionPlan.isEmpty {
+                    Text("What small steps can you take?")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary.opacity(0.6))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 22)
+                        .allowsHitTesting(false)
                 }
             }
-            .padding()
-            .background(Color.cardBackground.opacity(0.5))
-            .cornerRadius(12)
+            
+            // Tips
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Quick tips:")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.textSecondary)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    bulletPoint("Start with the smallest possible step")
+                    bulletPoint("Be specific about what and when")
+                    bulletPoint("Focus on what you can control")
+                }
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground.opacity(0.7))
+            )
         }
     }
     
     private var letGoView: some View {
-        VStack(spacing: 24) {
-            Image(systemName: "leaf.fill")
-                .font(.system(size: 60))
-                .foregroundStyle(Color.blue.opacity(0.7))
-                .padding(.top, 20)
+        VStack(spacing: 20) {
+            // Header
+            HStack(spacing: 12) {
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 36))
+                    .foregroundStyle(Color.blue.opacity(0.8))
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Let it go")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Color.textPrimary)
+                    
+                    Text("This is outside your control")
+                        .font(.caption)
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .padding(.top, 8)
             
-            Text("Let it go")
-                .font(.headline)
-                .foregroundStyle(Color.textPrimary)
-            
-            Text("This worry is outside your control right now. That's okay.")
+            // Acceptance message
+            Text("That's okay. Recognizing what you can't control is wisdom, not weakness.")
                 .font(.subheadline)
                 .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
+                .padding(.horizontal, 8)
             
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Ways to release this worry:")
-                    .font(.caption)
-                    .fontWeight(.semibold)
+            // Text entry with placeholder
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $letGoReason)
+                    .font(.body)
+                    .padding(14)
+                    .frame(minHeight: 100)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.cardBackground)
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(letGoReason.isEmpty ? Color.borderColor : Color.blue.opacity(0.5), lineWidth: 1.5)
+                    )
+                    .onChange(of: letGoReason) { _, newValue in
+                        guard currentStep == .letGo, newValue.last == "\n" else { return }
+                        letGoReason = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if primaryBottomButtonEnabled {
+                            handlePrimaryBottomButtonTap()
+                        }
+                    }
+                
+                if letGoReason.isEmpty {
+                    Text("What helps you accept and release this?")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary.opacity(0.6))
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 22)
+                        .allowsHitTesting(false)
+                }
+            }
+            
+            // Tips
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Ways to let go:")
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.textSecondary)
                 
-                VStack(alignment: .leading, spacing: 8) {
-                    bulletPoint("Accept that you can't control everything")
-                    bulletPoint("Focus on what you CAN control")
+                VStack(alignment: .leading, spacing: 6) {
+                    bulletPoint("Focus on what you can control")
                     bulletPoint("Practice self-compassion")
                     bulletPoint("Return to the present moment")
                 }
             }
-            .padding()
-            .background(Color.cardBackground)
-            .cornerRadius(12)
-            
-            Text("What helps you let go?")
-                .font(.subheadline)
-                .foregroundStyle(Color.textPrimary)
-            
-            TextEditor(text: $letGoReason)
-                .frame(height: 100)
-                .padding(12)
-                .background(Color.cardBackground)
-                .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.borderColor, lineWidth: 1)
-                )
-                .onChange(of: letGoReason) { _, newValue in
-                    guard currentStep == .letGo, newValue.last == "\n" else { return }
-                    letGoReason = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                    if primaryBottomButtonEnabled {
-                        handlePrimaryBottomButtonTap()
-                    }
-                }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.cardBackground.opacity(0.7))
+            )
         }
     }
     
@@ -704,23 +765,30 @@ struct WorryTreeView: View {
 
     private func handlePrimaryBottomButtonTap() {
         guard primaryBottomButtonEnabled else { return }
-        switch currentStep {
-        case .identify:
-            withAnimation {
-                currentStep = .canControl
+        
+        // Dismiss keyboard immediately before transitioning
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        
+        // Small delay to let keyboard start dismissing before animation
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            switch currentStep {
+            case .identify:
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    currentStep = .canControl
+                }
+            case .actionable:
+                saveEntry()
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    currentStep = .complete
+                }
+            case .letGo:
+                saveEntry()
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                    currentStep = .complete
+                }
+            default:
+                break
             }
-        case .actionable:
-            saveEntry()
-            withAnimation {
-                currentStep = .complete
-            }
-        case .letGo:
-            saveEntry()
-            withAnimation {
-                currentStep = .complete
-            }
-        default:
-            break
         }
     }
 

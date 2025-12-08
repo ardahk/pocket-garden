@@ -59,25 +59,28 @@ struct WeeklyInsightDetailView: View {
                 Color.peacefulGradient
                     .ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(spacing: Spacing.xl) {
-                        // Activity Calendar (replaces mascot section)
-                        activityCalendarSection
-                        
-                        // Quote of the Week
-                        weeklyQuoteSection
-                        
-                        // Weekly stats overview
-                        weeklyStatsSection
-                        
-                        // Detailed insights
-                        insightsSection
-                        
-                        // Bumblebee's personalized motivation for the week
-                        motivationSection
+                GeometryReader { geometry in
+                    ScrollView {
+                        VStack(spacing: Spacing.xl) {
+                            // Activity Calendar (replaces mascot section)
+                            activityCalendarSection
+                            
+                            // Quote of the Week
+                            weeklyQuoteSection
+                            
+                            // Weekly stats overview
+                            weeklyStatsSection
+                            
+                            // Detailed insights
+                            insightsSection
+                            
+                            // Bumblebee's personalized motivation for the week
+                            motivationSection
+                        }
+                        .padding(.horizontal, Layout.screenPadding)
+                        .padding(.bottom, Spacing.xxxl)
+                        .frame(width: geometry.size.width)
                     }
-                    .padding(.horizontal, Layout.screenPadding)
-                    .padding(.bottom, Spacing.xxxl)
                 }
             }
             .navigationTitle("Weekly Insight")

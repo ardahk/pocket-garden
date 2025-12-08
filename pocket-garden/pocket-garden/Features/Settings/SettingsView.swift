@@ -262,25 +262,23 @@ struct SettingsView: View {
                 }
             }
 
-            // Capture entries on the main actor (SwiftData-bound)
-            let snapshotEntries: [EmotionEntry] = await MainActor.run {
-                return entries
+            // Build export entries on the main actor (SwiftData-bound)
+            let exportEntries: [ExportEntry] = await MainActor.run {
+                entries.map { entry in
+                    ExportEntry(
+                        date: entry.date,
+                        emotionRating: entry.emotionRating,
+                        transcription: entry.transcription,
+                        aiFeedback: entry.aiFeedback,
+                        tags: entry.tags,
+                        moodCategory: entry.moodCategory,
+                        focusArea: entry.focusArea,
+                        isFavorite: entry.isFavorite
+                    )
+                }
             }
 
             if Task.isCancelled { return }
-
-            let exportEntries = snapshotEntries.map { entry in
-                ExportEntry(
-                    date: entry.date,
-                    emotionRating: entry.emotionRating,
-                    transcription: entry.transcription,
-                    aiFeedback: entry.aiFeedback,
-                    tags: entry.tags,
-                    moodCategory: entry.moodCategory,
-                    focusArea: entry.focusArea,
-                    isFavorite: entry.isFavorite
-                )
-            }
 
             if Task.isCancelled { return }
 
@@ -340,16 +338,48 @@ struct SettingsView: View {
     }
     
     private func deleteAllData() {
-        for entry in entries {
-            // Delete associated voice recordings
-            if let url = entry.voiceRecordingURL {
-                try? FileManager.default.removeItem(at: url)
-            }
-            modelContext.delete(entry)
-        }
-        
         do {
+            // 1. Delete SwiftData Models
+            
+            // Emotion Entries (with file cleanup)
+            let entryDescriptor = FetchDescriptor<EmotionEntry>()
+            let allEntries = try modelContext.fetch(entryDescriptor)
+            for entry in allEntries {
+                if let url = entry.voiceRecordingURL {
+                    try? FileManager.default.removeItem(at: url)
+                }
+                modelContext.delete(entry)
+            }
+            
+            // Helper to delete all of a type
+            func deleteAll<T: PersistentModel>(_ type: T.Type) throws {
+                let descriptor = FetchDescriptor<T>()
+                let items = try modelContext.fetch(descriptor)
+                for item in items {
+                    modelContext.delete(item)
+                }
+            }
+            
+            try deleteAll(GrowingTree.self)
+            try deleteAll(Achievement.self)
+            try deleteAll(Quote.self)
+            try deleteAll(CalmSession.self)
+            try deleteAll(WorryTreeEntry.self)
+            
             try modelContext.save()
+            
+            // 2. Reset UserDefaults (preserving onboarding state)
+            let defaults = UserDefaults.standard
+            let onboardingCompleted = defaults.bool(forKey: "hasCompletedOnboarding")
+            
+            if let bundleID = Bundle.main.bundleIdentifier {
+                defaults.removePersistentDomain(forName: bundleID)
+            }
+            
+            // Restore onboarding state
+            defaults.set(onboardingCompleted, forKey: "hasCompletedOnboarding")
+            defaults.synchronize()
+            
             showDeleteSuccess = true
         } catch {
             print("Delete failed: \(error)")

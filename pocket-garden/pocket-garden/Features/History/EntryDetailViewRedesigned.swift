@@ -64,6 +64,7 @@ struct EntryDetailViewRedesigned: View {
                 stopPlayback()
             }
         }
+        .presentationDragIndicator(.visible)
     }
     
     // MARK: - Header Section
@@ -222,8 +223,7 @@ struct EntryDetailViewRedesigned: View {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 // Header with panda
                 HStack(spacing: Spacing.sm) {
-                    Text("🐝")
-                        .font(.system(size: 24))
+                    GardenMascot(emotion: .happy, size: 32)
                     
                     Text("What Bumblebee Says")
                         .font(.system(size: 17, weight: .semibold))
