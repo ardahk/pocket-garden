@@ -75,12 +75,15 @@ struct HomeView: View {
                 }
             }
             
-            // Super thin background colored line at the top
-            VStack {
-                Rectangle()
-                    .fill(Color.backgroundCream)
-                    .frame(height: 1)
-                Spacer()
+            // Safe area background overlay at the top to cover status bar when scrolling
+            GeometryReader { geo in
+                VStack(spacing: 0) {
+                    Rectangle()
+                        .fill(Color.backgroundCream)
+                        .frame(height: geo.safeAreaInsets.top)
+                    Spacer()
+                }
+                .ignoresSafeArea()
             }
             .allowsHitTesting(false)
         }
