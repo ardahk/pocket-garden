@@ -430,6 +430,7 @@ struct SettingsRow: View {
             .background(Color.cardBackground)
             .cornerRadius(CornerRadius.md)
         }
+        .buttonStyle(.plain)
         .pressAnimation()
     }
 }

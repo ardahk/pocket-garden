@@ -370,11 +370,11 @@ struct WeeklyInsightDetailView: View {
         let value: String
         switch weeklyInsight.moodTrend {
         case .improving:
-            value = "Improving 📈"
+            value = "Blooming ✨"
         case .stable:
-            value = "Stable ➡️"
+            value = "Steady 🌿"
         case .declining:
-            value = "Challenging 📉"
+            value = "Reflective 🌊"
         }
         UserDefaults.standard.set(value, forKey: InsightCacheKeys.trendText)
         return value

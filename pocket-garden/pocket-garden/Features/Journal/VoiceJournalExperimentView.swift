@@ -37,6 +37,11 @@ struct VoiceJournalExperimentView: View {
     @State private var previousTranscription: String = "" // For appending mode
     @State private var saveAudioAsFavorite: Bool = false
     
+    // Animation states
+    @State private var breatheScale: CGFloat = 1.0
+    @State private var ringRotation: Double = 0
+    @State private var pulseOpacity: Double = 0.3
+    
     
     var body: some View {
         NavigationStack {
@@ -80,53 +85,87 @@ struct VoiceJournalExperimentView: View {
             }
             .overlay(alignment: .top) {
                 if isRecording() && !needsAuthorization() {
-                    Text(formatTime(recordingSeconds))
-                        .font(.system(size: 18, weight: .medium))
-                        .monospacedDigit()
-                        .foregroundColor(.textPrimary)
-                        .padding(.top, 50)
+                    // Elegant timer display
+                    VStack(spacing: Spacing.xs) {
+                        HStack(spacing: Spacing.sm) {
+                            Circle()
+                                .fill(Color.red)
+                                .frame(width: 8, height: 8)
+                                .opacity(pulseOpacity)
+                                .onAppear {
+                                    withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {
+                                        pulseOpacity = 1.0
+                                    }
+                                }
+                            
+                            Text("Recording")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.textSecondary)
+                        }
+                        
+                        Text(formatTime(recordingSeconds))
+                            .font(.system(size: 34, weight: .light, design: .rounded))
+                            .monospacedDigit()
+                            .foregroundColor(.textPrimary)
+                    }
+                    .padding(.top, 60)
                 }
             }
         }
         .overlay(alignment: .bottom) {
             if isRecording() && !needsAuthorization() {
-                // Stop recording button with panda
+                // Elegant stop button
                 Button(action: {
                     stopRecording()
                     Theme.Haptics.medium()
                 }) {
                     HStack(spacing: Spacing.md) {
-                        // Stop square icon
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color(light: "FFFFFF", dark: "2A2A2E"))
-                            .frame(width: 24, height: 24)
+                        // Stop icon
+                        ZStack {
+                            Circle()
+                                .fill(Color.white.opacity(0.2))
+                                .frame(width: 44, height: 44)
+                            
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color.white)
+                                .frame(width: 16, height: 16)
+                        }
                         
                         Text("Stop Recording")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
                         
                         Spacer()
                         
-                        // Bumblebee emoji circle
-                        Circle()
-                            .fill(Color(light: "FFFFFF", dark: "2A2A2E"))
-                            .frame(width: 50, height: 50)
-                            .overlay(
-                                Text("🐝")
-                                    .font(.system(size: 28))
-                            )
+                        // Bumblebee listening indicator
+                        ZStack {
+                            Circle()
+                                .fill(Color.white)
+                                .frame(width: 44, height: 44)
+                            
+                            Text("🐝")
+                                .font(.system(size: 24))
+                        }
                     }
-                    .padding(.horizontal, Spacing.lg)
-                    .padding(.vertical, Spacing.md)
+                    .padding(.leading, Spacing.md)
+                    .padding(.trailing, Spacing.sm)
+                    .padding(.vertical, Spacing.sm)
                     .frame(maxWidth: .infinity)
                     .background(
-                        RoundedRectangle(cornerRadius: 50)
-                            .fill(Color.red.opacity(0.8))
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color.red.opacity(0.9), Color.red.opacity(0.75)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .shadow(color: Color.red.opacity(0.3), radius: 15, y: 5)
                     )
                 }
                 .buttonStyle(.plain)
                 .padding(.horizontal, Layout.screenPadding)
-                .padding(.bottom, 40)
+                .padding(.bottom, 50)
             }
         }
         .fullScreenCover(isPresented: $showMascotFeedback) {
@@ -236,69 +275,29 @@ struct VoiceJournalExperimentView: View {
             Spacer()
                 .frame(height: 40)
             
-            // Status
-            statusView
-            
-            // Transcription
-            if !transcription().isEmpty {
-                transcriptionView
-            }
-            
-            Spacer()
-            
-            // Controls
-            recordingControlsView
-            
-            // Action buttons
-            if !transcription().isEmpty && !isRecording() {
-                VStack(spacing: Spacing.md) {
-                    // Favorite + keep audio toggle (directly under transcription)
-                    VStack(alignment: .leading, spacing: Spacing.xs) {
-                        Toggle(isOn: $saveAudioAsFavorite) {
-                            HStack(spacing: Spacing.sm) {
-                                Image(systemName: saveAudioAsFavorite ? "heart.fill" : "heart")
-                                    .foregroundColor(saveAudioAsFavorite ? .errorRed : .textSecondary)
-                                Text("Mark as favorite and keep audio (up to 5 minutes)")
-                                    .font(Typography.callout)
-                                    .foregroundColor(.textSecondary)
-                            }
-                        }
-                        .tint(.primaryGreen)
-                        .disabled(recordingSeconds > 300)
-                        .opacity(recordingSeconds > 300 ? 0.6 : 1.0)
-
-                        if recordingSeconds > 300 {
-                            Text("Recordings over 5 minutes save text only.")
-                                .font(Typography.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                    }
-
-                    // Continue Adding button
-                    SecondaryButton("Continue Adding", icon: "plus.mic.fill") {
-                        previousTranscription = transcription()
-                        startRecording()
-                        Theme.Haptics.medium()
-                    }
-
-                    // Save button
-                    saveButtonView
-
-                    // Record again text button
-                    Button("Record Again") {
-                        cancelRecording()
-                        recordingSeconds = 0
-                        saveAudioAsFavorite = false
-                    }
-                    .buttonStyle(.plain)
-                    .font(Typography.callout)
-                    .foregroundColor(.primaryGreen)
+            // Show transcribing view full screen (no other content)
+            if isTranscribing() {
+                statusView
+            } else {
+                // Transcription card (only after transcription complete)
+                if !transcription().isEmpty && !isRecording() {
+                    transcriptionView
+                    
+                    Spacer()
+                    
+                    // Action buttons
+                    postRecordingActionsView
+                } else {
+                    // Recording controls (idle or recording state)
+                    Spacer()
+                    recordingControlsView
+                    Spacer()
                 }
             }
             
-            // Bottom spacing to avoid stop button overlap
+            // Bottom spacing
             Spacer()
-                .frame(height: 100)
+                .frame(height: isRecording() ? 100 : 20)
         }
         .padding()
     }
@@ -308,110 +307,538 @@ struct VoiceJournalExperimentView: View {
     private var statusView: some View {
         VStack(spacing: Spacing.xl) {
             if isTranscribing() {
-                // Thinking panda with cleaner design
-                VStack(spacing: Spacing.xl) {
-                    GardenMascot(emotion: .thinking, size: 120)
-                    
-                    Text("Transcribing...")
-                        .font(.system(size: 20, weight: .semibold))
-                        .foregroundColor(.textPrimary)
-                    
-                    if whisperService.transcriptionProgress > 0 {
-                        ProgressView(value: whisperService.transcriptionProgress)
-                            .tint(.primaryGreen)
-                            .frame(width: 200)
-                    }
-                }
+                transcribingView
             } else if !isRecording() {
-                // Initial state - simple instruction
                 EmptyView()
             }
+        }
+    }
+    
+    // MARK: - Transcribing State
+    
+    private var transcribingView: some View {
+        VStack(spacing: Spacing.xxl) {
+            Spacer()
+            
+            // Animated mascot with glow
+            ZStack {
+                // Outer pulsing glow
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.accentGold.opacity(0.2),
+                                Color.accentGold.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 40,
+                            endRadius: 120
+                        )
+                    )
+                    .frame(width: 240, height: 240)
+                    .scaleEffect(breatheScale)
+                
+                // Rotating ring
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Color.accentGold.opacity(0.4),
+                                Color.accentGold.opacity(0.1),
+                                Color.accentGold.opacity(0.4)
+                            ],
+                            center: .center
+                        ),
+                        lineWidth: 3
+                    )
+                    .frame(width: 180, height: 180)
+                    .rotationEffect(.degrees(ringRotation))
+                
+                // Mascot
+                GardenMascot(emotion: .thinking, size: 120)
+            }
+            .onAppear {
+                startIdleAnimations()
+            }
+            
+            // Status text
+            VStack(spacing: Spacing.md) {
+                Text("Transcribing your thoughts")
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .foregroundColor(.textPrimary)
+                
+                Text("Bumblebee is listening carefully...")
+                    .font(.system(size: 15))
+                    .foregroundColor(.textSecondary)
+            }
+            
+            // Progress indicator
+            if whisperService.transcriptionProgress > 0 {
+                VStack(spacing: Spacing.sm) {
+                    // Custom progress bar
+                    GeometryReader { geometry in
+                        ZStack(alignment: .leading) {
+                            // Track
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(Color.primaryGreen.opacity(0.15))
+                                .frame(height: 12)
+                            
+                            // Fill with gradient
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [Color.primaryGreen, Color.primaryGreen.opacity(0.8)],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: geometry.size.width * whisperService.transcriptionProgress, height: 12)
+                                .animation(.easeOut(duration: 0.3), value: whisperService.transcriptionProgress)
+                            
+                            // Shimmer effect
+                            RoundedRectangle(cornerRadius: 6)
+                                .fill(
+                                    LinearGradient(
+                                        colors: [
+                                            Color.white.opacity(0),
+                                            Color.white.opacity(0.3),
+                                            Color.white.opacity(0)
+                                        ],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .frame(width: 60, height: 12)
+                                .offset(x: (geometry.size.width * whisperService.transcriptionProgress) - 30)
+                                .mask(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .frame(width: geometry.size.width * whisperService.transcriptionProgress, height: 12)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                )
+                        }
+                    }
+                    .frame(width: 260, height: 12)
+                    
+                    // Percentage
+                    Text("\(Int(whisperService.transcriptionProgress * 100))%")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(.textSecondary)
+                }
+            } else {
+                // Indeterminate loading dots
+                HStack(spacing: 8) {
+                    ForEach(0..<3, id: \.self) { index in
+                        Circle()
+                            .fill(Color.primaryGreen)
+                            .frame(width: 8, height: 8)
+                            .scaleEffect(breatheScale)
+                            .animation(
+                                .easeInOut(duration: 0.6)
+                                .repeatForever(autoreverses: true)
+                                .delay(Double(index) * 0.2),
+                                value: breatheScale
+                            )
+                    }
+                }
+            }
+            
+            Spacer()
+            Spacer()
         }
     }
     
     // MARK: - Transcription View
     
     private var transcriptionView: some View {
-        Card {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            // Header with more breathing room
+            HStack {
+                Image(systemName: "text.quote")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.primaryGreen)
+                
+                Text("Your Journal Entry")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.textSecondary)
+                
+                Spacer()
+                
+                // Word count
+                Text("\(transcription().split(separator: " ").count) words")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.textSecondary.opacity(0.7))
+            }
+            .padding(.bottom, Spacing.xs)
+            
+            // Text editor with better styling - larger area
             TextEditor(text: Binding(
                 get: { transcription() },
                 set: { whisperService.transcription = $0 }
             ))
-            .font(Typography.body)
-            .frame(minHeight: 140, maxHeight: 300, alignment: .topLeading)
+            .font(.system(size: 17, weight: .regular))
+            .foregroundColor(.textPrimary)
+            .frame(minHeight: 180, maxHeight: 320, alignment: .topLeading)
             .scrollContentBackground(.hidden)
-            .padding(.top, Spacing.xs)
         }
+        .padding(.top, Spacing.lg)
+        .padding(.horizontal, Spacing.lg)
+        .padding(.bottom, Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: 20)
+                .fill(Color.cardBackground)
+                .shadow(color: Color.black.opacity(0.06), radius: 12, y: 4)
+        )
     }
     
     // MARK: - Recording Controls
     
     private var recordingControlsView: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: Spacing.xl) {
             if isRecording() {
-                // Concentric circles driven by live audio level (slow, voice-synced pulse)
-                let level = whisperService.audioLevel
-                ZStack {
-                    // Outer circle - very subtle, slow swell
-                    Circle()
-                        .fill(Color.primaryGreen.opacity(0.08))
-                        .frame(width: 300, height: 300)
-                        .scaleEffect(0.95 + 0.10 * level)
-                        .animation(.easeOut(duration: 0.25), value: level)
-                    
-                    // Middle circle
-                    Circle()
-                        .fill(Color.primaryGreen.opacity(0.15))
-                        .frame(width: 220, height: 220)
-                        .scaleEffect(0.96 + 0.14 * level)
-                        .animation(.easeOut(duration: 0.22), value: level)
-                    
-                    // Inner circle - main pulse
-                    Circle()
-                        .fill(Color.primaryGreen)
-                        .frame(width: 140, height: 140)
-                        .scaleEffect(0.98 + 0.18 * level)
-                        .animation(.easeOut(duration: 0.2), value: level)
-                    
-                    // Center icon
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
-                }
-                .padding(.vertical, 30)
+                recordingActiveView
             } else if !isTranscribing() && transcription().isEmpty {
-                // Initial state - concentric circles
-                ZStack {
-                    // Outer circle
-                    Circle()
-                        .fill(Color.primaryGreen.opacity(0.1))
-                        .frame(width: 300, height: 300)
-                    
-                    // Middle circle
-                    Circle()
-                        .fill(Color.primaryGreen.opacity(0.2))
-                        .frame(width: 220, height: 220)
-                    
-                    // Inner circle
-                    Circle()
-                        .fill(Color.primaryGreen)
-                        .frame(width: 140, height: 140)
-                    
-                    // Center icon
-                    Image(systemName: "mic.fill")
-                        .font(.system(size: 50))
-                        .foregroundColor(Color(light: "FFFFFF", dark: "2A2A2E"))
-                }
-                .padding(.vertical, 60)
-                .onTapGesture {
-                    startRecording()
-                    Theme.Haptics.medium()
-                }
+                recordingIdleView
             }
         }
     }
     
-    // MARK: - Save Button
+    // MARK: - Idle State (Before Recording)
+    
+    private var recordingIdleView: some View {
+        VStack(spacing: Spacing.xxl) {
+            // Instructional text
+            VStack(spacing: Spacing.sm) {
+                Text("Tap to start recording")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundColor(.textSecondary)
+                
+                Text("Share what's on your mind")
+                    .font(.system(size: 15))
+                    .foregroundColor(.textSecondary.opacity(0.7))
+            }
+            .opacity(breatheScale > 1.02 ? 0.6 : 1.0)
+            .animation(.easeInOut(duration: 2), value: breatheScale)
+            
+            // Animated mic button
+            ZStack {
+                // Outer breathing ring
+                Circle()
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.primaryGreen.opacity(0.15),
+                                Color.primaryGreen.opacity(0.05)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 2
+                    )
+                    .frame(width: 240, height: 240)
+                    .scaleEffect(breatheScale)
+                
+                // Middle ring with rotation
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Color.primaryGreen.opacity(0.3),
+                                Color.primaryGreen.opacity(0.1),
+                                Color.primaryGreen.opacity(0.3)
+                            ],
+                            center: .center
+                        ),
+                        lineWidth: 3
+                    )
+                    .frame(width: 190, height: 190)
+                    .rotationEffect(.degrees(ringRotation))
+                
+                // Inner glow
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.primaryGreen.opacity(0.2),
+                                Color.primaryGreen.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 50,
+                            endRadius: 120
+                        )
+                    )
+                    .frame(width: 240, height: 240)
+                    .scaleEffect(breatheScale * 0.95)
+                
+                // Main button
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.primaryGreen,
+                                Color.primaryGreen.opacity(0.85)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 120, height: 120)
+                    .shadow(color: Color.primaryGreen.opacity(0.4), radius: 20, y: 8)
+                
+                // Mic icon
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 44, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            .onTapGesture {
+                startRecording()
+                Theme.Haptics.medium()
+            }
+            .onAppear {
+                startIdleAnimations()
+            }
+            .onDisappear {
+                stopIdleAnimations()
+            }
+        }
+        .padding(.vertical, 40)
+    }
+    
+    // MARK: - Recording Active State
+    
+    private var recordingActiveView: some View {
+        let level = whisperService.audioLevel
+        
+        return ZStack {
+            // Outer wave rings (audio reactive)
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .stroke(
+                        Color.primaryGreen.opacity(0.15 - Double(index) * 0.04),
+                        lineWidth: 2
+                    )
+                    .frame(width: CGFloat(180 + index * 50), height: CGFloat(180 + index * 50))
+                    .scaleEffect(1.0 + level * CGFloat(0.15 - Double(index) * 0.03))
+                    .animation(.easeOut(duration: 0.15), value: level)
+            }
+            
+            // Pulsing glow background
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.primaryGreen.opacity(0.25 + level * 0.2),
+                            Color.primaryGreen.opacity(0.08),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 30,
+                        endRadius: 100
+                    )
+                )
+                .frame(width: 200, height: 200)
+                .scaleEffect(1.0 + level * 0.2)
+                .animation(.easeOut(duration: 0.12), value: level)
+            
+            // Main recording circle
+            Circle()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.primaryGreen,
+                            Color.primaryGreen.opacity(0.9)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 120, height: 120)
+                .scaleEffect(1.0 + level * 0.08)
+                .shadow(color: Color.primaryGreen.opacity(0.5), radius: 25 + level * 15, y: 8)
+                .animation(.easeOut(duration: 0.1), value: level)
+            
+            // Waveform visualization inside button
+            HStack(spacing: 4) {
+                ForEach(0..<5, id: \.self) { index in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.white)
+                        .frame(width: 4, height: waveformHeight(for: index, level: level))
+                        .animation(.easeOut(duration: 0.08), value: level)
+                }
+            }
+        }
+        .padding(.vertical, 30)
+    }
+    
+    // MARK: - Animation Helpers
+    
+    private func waveformHeight(for index: Int, level: CGFloat) -> CGFloat {
+        let baseHeight: CGFloat = 20
+        let maxHeight: CGFloat = 50
+        let variation: [CGFloat] = [0.6, 1.0, 0.8, 1.0, 0.6]
+        return baseHeight + (maxHeight - baseHeight) * level * variation[index]
+    }
+    
+    private func startIdleAnimations() {
+        // Breathing animation
+        withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+            breatheScale = 1.08
+        }
+        
+        // Ring rotation
+        withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
+            ringRotation = 360
+        }
+    }
+    
+    private func stopIdleAnimations() {
+        breatheScale = 1.0
+        ringRotation = 0
+    }
+    
+    // MARK: - Post Recording Actions
+    
+    private var postRecordingActionsView: some View {
+        VStack(spacing: Spacing.lg) {
+            // Favorite toggle - elegant card style
+            Button(action: {
+                if recordingSeconds <= 300 {
+                    saveAudioAsFavorite.toggle()
+                    Theme.Haptics.selection()
+                }
+            }) {
+                HStack(spacing: Spacing.md) {
+                    ZStack {
+                        Circle()
+                            .fill(saveAudioAsFavorite ? Color.errorRed.opacity(0.15) : Color.gray.opacity(0.1))
+                            .frame(width: 44, height: 44)
+                        
+                        Image(systemName: saveAudioAsFavorite ? "heart.fill" : "heart")
+                            .font(.system(size: 18, weight: .medium))
+                            .foregroundColor(saveAudioAsFavorite ? .errorRed : .textSecondary)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Save as Favorite")
+                            .font(.system(size: 15, weight: .medium))
+                            .foregroundColor(.textPrimary)
+                        
+                        Text(recordingSeconds <= 300 ? "Keep audio recording attached" : "Audio too long to save")
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                    }
+                    
+                    Spacer()
+                    
+                    // Toggle indicator
+                    ZStack {
+                        Capsule()
+                            .fill(saveAudioAsFavorite ? Color.primaryGreen : Color.gray.opacity(0.2))
+                            .frame(width: 50, height: 30)
+                        
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 26, height: 26)
+                            .shadow(color: Color.black.opacity(0.1), radius: 2, y: 1)
+                            .offset(x: saveAudioAsFavorite ? 10 : -10)
+                            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: saveAudioAsFavorite)
+                    }
+                }
+                .padding(Spacing.md)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.cardBackground)
+                        .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(recordingSeconds > 300)
+            .opacity(recordingSeconds > 300 ? 0.6 : 1.0)
+            
+            // Action buttons row
+            HStack(spacing: Spacing.md) {
+                // Continue Adding - secondary style
+                Button(action: {
+                    previousTranscription = transcription()
+                    startRecording()
+                    Theme.Haptics.medium()
+                }) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.system(size: 18, weight: .medium))
+                        
+                        Text("Add More")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.primaryGreen)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .fill(Color.primaryGreen.opacity(0.12))
+                    )
+                }
+                .buttonStyle(.plain)
+                
+                // Record Again - tertiary style
+                Button(action: {
+                    cancelRecording()
+                    recordingSeconds = 0
+                    saveAudioAsFavorite = false
+                    Theme.Haptics.light()
+                }) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "arrow.counterclockwise")
+                            .font(.system(size: 16, weight: .medium))
+                        
+                        Text("Redo")
+                            .font(.system(size: 15, weight: .semibold))
+                    }
+                    .foregroundColor(.textSecondary)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.gray.opacity(0.2), lineWidth: 1.5)
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            
+            // Save button - primary action
+            Button(action: {
+                saveEntry()
+                Theme.Haptics.success()
+            }) {
+                HStack(spacing: Spacing.sm) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20, weight: .medium))
+                    
+                    Text("Save Journal Entry")
+                        .font(.system(size: 17, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .frame(height: 56)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.primaryGreen, Color.primaryGreen.opacity(0.85)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .shadow(color: Color.primaryGreen.opacity(0.35), radius: 12, y: 6)
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isGeneratingFeedback)
+        }
+    }
+    
+    // MARK: - Save Button (Legacy - kept for compatibility)
     
     private var saveButtonView: some View {
         PrimaryButton("Save Journal Entry", icon: "checkmark.circle.fill") {

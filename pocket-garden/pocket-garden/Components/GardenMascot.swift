@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import NaturalLanguage
+import Foundation
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
@@ -143,83 +144,89 @@ struct MascotFeedbackView: View {
                 SparklesView(sparkleCount: 20)
             }
 
-            VStack(spacing: Spacing.xxxl) {
-                Spacer()
+            ScrollView {
+                VStack(spacing: Spacing.xl) {
+                    Spacer(minLength: Spacing.xl)
 
-                // Mascot character
-                GardenMascot(emotion: activeEmotion, size: 140)
-                    .scaleEffect(mascotScale)
-                    .onAppear {
-                        withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
-                            mascotScale = 1.0
-                        }
-
-                        if entry.emotionRating >= 8 {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                                withAnimation { showSparkles = true }
+                    // Mascot character
+                    GardenMascot(emotion: activeEmotion, size: 140)
+                        .scaleEffect(mascotScale)
+                        .onAppear {
+                            withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
+                                mascotScale = 1.0
                             }
-                        }
 
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
-                                speechBubbleScale = 1.0
+                            if entry.emotionRating >= 8 {
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                    withAnimation { showSparkles = true }
+                                }
                             }
-                            Theme.Haptics.light()
+
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                    speechBubbleScale = 1.0
+                                }
+                                Theme.Haptics.light()
+                            }
+
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                                withAnimation(.easeIn(duration: 0.5)) { feedbackOpacity = 1.0 }
+                            }
+
+                            Task { await generateFeedback() }
                         }
 
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                            withAnimation(.easeIn(duration: 0.5)) { feedbackOpacity = 1.0 }
-                        }
+                    // Speech bubble with feedback
+                    SpeechBubble {
+                        VStack(alignment: .leading, spacing: Spacing.md) {
+                            Text(mascotGreeting)
+                                .font(Typography.title3)
+                                .foregroundColor(.textPrimary)
 
-                        Task { await generateFeedback() }
-                    }
-
-                // Speech bubble with feedback
-                SpeechBubble {
-                    VStack(alignment: .leading, spacing: Spacing.md) {
-                        Text(mascotGreeting)
-                            .font(Typography.title3)
-                            .foregroundColor(.textPrimary)
-
-                        if isGenerating {
-                            HStack(spacing: Spacing.sm) {
-                                ProgressView()
-                                    .scaleEffect(0.8)
-                                Text("Thinking...")
+                            if isGenerating {
+                                HStack(spacing: Spacing.sm) {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("Thinking...")
+                                        .font(Typography.body)
+                                        .foregroundColor(.textSecondary)
+                                }
+                            } else {
+                                Text(generatedText ?? entry.aiFeedback ?? "You're doing great!")
                                     .font(Typography.body)
                                     .foregroundColor(.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
                             }
-                        } else {
-                            Text(generatedText ?? entry.aiFeedback ?? "You're doing great!")
-                                .font(Typography.body)
-                                .foregroundColor(.textSecondary)
-                        }
-                        
-                        if showAINotice {
-                            HStack(spacing: Spacing.xs) {
-                                Image(systemName: "sparkles")
-                                    .font(.caption)
-                                Text("Enable Apple Intelligence for richer feedback")
-                                    .font(Typography.caption)
+                            
+                            if showAINotice {
+                                HStack(spacing: Spacing.xs) {
+                                    Image(systemName: "sparkles")
+                                        .font(.caption)
+                                    Text("Enable Apple Intelligence for richer feedback")
+                                        .font(Typography.caption)
+                                }
+                                .foregroundColor(.primaryGreen.opacity(0.7))
+                                .padding(.top, Spacing.xs)
                             }
-                            .foregroundColor(.primaryGreen.opacity(0.7))
-                            .padding(.top, Spacing.xs)
                         }
                     }
-                }
-                .scaleEffect(speechBubbleScale)
-                .opacity(feedbackOpacity)
+                    .scaleEffect(speechBubbleScale)
+                    .opacity(feedbackOpacity)
 
-                Spacer()
+                    Spacer(minLength: Spacing.xl)
 
-                // Continue button
-                PrimaryButton("Continue", icon: "arrow.right") {
-                    dismiss()
+                    // Continue button
+                    PrimaryButton("Continue", icon: "arrow.right") {
+                        dismiss()
+                    }
+                    .padding(.horizontal, Layout.screenPadding)
+                    .opacity(feedbackOpacity)
+                    
+                    Spacer(minLength: Spacing.xl)
                 }
-                .padding(.horizontal, Layout.screenPadding)
-                .opacity(feedbackOpacity)
+                .frame(minHeight: UIScreen.main.bounds.height - 100)
             }
-            .padding(.vertical, Spacing.xl)
+            .scrollIndicators(.hidden)
         }
     }
 
@@ -398,9 +405,40 @@ fileprivate func languageInstruction(for text: String?) -> String {
     - You MUST provide ORIGINAL therapeutic feedback that:
       1. Validates their emotions with empathy
       2. Acknowledges specific details they mentioned
-      3. Offers ONE helpful suggestion (like box breathing, Body Scan, or another Sanctuary practice)
+      3. Offers ONE helpful suggestion from the Sanctuary practices listed above
     - Your response should feel like a caring friend giving advice, NOT a summary of what they said.
     """
+}
+
+// MARK: - Sanctuary Items (centralized for easy updates)
+
+/// Dictionary of all Sanctuary practices with descriptions for AFM prompts.
+/// Update this single source when adding/removing Sanctuary features.
+fileprivate let sanctuaryItems: [String: String] = [
+    "Box Breathing": "A calming 4-4-4-4 breathing technique to steady anxiety and ground quickly",
+    "4-7-8 Breath": "A relaxing pattern with a long exhale to wind down and prepare for sleep",
+    "Coherent Breathing": "A smooth 5-5 rhythm that balances energy and eases stress",
+    "Calming Breath": "A short inhale and long exhale technique to release tension quickly",
+    "Body Scan": "A mindfulness meditation that brings awareness to each part of your body to release tension",
+    "Three Good Moments": "A savoring exercise where you reflect on three positive moments from your day",
+    "Worry Tree": "A guided decision tree to process worries by identifying what you can and cannot control",
+    "Safe Place Visualization": "A calming visualization exercise to imagine a peaceful, secure place",
+    "Grounding Exercise": "A 5-4-3-2-1 sensory grounding technique to anchor yourself in the present moment",
+    "Affirmations": "Gentle positive self-compassion messages to nurture your inner voice"
+]
+
+/// Formats sanctuary items for inclusion in AFM prompts
+fileprivate func sanctuaryItemsForPrompt() -> String {
+    var lines: [String] = ["SANCTUARY PRACTICES (always mention 'in Sanctuary' when suggesting):"]
+    for (name, description) in sanctuaryItems.sorted(by: { $0.key < $1.key }) {
+        lines.append("- \(name): \(description)")
+    }
+    return lines.joined(separator: "\n")
+}
+
+/// Returns just the names of sanctuary items as a comma-separated list
+fileprivate func sanctuaryItemNames() -> String {
+    sanctuaryItems.keys.sorted().joined(separator: ", ")
 }
 
 fileprivate final class PandaFeedbackService {
@@ -470,7 +508,8 @@ fileprivate final class PandaFeedbackService {
     }
 
     private func instructionsText() -> String {
-        "You are Bumblebee, a warm and thoughtful emotional wellness companion. Read the user's emotion rating and journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Always take the emotion rating into account together with the text.\n2. If the rating is 8, 9, or 10 out of 10, the overall tone MUST be clearly celebratory and proud. You may briefly acknowledge remaining stress, but focus mainly on what went well and why the user feels capable or hopeful.\n3. If the rating is 4–7, use a balanced, supportive tone that recognizes both difficulties and strengths.\n4. If the rating is 1–3, use a very gentle, compassionate tone and avoid minimizing their experience.\n5. Acknowledge at least one concrete detail they mentioned so it feels specific.\n6. Offer exactly one gentle, actionable suggestion (no long lists).\n7. When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (for example: box breathing, the grounding exercise, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations). Mention \"in Sanctuary\" so they know where to go.\n8. Use warm, conversational language and vary your phrasing each time.\n9. Never diagnose, give medical advice, or repeat recent responses.\n\nMake it feel personal and genuine, not scripted."
+        let practices = sanctuaryItemNames()
+        return "You are Bumblebee, a warm and thoughtful emotional wellness companion. Read the user's emotion rating and journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Always take the emotion rating into account together with the text.\n2. If the rating is 8, 9, or 10 out of 10, the overall tone MUST be clearly celebratory and proud. You may briefly acknowledge remaining stress, but focus mainly on what went well and why the user feels capable or hopeful.\n3. If the rating is 4–7, use a balanced, supportive tone that recognizes both difficulties and strengths.\n4. If the rating is 1–3, use a very gentle, compassionate tone and avoid minimizing their experience.\n5. Acknowledge at least one concrete detail they mentioned so it feels specific.\n6. Offer exactly one gentle, actionable suggestion (no long lists).\n7. When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (available practices: \(practices)). Mention \"in Sanctuary\" so they know where to go.\n8. Use warm, conversational language and vary your phrasing each time.\n9. Never diagnose, give medical advice, or repeat recent responses.\n\nMake it feel personal and genuine, not scripted."
     }
 
     @MainActor
@@ -483,22 +522,40 @@ fileprivate final class PandaFeedbackService {
                 let response = try await session.respond(to: promptText)
                 let rawText = response.content
                 
+                var feedbackText: String
+                var emotionHint: String = "supportive"
+                var tags: [String]? = nil
+                
                 // Try to parse JSON from response
                 if let data = rawText.data(using: .utf8),
                    let decoded = try? JSONDecoder().decode(PandaFeedback.self, from: data) {
-                    return PandaFeedback(
-                        text: minimizeMarkdown(decoded.text),
-                        emotionHint: decoded.emotionHint,
-                        tags: decoded.tags
-                    )
+                    feedbackText = minimizeMarkdown(decoded.text)
+                    emotionHint = decoded.emotionHint
+                    tags = decoded.tags
+                } else {
+                    // Fallback: extract text from non-JSON response
+                    feedbackText = minimizeMarkdown(extractTextFromResponse(rawText))
                 }
                 
-                // Fallback: extract text from non-JSON response
-                let cleaned = extractTextFromResponse(rawText)
+                // Validate the generated output
+                let userInput = entry.transcription ?? ""
+                if !userInput.isEmpty {
+                    let validation = await PandaOutputValidator.shared.validate(
+                        output: feedbackText,
+                        input: userInput,
+                        context: "journal"
+                    )
+                    
+                    // Use corrected output if validation failed but correction succeeded
+                    if !validation.isValid, let corrected = validation.correctedOutput {
+                        feedbackText = corrected
+                    }
+                }
+                
                 return PandaFeedback(
-                    text: minimizeMarkdown(cleaned),
-                    emotionHint: "supportive",
-                    tags: nil
+                    text: feedbackText,
+                    emotionHint: emotionHint,
+                    tags: tags
                 )
             } catch {
                 return nil
@@ -509,13 +566,53 @@ fileprivate final class PandaFeedbackService {
     }
     
     private func extractTextFromResponse(_ raw: String) -> String {
-        // Remove JSON artifacts if present
         var cleaned = raw
-        if let start = cleaned.range(of: "\"text\":"), let end = cleaned.range(of: "\",", range: start.upperBound..<cleaned.endIndex) {
-            let textRange = start.upperBound..<end.lowerBound
-            cleaned = String(cleaned[textRange]).trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\"", with: "")
+        
+        // Try to extract "text" field from JSON-like response
+        if let start = cleaned.range(of: "\"text\":") {
+            // Find the opening quote after "text":
+            let afterKey = cleaned[start.upperBound...]
+            if let openQuote = afterKey.firstIndex(of: "\"") {
+                let contentStart = cleaned.index(after: openQuote)
+                // Find the closing quote (handle escaped quotes)
+                var idx = contentStart
+                while idx < cleaned.endIndex {
+                    if cleaned[idx] == "\"" {
+                        // Check if it's escaped
+                        let prevIdx = cleaned.index(before: idx)
+                        if prevIdx >= contentStart && cleaned[prevIdx] == "\\" {
+                            idx = cleaned.index(after: idx)
+                            continue
+                        }
+                        // Found closing quote
+                        cleaned = String(cleaned[contentStart..<idx])
+                        break
+                    }
+                    idx = cleaned.index(after: idx)
+                }
+            }
         }
-        return cleaned
+        
+        // Remove any remaining JSON artifacts that might leak through
+        let artifactsToRemove = [
+            "emotionHint:", "\"emotionHint\":",
+            "tags:", "\"tags\":",
+            "/10", "supportive", "proud", "concerned",
+            "{", "}", "[", "]"
+        ]
+        for artifact in artifactsToRemove {
+            if cleaned.contains(artifact) && cleaned.count < 300 {
+                // Only remove if it looks like JSON leaked (short text with artifacts)
+                cleaned = cleaned.replacingOccurrences(of: artifact, with: "")
+            }
+        }
+        
+        // Clean up any trailing metadata like "emotionHint: 7/10"
+        if let range = cleaned.range(of: "emotionHint", options: .caseInsensitive) {
+            cleaned = String(cleaned[..<range.lowerBound])
+        }
+        
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -551,20 +648,38 @@ final class PandaWeeklyFeedbackService {
                 let response = try await session.respond(to: promptText)
                 let rawText = response.content
 
+                var feedbackText: String
+                var emotionHint: String = "supportive"
+                var tags: [String]? = nil
+
                 if let data = rawText.data(using: .utf8),
                    let decoded = try? JSONDecoder().decode(PandaFeedback.self, from: data) {
-                    return PandaFeedback(
-                        text: minimizeMarkdown(decoded.text),
-                        emotionHint: decoded.emotionHint,
-                        tags: decoded.tags
-                    )
+                    feedbackText = minimizeMarkdown(decoded.text)
+                    emotionHint = decoded.emotionHint
+                    tags = decoded.tags
+                } else {
+                    feedbackText = minimizeMarkdown(extractTextFromResponse(rawText))
                 }
 
-                let cleaned = extractTextFromResponse(rawText)
+                // Validate the generated output
+                let combinedInput = entries.compactMap { $0.cleanedTranscription ?? $0.transcription }.joined(separator: " ")
+                if !combinedInput.isEmpty {
+                    let validation = await PandaOutputValidator.shared.validate(
+                        output: feedbackText,
+                        input: combinedInput,
+                        context: "weekly"
+                    )
+                    
+                    // Use corrected output if validation failed but correction succeeded
+                    if !validation.isValid, let corrected = validation.correctedOutput {
+                        feedbackText = corrected
+                    }
+                }
+
                 return PandaFeedback(
-                    text: minimizeMarkdown(cleaned),
-                    emotionHint: "supportive",
-                    tags: nil
+                    text: feedbackText,
+                    emotionHint: emotionHint,
+                    tags: tags
                 )
             } catch {
                 return nil
@@ -653,7 +768,7 @@ final class PandaWeeklyFeedbackService {
         lines.append("- Acknowledge at least one concrete detail from their entries so it feels specific.")
         lines.append("- Describe any noticeable pattern in how they have been feeling.")
         lines.append("- Offer exactly one gentle, actionable suggestion for the coming days.")
-        lines.append("- When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (for example: box breathing, the grounding exercise, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations). Mention \"in Sanctuary\" so they know where to go.")
+        lines.append("- When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (available practices: \(sanctuaryItemNames())). Mention \"in Sanctuary\" so they know where to go.")
         lines.append("- Use warm, conversational language and never give medical advice.")
         if !langInstruction.isEmpty {
             lines.append(langInstruction)
@@ -736,20 +851,42 @@ final class PandaSavoringService {
                 let response = try await session.respond(to: promptText)
                 let rawText = response.content
 
+                var feedbackText: String
+                var emotionHint: String = "supportive"
+                var tags: [String]? = ["savoring"]
+
                 if let data = rawText.data(using: .utf8),
                    let decoded = try? JSONDecoder().decode(PandaFeedback.self, from: data) {
-                    return PandaFeedback(
-                        text: minimizeMarkdown(decoded.text),
-                        emotionHint: decoded.emotionHint,
-                        tags: decoded.tags
-                    )
+                    feedbackText = minimizeMarkdown(decoded.text)
+                    emotionHint = decoded.emotionHint
+                    tags = decoded.tags
+                } else {
+                    feedbackText = minimizeMarkdown(extractTextFromResponse(rawText))
                 }
 
-                let cleaned = extractTextFromResponse(rawText)
+                // Validate the generated output
+                var inputParts: [String] = [moments.joined(separator: " ")]
+                inputParts.append(focusMoment ?? "")
+                inputParts.append(detail ?? "")
+                let combinedInput = inputParts.joined(separator: " ")
+                
+                if !combinedInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let validation = await PandaOutputValidator.shared.validate(
+                        output: feedbackText,
+                        input: combinedInput,
+                        context: "savoring"
+                    )
+                    
+                    // Use corrected output if validation failed but correction succeeded
+                    if !validation.isValid, let corrected = validation.correctedOutput {
+                        feedbackText = corrected
+                    }
+                }
+
                 return PandaFeedback(
-                    text: minimizeMarkdown(cleaned),
-                    emotionHint: "supportive",
-                    tags: ["savoring"]
+                    text: feedbackText,
+                    emotionHint: emotionHint,
+                    tags: tags
                 )
             } catch {
                 return nil
@@ -810,7 +947,7 @@ final class PandaSavoringService {
         lines.append("- Gently reinforce that noticing good moments is meaningful, even when the day is mixed.")
         lines.append("- Highlight 1–2 specific details from their moments so it feels personal.")
         lines.append("- Offer exactly one simple suggestion for how they might revisit or build on these moments later.")
-        lines.append("- When it fits, suggest one Sanctuary practice that matches the feeling of their moments (for example: revisiting them with Three Good Moments in Sanctuary, trying a short Body Scan in Sanctuary, or doing a Safe Place visualization there). Mention \"in Sanctuary\" so they know where to go.")
+        lines.append("- When it fits, suggest one Sanctuary practice that matches the feeling of their moments (available practices: \(sanctuaryItemNames())). Mention \"in Sanctuary\" so they know where to go.")
         lines.append("- Use warm, conversational language and never give medical advice.")
         if !langInstruction.isEmpty {
             lines.append(langInstruction)
@@ -900,20 +1037,42 @@ final class PandaWorryTreeService {
                 let response = try await session.respond(to: promptText)
                 let rawText = response.content
 
+                var feedbackText: String
+                var emotionHint: String = "supportive"
+                var tags: [String]? = ["worry_tree"]
+
                 if let data = rawText.data(using: .utf8),
                    let decoded = try? JSONDecoder().decode(PandaFeedback.self, from: data) {
-                    return PandaFeedback(
-                        text: minimizeMarkdown(decoded.text),
-                        emotionHint: decoded.emotionHint,
-                        tags: decoded.tags
-                    )
+                    feedbackText = minimizeMarkdown(decoded.text)
+                    emotionHint = decoded.emotionHint
+                    tags = decoded.tags
+                } else {
+                    feedbackText = minimizeMarkdown(extractTextFromResponse(rawText))
                 }
 
-                let cleaned = extractTextFromResponse(rawText)
+                // Validate the generated output
+                var inputParts: [String] = [worryText]
+                if let plan = actionPlan { inputParts.append(plan) }
+                if let note = letGoNote { inputParts.append(note) }
+                let combinedInput = inputParts.joined(separator: " ")
+                
+                if !combinedInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    let validation = await PandaOutputValidator.shared.validate(
+                        output: feedbackText,
+                        input: combinedInput,
+                        context: "worry_tree"
+                    )
+                    
+                    // Use corrected output if validation failed but correction succeeded
+                    if !validation.isValid, let corrected = validation.correctedOutput {
+                        feedbackText = corrected
+                    }
+                }
+
                 return PandaFeedback(
-                    text: minimizeMarkdown(cleaned),
-                    emotionHint: "supportive",
-                    tags: ["worry_tree"]
+                    text: feedbackText,
+                    emotionHint: emotionHint,
+                    tags: tags
                 )
             } catch {
                 return nil
@@ -975,7 +1134,7 @@ final class PandaWorryTreeService {
         lines.append("- If they created an action plan, refine it into 1–3 tiny, concrete steps they can actually do.")
         lines.append("- If the worry is outside their control, focus on acceptance, self-compassion, and shifting attention back to what they can influence.")
         lines.append("- Optionally, connect to patterns you notice from previous Worry Tree entries without overwhelming them.")
-        lines.append("- Gently suggest exactly one practice from the Sanctuary space that could help them unwind or feel safer (for example: the grounding exercise in Sanctuary, box breathing in Sanctuary, a Safe Place visualization in Sanctuary, or writing another worry in Sanctuary using the Worry Tree).")
+        lines.append("- Gently suggest exactly one practice from the Sanctuary space that could help them unwind or feel safer (available practices: \(sanctuaryItemNames())). Mention \"in Sanctuary\" so they know where to go.")
         lines.append("- Never give medical advice or make diagnoses. Stay supportive, non-clinical, and non-judgmental.")
         if !langInstruction.isEmpty {
             lines.append(langInstruction)
@@ -1100,11 +1259,374 @@ fileprivate final class BumblebeeLocalFeedbackEngine {
     }
 }
 
+// MARK: - Output Validation Service
+
+/// Validates AFM outputs to ensure they are quality therapeutic feedback, not paraphrasing or repetition
+@available(iOS 26.0, *)
+fileprivate final class PandaOutputValidator {
+    static let shared = PandaOutputValidator()
+    private init() {}
+    
+    /// Result of output validation
+    struct ValidationResult {
+        let isValid: Bool
+        let reason: String?
+        let correctedOutput: String?
+    }
+    
+    /// Validate an AFM-generated output against the original input
+    /// - Parameters:
+    ///   - output: The generated feedback text
+    ///   - input: The original user input (journal entry, worry text, etc.)
+    ///   - context: Type of feedback for context-aware validation ("journal", "weekly", "savoring", "worry_tree")
+    /// - Returns: ValidationResult with validity status and optional corrected output
+    func validate(
+        output: String,
+        input: String,
+        context: String
+    ) async -> ValidationResult {
+        // Step 1: Quick local checks (fast, no AFM call needed)
+        let localCheck = performLocalValidation(output: output, input: input)
+        if !localCheck.isValid {
+            // If local check fails badly, try to get a corrected version from AFM
+            if let corrected = await generateCorrectedOutput(
+                originalInput: input,
+                badOutput: output,
+                context: context,
+                failureReason: localCheck.reason ?? "paraphrasing detected"
+            ) {
+                return ValidationResult(isValid: false, reason: localCheck.reason, correctedOutput: corrected)
+            }
+            return localCheck
+        }
+        
+        // Step 2: AFM-based quality validation (more thorough)
+        let afmCheck = await performAFMValidation(output: output, input: input, context: context)
+        if !afmCheck.isValid {
+            if let corrected = await generateCorrectedOutput(
+                originalInput: input,
+                badOutput: output,
+                context: context,
+                failureReason: afmCheck.reason ?? "low quality feedback"
+            ) {
+                return ValidationResult(isValid: false, reason: afmCheck.reason, correctedOutput: corrected)
+            }
+        }
+        
+        return afmCheck
+    }
+    
+    // MARK: - Local Validation (Fast Checks)
+    
+    private func performLocalValidation(output: String, input: String) -> ValidationResult {
+        let normalizedOutput = normalize(output)
+        let normalizedInput = normalize(input)
+        
+        // Check 1: Jaccard similarity (word overlap)
+        let jaccardSim = jaccardSimilarity(normalizedOutput, normalizedInput)
+        if jaccardSim > 0.65 {
+            return ValidationResult(
+                isValid: false,
+                reason: "Output has too much word overlap with input (similarity: \(Int(jaccardSim * 100))%)",
+                correctedOutput: nil
+            )
+        }
+        
+        // Check 2: N-gram overlap (phrase copying)
+        let trigramOverlap = ngramOverlap(normalizedOutput, normalizedInput, n: 3)
+        if trigramOverlap > 0.40 {
+            return ValidationResult(
+                isValid: false,
+                reason: "Output contains too many copied phrases from input",
+                correctedOutput: nil
+            )
+        }
+        
+        // Check 3: Length ratio check (output shouldn't be much longer than reasonable feedback)
+        let outputWords = normalizedOutput.split(separator: " ").count
+        if outputWords < 15 {
+            return ValidationResult(
+                isValid: false,
+                reason: "Output is too short to be meaningful feedback",
+                correctedOutput: nil
+            )
+        }
+        
+        // Check 4: Detect if output starts by restating the input
+        let inputStart = String(normalizedInput.prefix(50))
+        let outputStart = String(normalizedOutput.prefix(100))
+        if outputStart.contains(inputStart) && inputStart.count > 20 {
+            return ValidationResult(
+                isValid: false,
+                reason: "Output starts by restating the user's input",
+                correctedOutput: nil
+            )
+        }
+        
+        return ValidationResult(isValid: true, reason: nil, correctedOutput: nil)
+    }
+    
+    // MARK: - AFM-Based Validation
+    
+    @MainActor
+    private func performAFMValidation(output: String, input: String, context: String) async -> ValidationResult {
+        #if canImport(FoundationModels)
+        guard PandaFoundationManager.shared.isAvailable else {
+            return ValidationResult(isValid: true, reason: nil, correctedOutput: nil)
+        }
+        
+        // Detect language for instructions
+        let detectedLang = detectLanguage(from: input) ?? "the user's language"
+        
+        let validationPrompt = buildValidationPrompt(
+            output: output,
+            input: input,
+            context: context,
+            language: detectedLang
+        )
+        
+        do {
+            let session = LanguageModelSession(instructions: """
+                You are a quality assurance assistant for an emotional wellness app called Pocket Garden.
+                Your job is to evaluate whether AI-generated feedback is helpful and appropriate.
+                
+                Respond ONLY with valid JSON in this exact format:
+                {"valid": true/false, "reason": "explanation if invalid"}
+                """)
+            
+            let response = try await session.respond(to: validationPrompt)
+            let rawText = response.content
+            
+            // Parse validation response
+            if let data = rawText.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let isValid = json["valid"] as? Bool {
+                let reason = json["reason"] as? String
+                return ValidationResult(isValid: isValid, reason: reason, correctedOutput: nil)
+            }
+            
+            // Fallback: check for obvious keywords
+            let lower = rawText.lowercased()
+            if lower.contains("\"valid\": false") || lower.contains("\"valid\":false") {
+                return ValidationResult(isValid: false, reason: "AFM validation failed", correctedOutput: nil)
+            }
+            
+            return ValidationResult(isValid: true, reason: nil, correctedOutput: nil)
+        } catch {
+            // On error, assume valid to avoid blocking
+            return ValidationResult(isValid: true, reason: nil, correctedOutput: nil)
+        }
+        #else
+        return ValidationResult(isValid: true, reason: nil, correctedOutput: nil)
+        #endif
+    }
+    
+    // MARK: - Corrected Output Generation
+    
+    @MainActor
+    private func generateCorrectedOutput(
+        originalInput: String,
+        badOutput: String,
+        context: String,
+        failureReason: String
+    ) async -> String? {
+        #if canImport(FoundationModels)
+        guard PandaFoundationManager.shared.isAvailable else { return nil }
+        
+        let detectedLang = detectLanguage(from: originalInput) ?? "the user's language"
+        let langCode = detectLanguageCode(from: originalInput) ?? "en"
+        
+        let correctionPrompt = buildCorrectionPrompt(
+            originalInput: originalInput,
+            badOutput: badOutput,
+            context: context,
+            failureReason: failureReason,
+            language: detectedLang,
+            languageCode: langCode
+        )
+        
+        do {
+            let session = LanguageModelSession(instructions: """
+                You are Bumblebee, a warm and thoughtful emotional wellness companion.
+                Your task is to provide CORRECTED feedback that avoids the mistakes of a previous response.
+                
+                CRITICAL RULES:
+                - DO NOT paraphrase or summarize what the user wrote
+                - DO NOT restate their entry back to them
+                - Provide ORIGINAL therapeutic feedback with empathy and one actionable suggestion
+                - Respond in the SAME LANGUAGE as the user's input
+                - Keep response to 3-5 sentences, max 75 words
+                """)
+            
+            let response = try await session.respond(to: correctionPrompt)
+            var corrected = response.content
+            
+            // Extract text if JSON format
+            if corrected.contains("\"text\":") {
+                if let data = corrected.data(using: .utf8),
+                   let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                   let text = json["text"] as? String {
+                    corrected = text
+                }
+            }
+            
+            // Clean markdown
+            corrected = minimizeMarkdown(corrected)
+            
+            // Verify the correction is actually better
+            let correctedCheck = performLocalValidation(output: corrected, input: originalInput)
+            if correctedCheck.isValid {
+                return corrected
+            }
+            
+            return nil
+        } catch {
+            return nil
+        }
+        #else
+        return nil
+        #endif
+    }
+    
+    // MARK: - Prompt Builders
+    
+    private func buildValidationPrompt(output: String, input: String, context: String, language: String) -> String {
+        """
+        Evaluate if this AI-generated feedback is quality therapeutic support (NOT a summary or paraphrase).
+        
+        CONTEXT: \(contextDescription(context))
+        USER'S LANGUAGE: \(language)
+        
+        USER'S ORIGINAL INPUT:
+        "\(input.prefix(800))"
+        
+        AI-GENERATED FEEDBACK:
+        "\(output)"
+        
+        VALIDATION CRITERIA - Mark as INVALID if:
+        1. The feedback mostly just restates or paraphrases what the user wrote
+        2. The feedback is a summary of the user's entry
+        3. The feedback lacks empathy or emotional validation
+        4. The feedback doesn't offer any supportive suggestion
+        5. The feedback is in a different language than the user's input
+        6. The feedback sounds robotic or impersonal
+        
+        Mark as VALID if:
+        1. The feedback acknowledges the user's emotions with genuine empathy
+        2. The feedback provides ORIGINAL supportive commentary (not just rewording their text)
+        3. The feedback includes at least one helpful, actionable suggestion
+        4. The feedback is in the same language as the user's input
+        5. The feedback sounds warm and conversational
+        
+        Respond with JSON: {"valid": true/false, "reason": "explanation if invalid"}
+        """
+    }
+    
+    private func buildCorrectionPrompt(
+        originalInput: String,
+        badOutput: String,
+        context: String,
+        failureReason: String,
+        language: String,
+        languageCode: String
+    ) -> String {
+        """
+        A previous AI response was rejected because: \(failureReason)
+        
+        CONTEXT: \(contextDescription(context))
+        
+        USER'S ORIGINAL INPUT (in \(language)):
+        "\(originalInput.prefix(800))"
+        
+        REJECTED RESPONSE (DO NOT REPEAT THIS PATTERN):
+        "\(badOutput.prefix(400))"
+        
+        Please generate a NEW, CORRECTED response that:
+        1. Is written entirely in \(language)
+        2. Does NOT paraphrase or summarize the user's input
+        3. DOES validate the user's emotions with genuine empathy
+        4. DOES acknowledge one specific detail they mentioned
+        5. DOES offer ONE gentle, actionable suggestion (from Sanctuary if appropriate: \(sanctuaryItemNames()))
+        6. Sounds warm, personal, and conversational
+        7. Is 3-5 sentences, max 75 words
+        
+        Respond ONLY with the corrected feedback text (no JSON, no quotes).
+        """
+    }
+    
+    private func contextDescription(_ context: String) -> String {
+        switch context {
+        case "journal":
+            return "Voice journal entry feedback - user recorded how they're feeling"
+        case "weekly":
+            return "Weekly insight - summarizing the user's emotional patterns this week"
+        case "savoring":
+            return "Three Good Moments exercise - user listed positive moments from their day"
+        case "worry_tree":
+            return "Worry Tree exercise - user worked through a worry they're experiencing"
+        default:
+            return "Emotional wellness feedback"
+        }
+    }
+    
+    // MARK: - Text Similarity Helpers
+    
+    private func normalize(_ text: String) -> String {
+        text.lowercased()
+            .components(separatedBy: .punctuationCharacters).joined()
+            .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+    }
+    
+    private func jaccardSimilarity(_ a: String, _ b: String) -> Double {
+        let wordsA = Set(a.split(separator: " ").map { String($0) })
+        let wordsB = Set(b.split(separator: " ").map { String($0) })
+        
+        guard !wordsA.isEmpty || !wordsB.isEmpty else { return 0 }
+        
+        let intersection = wordsA.intersection(wordsB).count
+        let union = wordsA.union(wordsB).count
+        
+        return Double(intersection) / Double(union)
+    }
+    
+    private func ngramOverlap(_ a: String, _ b: String, n: Int) -> Double {
+        let wordsA = a.split(separator: " ").map { String($0) }
+        let wordsB = b.split(separator: " ").map { String($0) }
+        
+        guard wordsA.count >= n && wordsB.count >= n else { return 0 }
+        
+        var ngramsA = Set<String>()
+        for i in 0...(wordsA.count - n) {
+            let ngram = wordsA[i..<(i+n)].joined(separator: " ")
+            ngramsA.insert(ngram)
+        }
+        
+        var ngramsB = Set<String>()
+        for i in 0...(wordsB.count - n) {
+            let ngram = wordsB[i..<(i+n)].joined(separator: " ")
+            ngramsB.insert(ngram)
+        }
+        
+        guard !ngramsA.isEmpty else { return 0 }
+        
+        let overlap = ngramsA.intersection(ngramsB).count
+        return Double(overlap) / Double(ngramsA.count)
+    }
+    
+    private func minimizeMarkdown(_ s: String) -> String {
+        var out = s
+        ["#", "##", "###", "####", "---"].forEach { token in
+            out = out.replacingOccurrences(of: token, with: "")
+        }
+        return out.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 @available(iOS 26.0, *)
 fileprivate final class PandaSessionManager {
     static let shared = PandaSessionManager()
     private var session: LanguageModelSession?
-    private static let instructionsVersion = 3 // Increment to force session refresh
+    private static let instructionsVersion = 6 // Increment to force session refresh
     private var sessionVersion: Int = 0
     private init() {}
     
@@ -1117,32 +1639,50 @@ fileprivate final class PandaSessionManager {
         session = nil
         sessionVersion = Self.instructionsVersion
         
+        let sanctuaryList = sanctuaryItemsForPrompt()
         let instructions = """
-        You are Bumblebee, a warm and thoughtful emotional wellness companion.
+        You are Bumblebee, a warm and wise emotional wellness companion who genuinely cares.
         
-        YOUR ROLE: Provide supportive, therapeutic feedback - NOT summaries or paraphrases.
+        YOUR MISSION: Inspire, motivate, and support - NOT summarize or repeat what they said.
         
-        RESPONSE RULES (3-5 sentences, max 75 words):
-        1. Start by validating their emotions with genuine empathy
-        2. Acknowledge ONE specific detail they mentioned
-        3. Offer ONE gentle, actionable suggestion from the Sanctuary space (box breathing, Body Scan, Three Good Moments, Worry Tree, Butterfly Hug, Safe Place visualization, or affirmations)
-        4. Use warm, conversational language
-        5. Never diagnose or give medical advice
+        RESPONSE APPROACH (3-5 sentences, 60-80 words):
         
-        CRITICAL - WHAT NOT TO DO:
-        - NEVER paraphrase or summarize what the user wrote
-        - NEVER restate their journal entry back to them
-        - NEVER just reword their text in any language
+        FOR HIGH MOODS (rating 7-10):
+        - Celebrate their wins enthusiastically! 
+        - Encourage them to keep the momentum going
+        - Suggest how to bottle this good energy for harder days
+        - Add an inspiring insight or fun wellness fact when fitting
         
-        LANGUAGE RULES:
-        - Always respond in the SAME LANGUAGE as the user's entry
-        - Turkish entry → Turkish response with actual feedback
-        - Spanish entry → Spanish response with actual feedback
-        - Your response must be ORIGINAL advice, not a rewording of their text
+        FOR LOW MOODS (rating 1-4):
+        - Lead with compassion and validation
+        - Remind them that difficult moments are temporary
+        - Offer a gentle, doable step they can take right now
+        - Share an encouraging perspective or calming fact
         
-        GOOD RESPONSE: "It sounds like you're carrying a lot right now with exams coming up. That mix of excitement and stress is completely normal. Try the box breathing exercise in Sanctuary - even 2 minutes can help you feel more centered before studying."
+        FOR MIXED MOODS (rating 5-6):
+        - Acknowledge the complexity of their feelings
+        - Highlight any small positives they mentioned
+        - Suggest one grounding practice from Sanctuary
         
-        BAD RESPONSE: "Today was a good day! You went to a soccer match and studied. You have exams next week and feel a bit stressed but overall excited." (This is just paraphrasing - DON'T do this)
+        MAKE EACH RESPONSE UNIQUE:
+        - Vary your opening (don't always start the same way)
+        - Sometimes lead with encouragement, sometimes with empathy, sometimes with a question
+        - Occasionally include a brief wellness insight (e.g., "Did you know that even 5 minutes of nature can reduce cortisol by 20%?")
+        - Mix up sentence structure and length
+        
+        \(sanctuaryList)
+        
+        ABSOLUTE RULES:
+        - NEVER repeat, paraphrase, or summarize their journal entry
+        - NEVER list what they did or said back to them
+        - Always respond in the SAME LANGUAGE as their entry
+        - Keep it personal and genuine, not robotic
+        - Output ONLY valid JSON format
+        - Use emoji sparingly
+        
+        EXAMPLE GOOD RESPONSES:
+        - "What a powerful day! Investing in yourself through exercise AND career growth shows real intention. Keep riding this wave - maybe jot down what's working so you can return to it on tougher days. 🌟"
+        - "I hear you - days like this take courage just to get through. Here's something: your brain is literally rewiring itself every time you practice self-compassion. Try the Grounding Exercise in Sanctuary when things feel heavy. 💙"
         """
         let newSession = LanguageModelSession(instructions: instructions)
         session = newSession

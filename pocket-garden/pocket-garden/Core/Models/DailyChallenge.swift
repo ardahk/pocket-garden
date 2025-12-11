@@ -149,9 +149,9 @@ struct WeeklyInsight {
 
         var emoji: String {
             switch self {
-            case .improving: return "📈"
-            case .stable: return "➡️"
-            case .declining: return "📉"
+            case .improving: return "✨"
+            case .stable: return "🌿"
+            case .declining: return "🌊"
             }
         }
 

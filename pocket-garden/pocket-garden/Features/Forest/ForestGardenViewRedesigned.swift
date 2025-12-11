@@ -459,9 +459,19 @@ struct ForestGardenViewRedesigned: View {
     private var currentStreak: Int {
         var streak = 0
         let calendar = Calendar.current
+        let today = Date()
         
-        for i in 0..<entries.count {
-            let expectedDate = calendar.date(byAdding: .day, value: -i, to: Date())!
+        // Check if there's an entry today
+        let hasEntryToday = entries.contains { calendar.isDate($0.date, inSameDayAs: today) }
+        
+        // If no entry today, start checking from yesterday to show existing streak
+        let startDay = hasEntryToday ? 0 : 1
+        
+        // Check enough days to cover all possible streak days
+        let maxDaysToCheck = entries.count + 1
+        
+        for i in startDay..<maxDaysToCheck {
+            let expectedDate = calendar.date(byAdding: .day, value: -i, to: today)!
             if entries.first(where: {
                 calendar.isDate($0.date, inSameDayAs: expectedDate)
             }) != nil {

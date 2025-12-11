@@ -16,8 +16,7 @@ struct HomeView: View {
 
     @Binding var selectedTab: Int
     @State private var todayRating: Int = 7
-    @State private var capturedRating: Int = 7
-    @State private var showJournalSheet = false
+    @State private var journalRating: JournalRating? = nil  // Use item-based sheet for reliable rating passing
     @State private var showExperimentalJournalSheet = false
     @State private var selectedEntry: EmotionEntry?
     @State private var showMoodRatingSheet = false
@@ -83,8 +82,8 @@ struct HomeView: View {
             anotherRating = todayRating
             showMoodRatingSheet = true
         }
-        .sheet(isPresented: $showJournalSheet) {
-            VoiceJournalExperimentView(emotionRating: capturedRating, onComplete: {
+        .sheet(item: $journalRating) { rating in
+            VoiceJournalExperimentView(emotionRating: rating.value, onComplete: {
                 // After journal is complete, switch to garden tab
                 selectedTab = 1
             })
@@ -110,10 +109,10 @@ struct HomeView: View {
                             .padding(.vertical, Spacing.lg)
                         
                         PrimaryButton("Continue to Journal", icon: "arrow.right") {
-                            capturedRating = anotherRating
+                            let selectedRating = anotherRating
                             showMoodRatingSheet = false
-                            DispatchQueue.main.async {
-                                showJournalSheet = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                                journalRating = JournalRating(value: selectedRating)
                             }
                         }
                         .padding(.top, Spacing.md)
@@ -223,15 +222,15 @@ struct HomeView: View {
                                     .font(Typography.caption)
                                     .foregroundColor(.textSecondary)
 
-                                HStack(spacing: Spacing.xs) {
+                                HStack(alignment: .top, spacing: Spacing.xs) {
                                     Text(treeInfo.emoji)
                                         .font(.system(size: 24))
 
                                     Text(treeInfo.title)
                                         .font(Typography.callout)
                                         .foregroundColor(.textPrimary)
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.9)
+                                        .lineLimit(2)
+                                        .fixedSize(horizontal: false, vertical: true)
                                 }
                             }
 
@@ -470,9 +469,19 @@ struct HomeView: View {
     private var currentStreak: Int {
         var streak = 0
         let calendar = Calendar.current
-
-        for i in 0..<entries.count {
-            let expectedDate = calendar.date(byAdding: .day, value: -i, to: Date())!
+        let today = Date()
+        
+        // Check if there's an entry today
+        let hasEntryToday = entries.contains { calendar.isDate($0.date, inSameDayAs: today) }
+        
+        // If no entry today, start checking from yesterday to show existing streak
+        let startDay = hasEntryToday ? 0 : 1
+        
+        // Check enough days to cover all possible streak days
+        let maxDaysToCheck = entries.count + 1
+        
+        for i in startDay..<maxDaysToCheck {
+            let expectedDate = calendar.date(byAdding: .day, value: -i, to: today)!
             if entries.first(where: {
                 calendar.isDate($0.date, inSameDayAs: expectedDate)
             }) != nil {
@@ -715,4 +724,11 @@ struct QuickActionButton: View {
         HomeView(selectedTab: $selectedTab)
     }
     .modelContainer(container)
+}
+
+// MARK: - Journal Rating Wrapper (for reliable sheet presentation)
+
+struct JournalRating: Identifiable {
+    let id = UUID()
+    let value: Int
 }
