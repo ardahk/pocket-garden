@@ -35,8 +35,8 @@ class WhisperService {
     
     init() {
         // Look for Whisper model in app bundle
-        // Default to tiny.bin model for fast transcription
-        self.modelURL = Bundle.main.url(forResource: "tiny", withExtension: "bin")
+        // Uses base.bin model for better transcription quality
+        self.modelURL = Bundle.main.url(forResource: "base", withExtension: "bin")
         
         if modelURL == nil {
             print("⚠️ Whisper model not found. Please add a model file to the app bundle.")
