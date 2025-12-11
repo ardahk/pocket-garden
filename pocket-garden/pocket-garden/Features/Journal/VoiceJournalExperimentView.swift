@@ -1093,6 +1093,9 @@ struct VoiceJournalExperimentView: View {
             try modelContext.save()
             savedEntry = entry
             
+            // Cancel evening notification since user journaled today
+            NotificationService.shared.cancelEveningNotification()
+            
             // Classify entry in background
             Task {
                 await classifyEntry(entry)

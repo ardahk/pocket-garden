@@ -1,8 +1,10 @@
 import SwiftUI
+import UserNotifications
 
 struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var currentPage = 0
+    @State private var isRequestingPermission = false
 
     // Feature Pages
     private let features: [OnboardingFeature] = [
@@ -32,6 +34,13 @@ struct OnboardingView: View {
             title: "Track Progress",
             description: "See your week as a gentle mood line and keep an eye on your streaks and trees grown.",
             color: Color(red: 1.0, green: 0.82, blue: 0.25), // Bee yellow
+            mascotImage: "panda_happy"
+        ),
+        OnboardingFeature(
+            type: .privacy,
+            title: "Your Privacy, Always",
+            description: "Everything stays on your iPhone. No accounts, no cloud, no internet needed. Not even Apple can see your data.",
+            color: Color(red: 0.55, green: 0.65, blue: 0.85), // Soft blue for trust
             mascotImage: "panda_supportive"
         )
     ]
@@ -97,8 +106,18 @@ struct OnboardingView: View {
     }
 
     private func completeOnboarding() {
-        withAnimation {
-            hasCompletedOnboarding = true
+        // Request notification permission before completing onboarding
+        isRequestingPermission = true
+        Task {
+            // Request permission (will show system dialog)
+            _ = await NotificationService.shared.requestAuthorization()
+            
+            await MainActor.run {
+                isRequestingPermission = false
+                withAnimation {
+                    hasCompletedOnboarding = true
+                }
+            }
         }
     }
 }
@@ -110,6 +129,7 @@ enum FeatureType {
     case sanctuary
     case forest
     case streaks
+    case privacy
 }
 
 struct OnboardingFeature {
@@ -124,6 +144,26 @@ struct OnboardingFeature {
 
 struct OnboardingPageView: View {
     let feature: OnboardingFeature
+    
+    // Mascot positioning varies by feature type
+    private var mascotOffset: CGSize {
+        switch feature.type {
+        case .privacy:
+            // Move further right and down to not overlap content
+            return CGSize(width: 100, height: 50)
+        default:
+            return CGSize(width: 80, height: 20)
+        }
+    }
+    
+    private var mascotHeight: CGFloat {
+        switch feature.type {
+        case .privacy:
+            return 120 // Slightly smaller for privacy screen
+        default:
+            return 140
+        }
+    }
 
     var body: some View {
         VStack(spacing: 24) {
@@ -141,6 +181,8 @@ struct OnboardingPageView: View {
                         ForestMockView()
                     case .streaks:
                         StreaksMockView()
+                    case .privacy:
+                        PrivacyMockView()
                     }
                 }
                 .padding(.bottom, 40)
@@ -148,8 +190,8 @@ struct OnboardingPageView: View {
                 Image(feature.mascotImage)
                     .resizable()
                     .scaledToFit()
-                    .frame(height: 140)
-                    .offset(x: 80, y: 20)
+                    .frame(height: mascotHeight)
+                    .offset(mascotOffset)
             }
             .frame(height: 420)
 
@@ -681,6 +723,119 @@ struct StreaksMockView: View {
         .padding(.vertical, 10)
         .background(Color.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+// MARK: - Privacy Mock
+
+struct PrivacyMockView: View {
+    var body: some View {
+        VStack(spacing: 10) {
+            // Header - closer to top
+            VStack(spacing: 6) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 32))
+                    .foregroundStyle(Color(red: 0.55, green: 0.65, blue: 0.85))
+                
+                Text("100% Private")
+                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+            }
+            .padding(.top, 28)
+            
+            // Privacy features - larger and more readable
+            VStack(spacing: 8) {
+                PrivacyRow(
+                    icon: "iphone",
+                    iconColor: .primaryGreen,
+                    title: "On-Device Only",
+                    description: "Stored on your iPhone"
+                )
+                
+                PrivacyRow(
+                    icon: "wifi.slash",
+                    iconColor: .orange,
+                    title: "No Internet",
+                    description: "Works fully offline"
+                )
+                
+                PrivacyRow(
+                    icon: "person.slash.fill",
+                    iconColor: .purple,
+                    title: "No Accounts",
+                    description: "No sign-up needed"
+                )
+                
+                PrivacyRow(
+                    icon: "eye.slash.fill",
+                    iconColor: Color(red: 0.55, green: 0.65, blue: 0.85),
+                    title: "Invisible",
+                    description: "Apple can't see it"
+                )
+            }
+            .padding(.horizontal, 12)
+            
+            Spacer()
+            
+            // Bottom badge
+            HStack(spacing: 5) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.green)
+                Text("Your thoughts stay yours")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 7)
+            .background(Color.primaryGreen.opacity(0.1))
+            .clipShape(Capsule())
+            .padding(.bottom, 50)
+        }
+        .background(Color.backgroundCream)
+    }
+}
+
+struct PrivacyRow: View {
+    let icon: String
+    let iconColor: Color
+    let title: String
+    let description: String
+    
+    var body: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(iconColor.opacity(0.15))
+                    .frame(width: 32, height: 32)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(iconColor)
+            }
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                    .lineLimit(1)
+                
+                Text(description)
+                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                    .foregroundStyle(Color.textSecondary.opacity(0.8))
+                    .lineLimit(1)
+            }
+            
+            Spacer(minLength: 4)
+            
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 16))
+                .foregroundStyle(.green.opacity(0.8))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(Color.cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
 

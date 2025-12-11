@@ -10,6 +10,11 @@ import SwiftData
 
 struct MainTabView: View {
     @State private var selectedTab = 0
+    @Binding var openJournalFromNotification: Bool
+    
+    init(openJournalFromNotification: Binding<Bool> = .constant(false)) {
+        self._openJournalFromNotification = openJournalFromNotification
+    }
     
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -45,6 +50,17 @@ struct MainTabView: View {
             selectedTab = 0
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 NotificationCenter.default.post(name: .triggerJournalFromNotification, object: nil)
+            }
+        }
+        .onChange(of: openJournalFromNotification) { _, newValue in
+            if newValue {
+                // Navigate to home tab and trigger journal
+                selectedTab = 0
+                openJournalFromNotification = false
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(300))
+                    NotificationCenter.default.post(name: .triggerJournalFromNotification, object: nil)
+                }
             }
         }
         .onAppear {

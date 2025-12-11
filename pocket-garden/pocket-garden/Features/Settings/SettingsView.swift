@@ -13,6 +13,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
+    @StateObject private var notificationService = NotificationService.shared
     
     @State private var showExportSheet = false
     @State private var isExporting = false
@@ -30,6 +31,9 @@ struct SettingsView: View {
                 
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
+                        // Notifications Section
+                        notificationsSection
+                        
                         // Data Overview Section
                         dataOverviewSection
                         
@@ -136,6 +140,181 @@ struct SettingsView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+    }
+    
+    // MARK: - Notifications Section
+    
+    private var notificationsSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Label("Reminders", systemImage: "bell.fill")
+                .font(Typography.headline)
+                .foregroundColor(.textPrimary)
+            
+            Card {
+                VStack(spacing: Spacing.lg) {
+                    // Main toggle
+                    Toggle(isOn: Binding(
+                        get: { notificationService.preferences.notificationsEnabled },
+                        set: { newValue in
+                            notificationService.preferences.notificationsEnabled = newValue
+                            if newValue {
+                                Task {
+                                    let granted = await notificationService.requestAuthorization()
+                                    if !granted {
+                                        notificationService.preferences.notificationsEnabled = false
+                                    }
+                                }
+                            } else {
+                                notificationService.cancelAllNotifications()
+                            }
+                        }
+                    )) {
+                        HStack(spacing: Spacing.md) {
+                            ZStack {
+                                Circle()
+                                    .fill(Color.primaryGreen.opacity(0.15))
+                                    .frame(width: 36, height: 36)
+                                Image(systemName: "bell.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.primaryGreen)
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Enable Notifications")
+                                    .font(Typography.body)
+                                    .foregroundColor(.textPrimary)
+                                Text("Gentle reminders to tend your garden")
+                                    .font(Typography.caption)
+                                    .foregroundColor(.textSecondary)
+                            }
+                        }
+                    }
+                    .tint(.primaryGreen)
+                    
+                    if notificationService.preferences.notificationsEnabled {
+                        Divider()
+                        
+                        // Morning reminder
+                        VStack(spacing: Spacing.sm) {
+                            Toggle(isOn: Binding(
+                                get: { notificationService.preferences.morningEnabled },
+                                set: { newValue in
+                                    notificationService.preferences.morningEnabled = newValue
+                                    rescheduleNotifications()
+                                }
+                            )) {
+                                HStack(spacing: Spacing.sm) {
+                                    Image(systemName: "sun.max.fill")
+                                        .foregroundColor(.accentGold)
+                                        .frame(width: 24)
+                                    Text("Morning Motivation")
+                                        .font(Typography.body)
+                                        .foregroundColor(.textPrimary)
+                                }
+                            }
+                            .tint(.primaryGreen)
+                            
+                            if notificationService.preferences.morningEnabled {
+                                DatePicker(
+                                    "Time",
+                                    selection: Binding(
+                                        get: { notificationService.preferences.morningTime },
+                                        set: { newValue in
+                                            notificationService.preferences.morningTime = newValue
+                                            rescheduleNotifications()
+                                        }
+                                    ),
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .font(Typography.callout)
+                                .foregroundColor(.textSecondary)
+                                .padding(.leading, 32)
+                            }
+                        }
+                        
+                        Divider()
+                        
+                        // Evening reminder
+                        VStack(spacing: Spacing.sm) {
+                            Toggle(isOn: Binding(
+                                get: { notificationService.preferences.eveningEnabled },
+                                set: { newValue in
+                                    notificationService.preferences.eveningEnabled = newValue
+                                    rescheduleNotifications()
+                                }
+                            )) {
+                                HStack(spacing: Spacing.sm) {
+                                    Image(systemName: "moon.fill")
+                                        .foregroundColor(.emotionCalm)
+                                        .frame(width: 24)
+                                    Text("Evening Reminder")
+                                        .font(Typography.body)
+                                        .foregroundColor(.textPrimary)
+                                }
+                            }
+                            .tint(.primaryGreen)
+                            
+                            if notificationService.preferences.eveningEnabled {
+                                DatePicker(
+                                    "Time",
+                                    selection: Binding(
+                                        get: { notificationService.preferences.eveningTime },
+                                        set: { newValue in
+                                            notificationService.preferences.eveningTime = newValue
+                                            rescheduleNotifications()
+                                        }
+                                    ),
+                                    displayedComponents: .hourAndMinute
+                                )
+                                .font(Typography.callout)
+                                .foregroundColor(.textSecondary)
+                                .padding(.leading, 32)
+                            }
+                        }
+                        
+                        // Info text
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 12))
+                                .foregroundColor(.textSecondary)
+                            Text("Evening reminders only appear if you haven't journaled today")
+                                .font(Typography.caption)
+                                .foregroundColor(.textSecondary)
+                        }
+                        .padding(.top, Spacing.xs)
+                    }
+                }
+            }
+        }
+    }
+    
+    private func rescheduleNotifications() {
+        let hasEntryToday = entries.contains { $0.isToday }
+        Task {
+            await notificationService.scheduleNotifications(
+                currentStreak: calculateStreak(),
+                hasEntryToday: hasEntryToday
+            )
+        }
+    }
+    
+    private func calculateStreak() -> Int {
+        var streak = 0
+        let calendar = Calendar.current
+        let today = Date()
+        let hasEntryToday = entries.contains { calendar.isDate($0.date, inSameDayAs: today) }
+        let startDay = hasEntryToday ? 0 : 1
+        let maxDaysToCheck = entries.count + 1
+        
+        for i in startDay..<maxDaysToCheck {
+            let expectedDate = calendar.date(byAdding: .day, value: -i, to: today)!
+            if entries.first(where: { calendar.isDate($0.date, inSameDayAs: expectedDate) }) != nil {
+                streak += 1
+            } else {
+                break
+            }
+        }
+        return streak
     }
     
     // MARK: - Data Overview Section
