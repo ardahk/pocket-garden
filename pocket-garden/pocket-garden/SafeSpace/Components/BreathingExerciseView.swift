@@ -313,6 +313,7 @@ struct BreathingExerciseView: View {
                             Link(info.linkTitle, destination: url)
                                 .font(.subheadline)
                                 .foregroundStyle(breathingAccent)
+                                .buttonStyle(.plain)
                         }
                     }
                 }

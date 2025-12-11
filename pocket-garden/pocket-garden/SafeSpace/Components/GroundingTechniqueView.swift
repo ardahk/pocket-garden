@@ -275,133 +275,136 @@ struct GroundingTechniqueView: View {
     // MARK: - Intro View
     
     private var introView: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        GeometryReader { geometry in
+            let isCompact = geometry.size.height < 700
             
-            // Icon with glow
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                groundingTeal.opacity(0.2),
-                                groundingTeal.opacity(0.05),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 80
-                        )
-                    )
-                    .frame(width: 140, height: 140)
-                
-                Image(systemName: "hand.point.down.fill")
-                    .font(.system(size: 50, weight: .medium))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [groundingTealLight, groundingTeal],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            }
-            .opacity(showContent ? 1 : 0)
-            .scaleEffect(showContent ? 1 : 0.8)
-            
-            VStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    Spacer()
-                    
-                    Text("Grounding")
-                        .font(.system(size: 26, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.textPrimary)
-                    
-                    Button {
-                        showInfoSheet = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 18, weight: .regular))
-                            .foregroundStyle(groundingTeal.opacity(0.9))
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: isCompact ? 16 : 24) {
+                    // Icon with glow
+                    ZStack {
+                        Circle()
+                            .fill(
+                                RadialGradient(
+                                    colors: [
+                                        groundingTeal.opacity(0.2),
+                                        groundingTeal.opacity(0.05),
+                                        Color.clear
+                                    ],
+                                    center: .center,
+                                    startRadius: 20,
+                                    endRadius: 60
+                                )
+                            )
+                            .frame(width: isCompact ? 100 : 120, height: isCompact ? 100 : 120)
+                        
+                        Image(systemName: "hand.point.down.fill")
+                            .font(.system(size: isCompact ? 36 : 44, weight: .medium))
+                            .foregroundStyle(
+                                LinearGradient(
+                                    colors: [groundingTealLight, groundingTeal],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                     }
-                    .buttonStyle(.plain)
+                    .opacity(showContent ? 1 : 0)
+                    .scaleEffect(showContent ? 1 : 0.8)
+                    .padding(.top, isCompact ? 20 : 40)
                     
-                    Spacer()
-                }
-                
-                Text("A quick way to anchor yourself\nin the present moment when overwhelmed")
-                    .font(.body)
-                    .foregroundStyle(Color.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-                    .lineSpacing(2)
-            }
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 20)
-            
-            // How it works
-            VStack(alignment: .leading, spacing: 16) {
-                Text("How it works")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.textSecondary)
-                
-                HowItWorksRow(number: 5, text: "Name 5 things you can see")
-                HowItWorksRow(number: 4, text: "Name 4 things you can touch")
-                HowItWorksRow(number: 3, text: "Name 3 things you can hear")
-                HowItWorksRow(number: 2, text: "Name 2 things you can smell")
-                HowItWorksRow(number: 1, text: "Name 1 thing you can taste")
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.cardBackground)
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
-            )
-            .padding(.horizontal, 24)
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 30)
-            
-            // Bumblebee encouragement
-            HStack(spacing: 12) {
-                Image("panda_supportive")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 44, height: 44)
-                
-                Text("This simple technique can help calm your nervous system in just a few minutes.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.cardBackground.opacity(0.8))
-            )
-            .padding(.horizontal, 24)
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 40)
-            
-            Spacer()
-            
-            // Begin button
-            Button(action: {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                    showIntro = false
-                }
-            }) {
-                Text("Begin")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
+                    VStack(spacing: 10) {
+                        HStack(spacing: 8) {
+                            Spacer()
+                            
+                            Text("Grounding")
+                                .font(.system(size: isCompact ? 24 : 26, weight: .semibold, design: .rounded))
+                                .foregroundStyle(Color.textPrimary)
+                            
+                            Button {
+                                showInfoSheet = true
+                            } label: {
+                                Image(systemName: "info.circle")
+                                    .font(.system(size: 18, weight: .regular))
+                                    .foregroundStyle(groundingTeal.opacity(0.9))
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Spacer()
+                        }
+                        
+                        Text("A quick way to anchor yourself...")
+                            .font(.body)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .opacity(showContent ? 1 : 0)
+                    .offset(y: showContent ? 0 : 20)
+                    
+                    // How it works - condensed single text
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("How it works")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(Color.textSecondary)
+                        
+                        Text("Name things you can **see**, **touch**, **hear**, **smell**, and **taste** to ground yourself in the present moment.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textPrimary)
+                            .lineSpacing(4)
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         RoundedRectangle(cornerRadius: 16)
-                            .fill(groundingTeal)
+                            .fill(Color.cardBackground)
+                            .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
                     )
+                    .padding(.horizontal, 24)
+                    .opacity(showContent ? 1 : 0)
+                    .offset(y: showContent ? 0 : 30)
+                    
+                    // Bumblebee encouragement
+                    HStack(spacing: 12) {
+                        Image("panda_supportive")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 40, height: 40)
+                        
+                        Text("This simple technique can help calm your nervous system in just a few minutes.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.cardBackground.opacity(0.8))
+                    )
+                    .padding(.horizontal, 24)
+                    .opacity(showContent ? 1 : 0)
+                    .offset(y: showContent ? 0 : 40)
+                    
+                    Spacer(minLength: isCompact ? 16 : 24)
+                    
+                    // Begin button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            showIntro = false
+                        }
+                    }) {
+                        Text("Begin")
+                            .font(.headline)
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .fill(groundingTeal)
+                            )
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 40)
+                    .buttonStyle(.plain)
+                }
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 40)
-            .buttonStyle(.plain)
         }
     }
     
@@ -434,6 +437,7 @@ struct GroundingTechniqueView: View {
                             Link("University of Rochester Medical Center – 5-4-3-2-1 Coping Technique for Anxiety", destination: url)
                                 .font(.subheadline)
                                 .foregroundStyle(groundingTeal)
+                                .buttonStyle(.plain)
                         }
                     }
                 }

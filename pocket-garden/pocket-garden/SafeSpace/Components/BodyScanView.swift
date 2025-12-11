@@ -265,6 +265,7 @@ struct BodyScanView: View {
                         )
                         .font(.subheadline)
                         .foregroundStyle(lavenderAccent)
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 24)

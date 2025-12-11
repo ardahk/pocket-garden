@@ -133,104 +133,110 @@ struct ThreeGoodMomentsView: View {
     // MARK: - Intro View
     
     private var introView: some View {
-        VStack(spacing: 32) {
-            // Icon
-            ZStack {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [
-                                Color.primaryGreen.opacity(0.2),
-                                Color.primaryGreen.opacity(0.05),
-                                Color.clear
-                            ],
-                            center: .center,
-                            startRadius: 20,
-                            endRadius: 80
-                        )
-                    )
-                    .frame(width: 140, height: 140)
-                
-                Image(systemName: "sparkles")
-                    .font(.system(size: 50, weight: .medium))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.primaryGreen, Color.mint],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-            }
-            .opacity(showContent ? 1 : 0)
-            .scaleEffect(showContent ? 1 : 0.8)
+        GeometryReader { geometry in
+            let isCompact = geometry.size.height < 700
             
-            VStack(spacing: 12) {
-                HStack(spacing: 8) {
-                    Spacer()
-
-                    Text("Three Good Moments")
-                        .font(.system(size: 26, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color.textPrimary)
-
-                    Button {
-                        showInfoSheet = true
-                    } label: {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 18, weight: .regular))
-                            .foregroundStyle(Color.primaryGreen.opacity(0.9))
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
+            VStack(spacing: isCompact ? 16 : 24) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.primaryGreen.opacity(0.2),
+                                    Color.primaryGreen.opacity(0.05),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 20,
+                                endRadius: 60
+                            )
+                        )
+                        .frame(width: isCompact ? 100 : 120, height: isCompact ? 100 : 120)
+                    
+                    Image(systemName: "sparkles")
+                        .font(.system(size: isCompact ? 36 : 44, weight: .medium))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color.primaryGreen, Color.mint],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                 }
+                .opacity(showContent ? 1 : 0)
+                .scaleEffect(showContent ? 1 : 0.8)
                 
-                Text("A simple practice to train your brain to notice the good, even on hard days")
-                    .font(.body)
-                    .foregroundStyle(Color.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
-            }
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 20)
-            
-            // How it works
-            VStack(alignment: .leading, spacing: 16) {
-                Text("How it works")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(Color.textSecondary)
+                VStack(spacing: 10) {
+                    HStack(spacing: 8) {
+                        Spacer()
+
+                        Text("Three Good Moments")
+                            .font(.system(size: isCompact ? 22 : 26, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.textPrimary)
+
+                        Button {
+                            showInfoSheet = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 18, weight: .regular))
+                                .foregroundStyle(Color.primaryGreen.opacity(0.9))
+                        }
+                        .buttonStyle(.plain)
+
+                        Spacer()
+                    }
+                    
+                    Text("A simple practice to train your brain to notice the good, even on hard days")
+                        .font(isCompact ? .subheadline : .body)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
+                }
+                .opacity(showContent ? 1 : 0)
+                .offset(y: showContent ? 0 : 20)
                 
-                HowItWorksRow(number: 1, text: "Recall three small moments that felt okay")
-                HowItWorksRow(number: 2, text: "Savor one moment in more detail")
-                HowItWorksRow(number: 3, text: "Receive a personalized reflection from Bumblebee")
-            }
-            .padding(20)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.cardBackground)
-                    .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
-            )
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 30)
-            
-            // Bumblebee encouragement
-            HStack(spacing: 12) {
-                Image("panda_supportive")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 44, height: 44)
+                // How it works
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("How it works")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(Color.textSecondary)
+                    
+                    HowItWorksRow(number: 1, text: "Recall three small moments that felt okay")
+                    HowItWorksRow(number: 2, text: "Savor one moment in more detail")
+                    HowItWorksRow(number: 3, text: "Receive a personalized reflection from Bumblebee")
+                }
+                .padding(isCompact ? 14 : 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.cardBackground)
+                        .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
+                )
+                .opacity(showContent ? 1 : 0)
+                .offset(y: showContent ? 0 : 30)
                 
-                Text("Even tiny moments of okayness matter. Let's find some together.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: isCompact ? 8 : 16)
+                
+                // Bumblebee encouragement
+                HStack(spacing: 12) {
+                    Image("panda_supportive")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 40, height: 40)
+                    
+                    Text("Even tiny moments of okayness matter. Let's find some together.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(14)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.cardBackground.opacity(0.8))
+                )
+                .opacity(showContent ? 1 : 0)
+                .offset(y: showContent ? 0 : 40)
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.cardBackground.opacity(0.8))
-            )
-            .opacity(showContent ? 1 : 0)
-            .offset(y: showContent ? 0 : 40)
         }
     }
     
@@ -739,9 +745,10 @@ struct ThreeGoodMomentsView: View {
                             .foregroundStyle(Color.textPrimary)
 
                         if let url = URL(string: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10202508/") {
-                            Link("Gold et al., 2023 – ‘Three Good Things’ digital intervention among health care workers", destination: url)
+                            Link("Gold et al., 2023 – 'Three Good Things' digital intervention among health care workers", destination: url)
                                 .font(.subheadline)
                                 .foregroundStyle(Color.primaryGreen)
+                                .buttonStyle(.plain)
                         }
                     }
                 }

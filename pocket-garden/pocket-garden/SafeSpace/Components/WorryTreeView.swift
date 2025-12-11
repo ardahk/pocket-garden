@@ -836,6 +836,7 @@ struct WorryTreeView: View {
                             Link("Getselfhelp.co.uk – CBT Worry Tree worksheet and rationale", destination: url)
                                 .font(.subheadline)
                                 .foregroundStyle(Color.orange)
+                                .buttonStyle(.plain)
                         }
                     }
                 }

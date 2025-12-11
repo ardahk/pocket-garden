@@ -9,6 +9,38 @@ import SwiftUI
 import SwiftData
 import Inject
 
+// MARK: - Animated Loading Dots
+
+struct LoadingDotsView: View {
+    @State private var dotScales: [CGFloat] = [0.5, 0.5, 0.5]
+    
+    var body: some View {
+        HStack(spacing: 10) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(Color.primaryGreen)
+                    .frame(width: 10, height: 10)
+                    .scaleEffect(dotScales[index])
+            }
+        }
+        .onAppear {
+            animateDots()
+        }
+    }
+    
+    private func animateDots() {
+        for index in 0..<3 {
+            withAnimation(
+                .easeInOut(duration: 0.5)
+                .repeatForever(autoreverses: true)
+                .delay(Double(index) * 0.15)
+            ) {
+                dotScales[index] = 1.0
+            }
+        }
+    }
+}
+
 struct VoiceJournalExperimentView: View {
     @ObserveInjection var inject
     
@@ -42,6 +74,16 @@ struct VoiceJournalExperimentView: View {
     @State private var ringRotation: Double = 0
     @State private var pulseOpacity: Double = 0.3
     
+    // Keyboard and confirmation states
+    @FocusState private var isTextEditorFocused: Bool
+    @State private var showDiscardConfirmation = false
+    @State private var pendingDiscardAction: DiscardAction? = nil
+    
+    enum DiscardAction {
+        case redo
+        case dismiss
+    }
+    
     
     var body: some View {
         NavigationStack {
@@ -66,21 +108,28 @@ struct VoiceJournalExperimentView: View {
             .overlay(alignment: .topLeading) {
                 if !needsAuthorization() {
                     Button(action: {
-                        cancelRecording()
-                        dismiss()
+                        // If there's unsaved transcription, show confirmation
+                        if !transcription().isEmpty && !isRecording() {
+                            pendingDiscardAction = .dismiss
+                            showDiscardConfirmation = true
+                            Theme.Haptics.warning()
+                        } else {
+                            cancelRecording()
+                            dismiss()
+                        }
                     }) {
                         Circle()
                             .fill(Color.cardBackground)
-                            .frame(width: 44, height: 44)
+                            .frame(width: 36, height: 36)
                             .overlay(
                                 Image(systemName: "xmark")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .font(.system(size: 14, weight: .semibold))
                                     .foregroundColor(.textPrimary)
                             )
                     }
                     .buttonStyle(.plain)
                     .padding(.leading, Layout.screenPadding)
-                    .padding(.top, 50)
+                    .padding(.top, 16)
                 }
             }
             .overlay(alignment: .top) {
@@ -178,6 +227,13 @@ struct VoiceJournalExperimentView: View {
                 }
             }
         }
+        .overlay {
+            // Custom discard confirmation overlay
+            if showDiscardConfirmation {
+                discardConfirmationOverlay
+            }
+        }
+        .interactiveDismissDisabled(!transcription().isEmpty && !isRecording())
         .enableInjection()
     }
     
@@ -270,36 +326,53 @@ struct VoiceJournalExperimentView: View {
     // MARK: - Main Content
     
     private var mainContentView: some View {
-        VStack(spacing: Spacing.xl) {
-            // Add top spacing to avoid X button overlap
-            Spacer()
-                .frame(height: 40)
+        GeometryReader { geometry in
+            let screenHeight = geometry.size.height
             
-            // Show transcribing view full screen (no other content)
-            if isTranscribing() {
-                statusView
-            } else {
-                // Transcription card (only after transcription complete)
-                if !transcription().isEmpty && !isRecording() {
-                    transcriptionView
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: Spacing.lg) {
+                    // Top spacing for X button
+                    Spacer()
+                        .frame(height: 40)
                     
-                    Spacer()
+                    // Show transcribing view full screen (no other content)
+                    if isTranscribing() {
+                        statusView
+                            .frame(height: screenHeight - 120)
+                    } else {
+                        // Transcription card (only after transcription complete)
+                        if !transcription().isEmpty && !isRecording() {
+                            transcriptionView
+                            
+                            // Action buttons
+                            postRecordingActionsView
+                                .padding(.top, Spacing.sm)
+                        } else {
+                            // Recording controls (idle or recording state)
+                            Spacer()
+                                .frame(height: max(screenHeight * 0.12, 60))
+                            
+                            recordingControlsView
+                            
+                            Spacer()
+                                .frame(height: max(screenHeight * 0.15, 80))
+                        }
+                    }
                     
-                    // Action buttons
-                    postRecordingActionsView
-                } else {
-                    // Recording controls (idle or recording state)
-                    Spacer()
-                    recordingControlsView
-                    Spacer()
+                    // Bottom spacing
+                    if isRecording() {
+                        Spacer()
+                            .frame(height: 100)
+                    }
                 }
+                .frame(maxWidth: .infinity)
             }
-            
-            // Bottom spacing
-            Spacer()
-                .frame(height: isRecording() ? 100 : 20)
+            .scrollDismissesKeyboard(.interactively)
+            .contentShape(Rectangle())
+            .onTapGesture {
+                isTextEditorFocused = false
+            }
         }
-        .padding()
     }
     
     // MARK: - Status View
@@ -426,21 +499,8 @@ struct VoiceJournalExperimentView: View {
                         .foregroundColor(.textSecondary)
                 }
             } else {
-                // Indeterminate loading dots
-                HStack(spacing: 8) {
-                    ForEach(0..<3, id: \.self) { index in
-                        Circle()
-                            .fill(Color.primaryGreen)
-                            .frame(width: 8, height: 8)
-                            .scaleEffect(breatheScale)
-                            .animation(
-                                .easeInOut(duration: 0.6)
-                                .repeatForever(autoreverses: true)
-                                .delay(Double(index) * 0.2),
-                                value: breatheScale
-                            )
-                    }
-                }
+                // Animated loading dots
+                LoadingDotsView()
             }
             
             Spacer()
@@ -469,19 +529,20 @@ struct VoiceJournalExperimentView: View {
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.textSecondary.opacity(0.7))
             }
-            .padding(.bottom, Spacing.xs)
+            .padding(.bottom, Spacing.sm)
             
-            // Text editor with better styling - larger area
+            // Text editor with focus state
             TextEditor(text: Binding(
                 get: { transcription() },
                 set: { whisperService.transcription = $0 }
             ))
             .font(.system(size: 17, weight: .regular))
             .foregroundColor(.textPrimary)
-            .frame(minHeight: 180, maxHeight: 320, alignment: .topLeading)
+            .frame(minHeight: isTextEditorFocused ? 140 : 200, maxHeight: isTextEditorFocused ? 200 : 350, alignment: .topLeading)
             .scrollContentBackground(.hidden)
+            .focused($isTextEditorFocused)
         }
-        .padding(.top, Spacing.lg)
+        .padding(.top, Spacing.xl)
         .padding(.horizontal, Spacing.lg)
         .padding(.bottom, Spacing.md)
         .background(
@@ -489,6 +550,7 @@ struct VoiceJournalExperimentView: View {
                 .fill(Color.cardBackground)
                 .shadow(color: Color.black.opacity(0.06), radius: 12, y: 4)
         )
+        .animation(.easeInOut(duration: 0.25), value: isTextEditorFocused)
     }
     
     // MARK: - Recording Controls
@@ -697,6 +759,110 @@ struct VoiceJournalExperimentView: View {
         ringRotation = 0
     }
     
+    // MARK: - Discard Confirmation Overlay
+    
+    private var discardConfirmationOverlay: some View {
+        ZStack {
+            // Dimmed background
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showDiscardConfirmation = false
+                        pendingDiscardAction = nil
+                    }
+                }
+            
+            // Confirmation card
+            VStack(spacing: Spacing.xl) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(Color.errorRed.opacity(0.12))
+                        .frame(width: 72, height: 72)
+                    
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.errorRed)
+                }
+                
+                // Text
+                VStack(spacing: Spacing.sm) {
+                    Text(pendingDiscardAction == .redo ? "Start Over?" : "Discard Entry?")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    
+                    Text("Your recording will be lost and cannot be recovered.")
+                        .font(.system(size: 15))
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                }
+                
+                // Buttons
+                VStack(spacing: Spacing.md) {
+                    // Destructive action
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showDiscardConfirmation = false
+                        }
+                        
+                        // Perform the action
+                        if pendingDiscardAction == .redo {
+                            cancelRecording()
+                            recordingSeconds = 0
+                            saveAudioAsFavorite = false
+                            Theme.Haptics.medium()
+                        } else {
+                            cancelRecording()
+                            dismiss()
+                        }
+                        pendingDiscardAction = nil
+                    }) {
+                        Text(pendingDiscardAction == .redo ? "Yes, Start Over" : "Yes, Discard")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.errorRed)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Cancel action
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showDiscardConfirmation = false
+                            pendingDiscardAction = nil
+                        }
+                    }) {
+                        Text("Keep Editing")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.primaryGreen)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.primaryGreen.opacity(0.12))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(Spacing.xl)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.cardBackground)
+                    .shadow(color: Color.black.opacity(0.2), radius: 30, y: 10)
+            )
+            .padding(.horizontal, Spacing.xl)
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showDiscardConfirmation)
+    }
+    
     // MARK: - Post Recording Actions
     
     private var postRecordingActionsView: some View {
@@ -781,12 +947,11 @@ struct VoiceJournalExperimentView: View {
                 }
                 .buttonStyle(.plain)
                 
-                // Record Again - tertiary style
+                // Record Again - tertiary style (with confirmation)
                 Button(action: {
-                    cancelRecording()
-                    recordingSeconds = 0
-                    saveAudioAsFavorite = false
-                    Theme.Haptics.light()
+                    pendingDiscardAction = .redo
+                    showDiscardConfirmation = true
+                    Theme.Haptics.warning()
                 }) {
                     HStack(spacing: Spacing.sm) {
                         Image(systemName: "arrow.counterclockwise")

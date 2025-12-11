@@ -348,6 +348,7 @@ struct AffirmationsView: View {
                             Link("Cohen & Sherman, 2014 – The psychology of change: self-affirmation and social psychological intervention", destination: url)
                                 .font(.subheadline)
                                 .foregroundStyle(affirmationAccent)
+                                .buttonStyle(.plain)
                         }
                     }
                 }

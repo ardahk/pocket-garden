@@ -25,7 +25,6 @@ struct HomeView: View {
     @State private var showWeeklyInsightDetail = false
     @State private var openWeeklyInsightWithCalendar = false
     @State private var showMoodTrendChart = false
-    @State private var showForestView = false
     
     // Quote of the day
     @State private var dailyQuote: Quote?
@@ -47,7 +46,7 @@ struct HomeView: View {
                     VStack(spacing: Spacing.xl) {
                         // Header
                         headerSection
-                            .padding(.top, Spacing.md)
+                            .padding(.top, Spacing.xl)
                         
                         // Quote of the Day
                         quoteOfTheDaySection
@@ -75,6 +74,15 @@ struct HomeView: View {
                     .frame(width: geometry.size.width)
                 }
             }
+            
+            // Super thin background colored line at the top
+            VStack {
+                Rectangle()
+                    .fill(Color.backgroundCream)
+                    .frame(height: 1)
+                Spacer()
+            }
+            .allowsHitTesting(false)
         }
         .navigationBarHidden(true)
         .onReceive(NotificationCenter.default.publisher(for: .triggerJournalFromNotification)) { _ in
@@ -125,8 +133,10 @@ struct HomeView: View {
         .sheet(item: $selectedEntry) { entry in
             EntryDetailViewRedesigned(entry: entry)
         }
-        .fullScreenCover(isPresented: $showSafeSpace) {
+        .sheet(isPresented: $showSafeSpace) {
             SafeSpaceView(modelContext: modelContext)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.hidden)
         }
         .sheet(isPresented: $showMoodTrendChart) {
             MoodTrendChartView(entries: entries)
@@ -369,17 +379,13 @@ struct HomeView: View {
                     color: .emotionContent
                 )
                 .onTapGesture {
-                    showForestView = true
+                    // Navigate to Garden tab instead of showing sheet
+                    selectedTab = 1
                     Theme.Haptics.light()
                 }
             }
         }
         .slideInFromBottom(delay: 0.3)
-        .sheet(isPresented: $showForestView) {
-            NavigationStack {
-                FullGardenView()
-            }
-        }
     }
 
     // MARK: - Weekly Insight Section
@@ -593,21 +599,9 @@ struct SafeSpaceCard: View {
 
                 // Content
                 VStack(alignment: .leading, spacing: Spacing.xs) {
-                    HStack(spacing: Spacing.sm) {
-                        Text("Need a Moment?")
-                            .font(Typography.headline)
-                            .foregroundColor(.textPrimary)
-                        
-                        Text("Sanctuary")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.emotionCalm)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(
-                                Capsule()
-                                    .fill(Color.emotionCalm.opacity(0.15))
-                            )
-                    }
+                    Text("Sanctuary")
+                        .font(Typography.headline)
+                        .foregroundColor(.textPrimary)
 
                     Text("Take a breath, find your calm")
                         .font(Typography.callout)

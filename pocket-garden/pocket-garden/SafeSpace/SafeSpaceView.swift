@@ -10,8 +10,6 @@ struct SafeSpaceView: View {
 
     @State private var viewModel: SafeSpaceViewModel
     @State private var selectedActivity: CalmActivity?
-    @State private var dragOffset: CGFloat = 0
-    @State private var isDismissing: Bool = false
 
     init(modelContext: ModelContext? = nil) {
         _viewModel = State(initialValue: SafeSpaceViewModel(modelContext: modelContext))
@@ -19,81 +17,58 @@ struct SafeSpaceView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                // Background
-                LinearGradient(
-                    colors: [
-                        Color.backgroundCream,
-                        Color.emotionCalm.opacity(0.15)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
-
-                GeometryReader { proxy in
-                    let isCompactHeight = proxy.size.height < 750
-
-                    VStack(spacing: isCompactHeight ? 24 : 32) {
+            GeometryReader { proxy in
+                let screenHeight = proxy.size.height
+                let isCompactHeight = screenHeight < 700
+                let isTallScreen = screenHeight > 850
+                
+                // Dynamic spacing based on screen size
+                let sectionSpacing: CGFloat = isCompactHeight ? 14 : (isTallScreen ? 24 : 18)
+                
+                ZStack {
+                    // Background stays fixed while content slides
+                    LinearGradient(
+                        colors: [
+                            Color.backgroundCream,
+                            Color.emotionCalm.opacity(0.15)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .ignoresSafeArea()
+                    
+                    // Single-page content (no scroll)
+                    VStack(spacing: sectionSpacing) {
+                        // Drag indicator
+                        Capsule()
+                            .fill(Color.textSecondary.opacity(0.35))
+                            .frame(width: 40, height: 5)
+                            .padding(.top, 6)
+                        
                         // Header
-                        VStack(spacing: 8) {
-                            // Drag indicator
-                            Capsule()
-                                .fill(Color.textSecondary.opacity(0.3))
-                                .frame(width: 36, height: 5)
-                                .padding(.top, isCompactHeight ? 4 : 8)
-                            
+                        VStack(spacing: 6) {
                             Text("Sanctuary")
-                                .font(.system(size: isCompactHeight ? 30 : 34, weight: .bold))
+                                .font(.system(size: isCompactHeight ? 24 : 28, weight: .bold))
                                 .foregroundStyle(Color.textPrimary)
-                                .padding(.top, 12)
                             
                             Text("A quiet place to pause and reset")
                                 .font(.subheadline)
                                 .foregroundStyle(Color.textSecondary)
                         }
-
-                        // Main content (non-scrollable)
-                        VStack(spacing: isCompactHeight ? 20 : 32) {
+                        
+                        // Main content
+                        VStack(spacing: sectionSpacing) {
                             // Ambient sounds
                             ambientSoundsSection
-
+                            
                             // Quick practices Grid
                             quickPracticesSection
                         }
+                        
+                        Spacer(minLength: 0)
                     }
-                    .padding(.horizontal, 24)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .scaleEffect(isCompactHeight ? 0.94 : 1.0)
-                    .contentShape(Rectangle())
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                // Only consider downward vertical pulls (ignore mostly-horizontal swipes)
-                                if value.translation.height > 0,
-                                   abs(value.translation.height) > abs(value.translation.width) {
-                                    dragOffset = value.translation.height
-                                }
-                            }
-                            .onEnded { _ in
-                                if dragOffset > 120 {
-                                    withAnimation(.easeOut(duration: 0.18)) {
-                                        isDismissing = true
-                                    }
-                                    viewModel.endSession()
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.16) {
-                                        dismiss()
-                                    }
-                                } else {
-                                    withAnimation(.spring(response: 0.3)) {
-                                        dragOffset = 0
-                                    }
-                                }
-                            }
-                    )
-                    .opacity(isDismissing ? 0 : 1)
-                    .scaleEffect(isDismissing ? 0.97 : 1)
-                    .animation(.easeOut(duration: 0.18), value: isDismissing)
+                    .padding(.horizontal, 20)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .toolbar {
@@ -351,6 +326,15 @@ struct PlaceholderActivityView: View {
             }
             .padding()
         }
+    }
+}
+
+// MARK: - Scroll Offset Preference Key
+
+struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 
