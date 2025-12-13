@@ -197,6 +197,7 @@ struct HomeView: View {
         Group {
             if let todayEntry = entries.first(where: { $0.isToday }) {
                 let treeInfo = currentTreeGrowthInfo
+                let entryCount = todayEntryCount
                 Card {
                     VStack(spacing: Spacing.lg) {
                         HStack {
@@ -205,7 +206,7 @@ struct HomeView: View {
                                 .foregroundColor(.successGreen)
 
                             VStack(alignment: .leading, spacing: Spacing.xs) {
-                                Text("Today's Entry Complete")
+                                Text("Entry Saved")
                                     .font(Typography.headline)
                                     .foregroundColor(.textPrimary)
 
@@ -215,6 +216,32 @@ struct HomeView: View {
                             }
 
                             Spacer()
+                            
+                            // Entry count badge
+                            HStack(spacing: Spacing.xs) {
+                                Image(systemName: "plus.circle.fill")
+                                    .font(.system(size: 12, weight: .semibold))
+                                
+                                Text("\(entryCount)")
+                                    .font(.system(size: 13, weight: .semibold))
+                                
+                                Text(entryCount == 1 ? "entry" : "entries")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.white)
+                            .padding(.horizontal, Spacing.sm)
+                            .padding(.vertical, Spacing.xs)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [Color.primaryGreen, Color.primaryGreen.opacity(0.8)],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                            )
+                            .shadow(color: Color.primaryGreen.opacity(0.3), radius: 4, y: 2)
                         }
 
                         HStack(spacing: Spacing.lg) {
@@ -254,8 +281,15 @@ struct HomeView: View {
                         .background(Color.backgroundCream.opacity(0.5))
                         .cornerRadius(CornerRadius.sm)
 
-                        // Record another journal for multiple entries per day
-                        PrimaryButton("Record Another Journal", icon: "mic.fill") {
+                        // Encouraging microcopy
+                        Text("Multiple entries help track your day better")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.textSecondary.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .padding(.top, Spacing.xs)
+
+                        // Enhanced button with pulse animation
+                        AddAnotherEntryButton {
                             isFirstEntryOfSession = false
                             anotherRating = todayRating
                             showMoodRatingSheet = true
@@ -521,6 +555,13 @@ struct HomeView: View {
     private var hasEntryToday: Bool {
         entries.contains { $0.isToday }
     }
+    
+    /// Count of entries made today
+    private var todayEntryCount: Int {
+        let calendar = Calendar.current
+        let today = Date()
+        return entries.filter { calendar.isDate($0.date, inSameDayAs: today) }.count
+    }
 
     // MARK: - Quote of the Day Section
     
@@ -571,12 +612,28 @@ struct SafeSpaceCard: View {
             action()
         }) {
             HStack(spacing: Spacing.md) {
-                // Icon with pulse animation
+                // Icon with pulse animation and soft glow
                 ZStack {
+                    // Soft glow around icon
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color.emotionCalm.opacity(0.4),
+                                    Color.emotionCalm.opacity(0.15),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 20,
+                                endRadius: 45
+                            )
+                        )
+                        .frame(width: 90, height: 90)
+                    
                     // Outer pulse circle
                     Circle()
                         .fill(Color.emotionCalm.opacity(0.3))
-                        .frame(width: 60, height: 60)
+                        .frame(width: 64, height: 64)
                         .scaleEffect(isPulsing ? 1.3 : 1.0)
                         .opacity(isPulsing ? 0.0 : 1.0)
 
@@ -592,11 +649,11 @@ struct SafeSpaceCard: View {
                                 endPoint: .bottomTrailing
                             )
                         )
-                        .frame(width: 56, height: 56)
+                        .frame(width: 60, height: 60)
 
-                    // Lotus icon
+                    // Moon/stars icon - increased size
                     Image(systemName: "moon.stars.fill")
-                        .font(.system(size: 24))
+                        .font(.system(size: 28))
                         .foregroundColor(.white)
                 }
 
@@ -615,10 +672,11 @@ struct SafeSpaceCard: View {
 
                 // Arrow
                 Image(systemName: "arrow.right.circle.fill")
-                    .font(.system(size: 28))
+                    .font(.system(size: 33))
                     .foregroundColor(Color.emotionCalm)
             }
-            .padding(Spacing.lg)
+            .padding(.horizontal, Spacing.md)
+            .padding(.vertical, Spacing.xs)
             .background(
                 RoundedRectangle(cornerRadius: CornerRadius.lg)
                     .fill(
@@ -630,6 +688,10 @@ struct SafeSpaceCard: View {
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
+                    )
+                    .overlay(
+                        SubtlePatternView()
+                            .opacity(0.03)
                     )
             )
             .overlay(
@@ -721,6 +783,93 @@ struct QuickActionButton: View {
         HomeView(selectedTab: $selectedTab)
     }
     .modelContainer(container)
+}
+
+// MARK: - Add Another Entry Button (Enhanced with Pulse Animation)
+
+struct AddAnotherEntryButton: View {
+    let action: () -> Void
+    @State private var pulseScale: CGFloat = 1.0
+    @State private var shadowOpacity: Double = 0.3
+    
+    var body: some View {
+        Button(action: {
+            Theme.Haptics.medium()
+            action()
+        }) {
+            HStack(spacing: Spacing.sm) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                
+                Text("Add Another Entry")
+                    .font(.system(size: 17, weight: .semibold))
+            }
+            .foregroundColor(.white)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56) // Standard button height
+            .background(
+                ZStack {
+                    // Base gradient
+                    LinearGradient(
+                        colors: [Color.primaryGreen, Color.primaryGreen.opacity(0.85)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    
+                    // Pulsing glow overlay
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(shadowOpacity * 0.2),
+                            Color.clear
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                }
+            )
+            .cornerRadius(CornerRadius.md)
+            .shadow(
+                color: Color.primaryGreen.opacity(shadowOpacity),
+                radius: 12 * pulseScale,
+                y: 6
+            )
+            .scaleEffect(pulseScale)
+        }
+        .buttonStyle(.plain)
+        .onAppear {
+            // Slower, more subtle pulse animation
+            withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
+                pulseScale = 1.015
+                shadowOpacity = 0.4
+            }
+        }
+    }
+}
+
+// MARK: - Subtle Pattern View (for background texture)
+
+struct SubtlePatternView: View {
+    var body: some View {
+        GeometryReader { geometry in
+            let spacing: CGFloat = 20
+            let dotSize: CGFloat = 2
+            
+            ZStack {
+                // Create a subtle dot pattern
+                ForEach(0..<Int(geometry.size.width / spacing), id: \.self) { x in
+                    ForEach(0..<Int(geometry.size.height / spacing), id: \.self) { y in
+                        Circle()
+                            .fill(Color.emotionCalm)
+                            .frame(width: dotSize, height: dotSize)
+                            .position(
+                                x: CGFloat(x) * spacing + spacing / 2,
+                                y: CGFloat(y) * spacing + spacing / 2
+                            )
+                    }
+                }
+            }
+        }
+    }
 }
 
 // MARK: - Journal Rating Wrapper (for reliable sheet presentation)
