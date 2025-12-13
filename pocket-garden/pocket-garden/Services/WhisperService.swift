@@ -333,6 +333,9 @@ class WhisperService {
 
         let folder = docs.appendingPathComponent("VoiceEntries", isDirectory: true)
         try? fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+        
+        // Apply protection to the VoiceEntries directory
+        try? applyDirectoryProtection(to: folder)
 
         let destinationURL = folder.appendingPathComponent("\(entryID.uuidString).m4a")
 
@@ -400,7 +403,31 @@ class WhisperService {
         recordingURL = nil
         segmentRecordingURLs.removeAll()
 
+        // Apply file protection to ensure the audio file is encrypted when device is locked
+        try applyFileProtection(to: destinationURL)
+        
         return destinationURL
+    }
+    
+    // MARK: - File Protection
+    
+    /// Apply complete file protection to sensitive audio recordings
+    /// This ensures files are encrypted when the device is locked
+    private func applyFileProtection(to url: URL) throws {
+        let attributes: [FileAttributeKey: Any] = [
+            .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication
+        ]
+        try FileManager.default.setAttributes(attributes, ofItemAtPath: url.path)
+        print("🔒 Applied file protection to: \(url.lastPathComponent)")
+    }
+    
+    /// Apply protection to a directory containing sensitive files
+    private func applyDirectoryProtection(to url: URL) throws {
+        let attributes: [FileAttributeKey: Any] = [
+            .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication
+        ]
+        try FileManager.default.setAttributes(attributes, ofItemAtPath: url.path)
+        print("🔒 Applied directory protection to: \(url.lastPathComponent)")
     }
 
     // MARK: - Audio Level Metering
