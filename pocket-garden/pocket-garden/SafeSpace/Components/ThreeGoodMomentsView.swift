@@ -30,6 +30,10 @@ struct ThreeGoodMomentsView: View {
     @State private var usedAFM: Bool = false
     @State private var showContent = false
     @State private var showInfoSheet: Bool = false
+    
+    // Animation states for thinking animation
+    @State private var breatheScale: CGFloat = 1.0
+    @State private var ringRotation: Double = 0
 
     @Environment(\.dismiss) private var dismiss
 
@@ -451,35 +455,8 @@ struct ThreeGoodMomentsView: View {
     private var reflectionView: some View {
         VStack(spacing: 24) {
             if isGeneratingPanda {
-                // Loading state
-                VStack(spacing: 20) {
-                    ZStack {
-                        Circle()
-                            .fill(Color.primaryGreen.opacity(0.1))
-                            .frame(width: 100, height: 100)
-                        
-                        Image("panda_supportive")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 60, height: 60)
-                    }
-                    
-                    VStack(spacing: 8) {
-                        Text("Bumblebee is reflecting...")
-                            .font(.system(size: 20, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Color.textPrimary)
-                        
-                        Text("Creating a personalized reflection on your moments")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
-                    
-                    ProgressView()
-                        .scaleEffect(1.2)
-                        .tint(Color.primaryGreen)
-                }
-                .padding(.top, 40)
+                // Bumblebee thinking animation
+                thinkingAnimationView
             } else if let text = pandaText {
                 // Reflection content
                 VStack(spacing: 24) {
@@ -712,6 +689,87 @@ struct ThreeGoodMomentsView: View {
                 isGeneratingPanda = false
             }
         }
+    }
+
+    // MARK: - Thinking Animation View
+    
+    private var thinkingAnimationView: some View {
+        VStack(spacing: 24) {
+            // Animated mascot with glow
+            ZStack {
+                // Outer pulsing glow
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.primaryGreen.opacity(0.2),
+                                Color.primaryGreen.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 40,
+                            endRadius: 120
+                        )
+                    )
+                    .frame(width: 240, height: 240)
+                    .scaleEffect(breatheScale)
+                
+                // Rotating ring
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Color.primaryGreen.opacity(0.4),
+                                Color.primaryGreen.opacity(0.1),
+                                Color.primaryGreen.opacity(0.4)
+                            ],
+                            center: .center
+                        ),
+                        lineWidth: 3
+                    )
+                    .frame(width: 180, height: 180)
+                    .rotationEffect(.degrees(ringRotation))
+                
+                // Mascot
+                GardenMascot(emotion: .thinking, size: 120)
+            }
+            .onAppear {
+                startThinkingAnimations()
+            }
+            .onDisappear {
+                stopThinkingAnimations()
+            }
+            
+            // Status text
+            VStack(spacing: 8) {
+                Text("Bumblebee is reflecting...")
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                
+                Text("Creating a personalized reflection on your moments")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.top, 40)
+    }
+    
+    private func startThinkingAnimations() {
+        // Breathing animation
+        withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+            breatheScale = 1.08
+        }
+        
+        // Ring rotation
+        withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
+            ringRotation = 360
+        }
+    }
+    
+    private func stopThinkingAnimations() {
+        breatheScale = 1.0
+        ringRotation = 0
     }
 
     private func finish() {

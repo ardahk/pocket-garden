@@ -24,6 +24,10 @@ struct WorryTreeView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showInfoSheet: Bool = false
     
+    // Animation states for thinking animation
+    @State private var breatheScale: CGFloat = 1.0
+    @State private var ringRotation: Double = 0
+    
     var body: some View {
         ZStack {
             LinearGradient(
@@ -615,89 +619,171 @@ struct WorryTreeView: View {
     
     private var completionView: some View {
         VStack(spacing: 20) {
-            Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Color.primaryGreen)
-                .padding(.top, 8)
-            
-            VStack(spacing: 10) {
-                Text("Well Done!")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                    .foregroundStyle(Color.textPrimary)
+            if isLoadingPanda {
+                // Bumblebee thinking animation
+                thinkingAnimationView
+            } else {
+                // Completion content
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 64))
+                    .foregroundStyle(Color.primaryGreen)
+                    .padding(.top, 8)
                 
-                if canControl == true {
-                    Text("You have a plan to address your worry")
-                        .font(.body)
-                        .foregroundStyle(Color.textSecondary)
-                        .multilineTextAlignment(.center)
-                } else {
-                    Text("You've acknowledged and released your worry")
-                        .font(.body)
-                        .foregroundStyle(Color.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-            }
-            
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    Image("panda_happy")
-                        .resizable()
-                        .scaledToFit()
-                        .frame(width: 32, height: 32)
-                    
-                    Text("Bumblebee's suggestion")
-                        .font(.caption)
+                VStack(spacing: 10) {
+                    Text("Well Done!")
+                        .font(.title2)
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.textSecondary)
+                        .foregroundStyle(Color.textPrimary)
+                    
+                    if canControl == true {
+                        Text("You have a plan to address your worry")
+                            .font(.body)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                    } else {
+                        Text("You've acknowledged and released your worry")
+                            .font(.body)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
                 }
                 
-                if let feedback = pandaFeedback {
-                    Text(cleanedPandaFeedback(feedback))
-                        .font(.body)
-                        .foregroundStyle(Color.textSecondary)
-                        .multilineTextAlignment(.leading)
-                } else if isLoadingPanda {
-                    Text("Bumblebee is thinking about a gentle plan for you…")
-                        .font(.body)
-                        .foregroundStyle(Color.textSecondary)
-                        .multilineTextAlignment(.leading)
-                } else {
-                    Text("Remember: It's okay to have worries. What matters is how you respond to them.")
-                        .font(.body)
-                        .foregroundStyle(Color.textSecondary)
-                        .multilineTextAlignment(.leading)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 8) {
+                        Image("panda_happy")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 32, height: 32)
+                        
+                        Text("Bumblebee's suggestion")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                    
+                    if let feedback = pandaFeedback {
+                        Text(cleanedPandaFeedback(feedback))
+                            .font(.body)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.leading)
+                    } else {
+                        Text("Remember: It's okay to have worries. What matters is how you respond to them.")
+                            .font(.body)
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.leading)
+                    }
                 }
+                .padding(16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.cardBackground)
+                )
+                .padding(.horizontal, 24)
+                
+                Button(action: {
+                    onComplete()
+                    dismiss()
+                }) {
+                    Text("Done")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16)
+                                .fill(Color.primaryGreen)
+                        )
+                }
+                .padding(.horizontal, 24)
+                .buttonStyle(.plain)
+                .padding(.bottom, 8)
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.cardBackground)
-            )
-            .padding(.horizontal, 24)
-            
-            Button(action: {
-                onComplete()
-                dismiss()
-            }) {
-                Text("Done")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                    .background(
-                        RoundedRectangle(cornerRadius: 16)
-                            .fill(Color.primaryGreen)
-                    )
-            }
-            .padding(.horizontal, 24)
-            .buttonStyle(.plain)
-            .padding(.bottom, 8)
         }
         .padding(.top, 24)
         .task {
             await generatePandaFeedbackIfNeeded()
         }
+    }
+    
+    // MARK: - Thinking Animation View
+    
+    private var thinkingAnimationView: some View {
+        VStack(spacing: 24) {
+            // Animated mascot with glow
+            ZStack {
+                // Outer pulsing glow
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.orange.opacity(0.2),
+                                Color.orange.opacity(0.05),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 40,
+                            endRadius: 120
+                        )
+                    )
+                    .frame(width: 240, height: 240)
+                    .scaleEffect(breatheScale)
+                
+                // Rotating ring
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Color.orange.opacity(0.4),
+                                Color.orange.opacity(0.1),
+                                Color.orange.opacity(0.4)
+                            ],
+                            center: .center
+                        ),
+                        lineWidth: 3
+                    )
+                    .frame(width: 180, height: 180)
+                    .rotationEffect(.degrees(ringRotation))
+                
+                // Mascot
+                GardenMascot(emotion: .thinking, size: 120)
+            }
+            .onAppear {
+                startThinkingAnimations()
+            }
+            .onDisappear {
+                stopThinkingAnimations()
+            }
+            
+            // Status text
+            VStack(spacing: 8) {
+                Text("Bumblebee is thinking...")
+                    .font(.system(size: 22, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                
+                Text("Creating a personalized suggestion for you")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        }
+        .padding(.top, 40)
+    }
+    
+    private func startThinkingAnimations() {
+        // Breathing animation
+        withAnimation(.easeInOut(duration: 3).repeatForever(autoreverses: true)) {
+            breatheScale = 1.08
+        }
+        
+        // Ring rotation
+        withAnimation(.linear(duration: 20).repeatForever(autoreverses: false)) {
+            ringRotation = 360
+        }
+    }
+    
+    private func stopThinkingAnimations() {
+        breatheScale = 1.0
+        ringRotation = 0
     }
 
     private func bulletPoint(_ text: String) -> some View {

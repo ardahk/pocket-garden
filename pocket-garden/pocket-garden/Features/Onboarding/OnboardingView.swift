@@ -9,6 +9,13 @@ struct OnboardingView: View {
     // Feature Pages
     private let features: [OnboardingFeature] = [
         OnboardingFeature(
+            type: .welcome,
+            title: "Welcome to\nPocket Garden",
+            description: "Your cozy corner for self-care, reflection, and growing a little forest of calm 🌿",
+            color: Color(red: 0.95, green: 0.75, blue: 0.8), // Soft rose pink
+            mascotImage: "panda_welcome"
+        ),
+        OnboardingFeature(
             type: .journal,
             title: "Voice Journaling",
             description: "Rate your mood from 1–10, then speak freely. Bumblebee keeps everything on-device and helps you reflect.",
@@ -45,9 +52,28 @@ struct OnboardingView: View {
         )
     ]
 
+    // Background color that changes based on current page
+    private var backgroundColor: some View {
+        Group {
+            if currentPage == 0 {
+                // Welcome page - warm cream that matches the mascot image background
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.98, green: 0.97, blue: 0.94), // Warm cream top
+                        Color(red: 0.96, green: 0.95, blue: 0.92), // Slightly warmer bottom
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+            } else {
+                Color.backgroundCream
+            }
+        }
+    }
+    
     var body: some View {
         ZStack {
-            Color.backgroundCream
+            backgroundColor
                 .ignoresSafeArea()
 
             VStack(spacing: 0) {
@@ -84,7 +110,7 @@ struct OnboardingView: View {
                                 }
                             }
                         } label: {
-                            Text(currentPage == features.count - 1 ? "Get Started" : "Continue")
+                            Text(currentPage == 0 ? "Get Started" : (currentPage == features.count - 1 ? "Get Started" : "Continue"))
                                 .font(.headline)
                                 .fontWeight(.semibold)
                                 .foregroundStyle(.white)
@@ -125,6 +151,7 @@ struct OnboardingView: View {
 // MARK: - Data Models
 
 enum FeatureType {
+    case welcome
     case journal
     case sanctuary
     case forest
@@ -171,27 +198,35 @@ struct OnboardingPageView: View {
 
             // Feature preview card + mascot
             ZStack(alignment: .bottom) {
-                MockPhoneFrame {
-                    switch feature.type {
-                    case .journal:
-                        JournalMockView()
-                    case .sanctuary:
-                        SanctuaryMockView()
-                    case .forest:
-                        ForestMockView()
-                    case .streaks:
-                        StreaksMockView()
-                    case .privacy:
-                        PrivacyMockView()
+                if feature.type == .welcome {
+                    // Welcome page has a special layout without phone frame
+                    WelcomeMockView()
+                } else {
+                    MockPhoneFrame {
+                        switch feature.type {
+                        case .welcome:
+                            EmptyView() // Handled above
+                        case .journal:
+                            JournalMockView()
+                        case .sanctuary:
+                            SanctuaryMockView()
+                        case .forest:
+                            ForestMockView()
+                        case .streaks:
+                            StreaksMockView()
+                        case .privacy:
+                            PrivacyMockView()
+                        }
                     }
+                    .padding(.bottom, 40)
+                    
+                    // Mascot overlay (not shown for welcome - it has its own)
+                    Image(feature.mascotImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: mascotHeight)
+                        .offset(mascotOffset)
                 }
-                .padding(.bottom, 40)
-
-                Image(feature.mascotImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: mascotHeight)
-                    .offset(mascotOffset)
             }
             .frame(height: 420)
 
@@ -250,6 +285,205 @@ struct MockPhoneFrame<Content: View>: View {
                 .clipShape(RoundedRectangle(cornerRadius: 32))
         }
         .frame(width: 280, height: 380)
+    }
+}
+
+// MARK: - Welcome Mock
+
+struct WelcomeMockView: View {
+    @State private var floatOffset: CGFloat = 0
+    
+    var body: some View {
+        ZStack {
+            // Floating decorative elements (no hearts - using flowers, sparkles, and leaves instead)
+            GeometryReader { geo in
+                // Soft floating flowers
+                FloatingFlower(size: 18, delay: 0)
+                    .position(x: geo.size.width * 0.12, y: geo.size.height * 0.18)
+                
+                FloatingFlower(size: 14, delay: 0.4)
+                    .position(x: geo.size.width * 0.88, y: geo.size.height * 0.22)
+                
+                FloatingFlower(size: 16, delay: 0.7)
+                    .position(x: geo.size.width * 0.08, y: geo.size.height * 0.58)
+                
+                FloatingFlower(size: 12, delay: 1.0)
+                    .position(x: geo.size.width * 0.92, y: geo.size.height * 0.52)
+                
+                // Sparkles
+                FloatingSparkle(delay: 0.2)
+                    .position(x: geo.size.width * 0.18, y: geo.size.height * 0.38)
+                
+                FloatingSparkle(delay: 0.5)
+                    .position(x: geo.size.width * 0.82, y: geo.size.height * 0.42)
+                
+                FloatingSparkle(delay: 0.8)
+                    .position(x: geo.size.width * 0.22, y: geo.size.height * 0.72)
+                
+                FloatingSparkle(delay: 1.1)
+                    .position(x: geo.size.width * 0.78, y: geo.size.height * 0.68)
+                
+                // Tiny leaves
+                FloatingLeaf(delay: 0.1)
+                    .position(x: geo.size.width * 0.72, y: geo.size.height * 0.78)
+                
+                FloatingLeaf(delay: 0.4)
+                    .position(x: geo.size.width * 0.28, y: geo.size.height * 0.82)
+                
+                FloatingLeaf(delay: 0.6)
+                    .position(x: geo.size.width * 0.15, y: geo.size.height * 0.48)
+                
+                FloatingLeaf(delay: 0.9)
+                    .position(x: geo.size.width * 0.85, y: geo.size.height * 0.35)
+            }
+            
+            VStack(spacing: 0) {
+                Spacer()
+                
+                // Main mascot with soft glow (no hard edges)
+                ZStack {
+                    // Very soft glow behind mascot - blends with background
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    Color(red: 1.0, green: 0.95, blue: 0.88).opacity(0.6),
+                                    Color(red: 1.0, green: 0.95, blue: 0.88).opacity(0.2),
+                                    Color.clear
+                                ],
+                                center: .center,
+                                startRadius: 40,
+                                endRadius: 160
+                            )
+                        )
+                        .frame(width: 320, height: 320)
+                    
+                    // Mascot
+                    Image("panda_welcome")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 200)
+                        .offset(y: floatOffset)
+                }
+                
+                Spacer()
+                
+                // Decorative row of mini items
+                HStack(spacing: 24) {
+                    WelcomeFeatureIcon(emoji: "🌱", label: "Grow")
+                    WelcomeFeatureIcon(emoji: "💭", label: "Reflect")
+                    WelcomeFeatureIcon(emoji: "✨", label: "Bloom")
+                }
+                .padding(.bottom, 32)
+            }
+        }
+        .frame(width: 300, height: 380)
+        .onAppear {
+            // Floating animation
+            withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
+                floatOffset = -10
+            }
+        }
+    }
+}
+
+struct FloatingFlower: View {
+    let size: CGFloat
+    let delay: Double
+    
+    @State private var offset: CGFloat = 0
+    @State private var rotation: Double = 0
+    @State private var opacity: Double = 0.5
+    
+    var body: some View {
+        Image(systemName: "leaf.fill")
+            .font(.system(size: size))
+            .foregroundStyle(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.6, green: 0.8, blue: 0.6),
+                        Color(red: 0.5, green: 0.75, blue: 0.5)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .opacity(opacity)
+            .offset(y: offset)
+            .rotationEffect(.degrees(rotation))
+            .onAppear {
+                withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true).delay(delay)) {
+                    offset = -6
+                    rotation = 15
+                    opacity = 0.8
+                }
+            }
+    }
+}
+
+struct WelcomeFeatureIcon: View {
+    let emoji: String
+    let label: String
+    
+    var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .fill(Color.white)
+                    .frame(width: 50, height: 50)
+                    .shadow(color: Color.black.opacity(0.05), radius: 8, y: 3)
+                
+                Text(emoji)
+                    .font(.system(size: 24))
+            }
+            
+            Text(label)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(Color.textSecondary)
+        }
+    }
+}
+
+
+struct FloatingSparkle: View {
+    let delay: Double
+    
+    @State private var scale: CGFloat = 0.8
+    @State private var opacity: Double = 0.4
+    
+    var body: some View {
+        Image(systemName: "sparkle")
+            .font(.system(size: 14, weight: .medium))
+            .foregroundStyle(Color.accentGold.opacity(0.8))
+            .scaleEffect(scale)
+            .opacity(opacity)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true).delay(delay)) {
+                    scale = 1.2
+                    opacity = 0.9
+                }
+            }
+    }
+}
+
+struct FloatingLeaf: View {
+    let delay: Double
+    
+    @State private var rotation: Double = -10
+    @State private var offset: CGFloat = 0
+    
+    var body: some View {
+        Image(systemName: "leaf.fill")
+            .font(.system(size: 12))
+            .foregroundStyle(Color.primaryGreen.opacity(0.6))
+            .rotationEffect(.degrees(rotation))
+            .offset(y: offset)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true).delay(delay)) {
+                    rotation = 10
+                    offset = -6
+                }
+            }
     }
 }
 

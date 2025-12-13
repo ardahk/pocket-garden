@@ -300,7 +300,7 @@ struct EmptyStateCard: View {
 
                 StatCard(
                     value: "7.5",
-                    label: "Avg Rating",
+                    label: "Avg Mood",
                     icon: "chart.line.uptrend.xyaxis",
                     color: .primaryGreen
                 )

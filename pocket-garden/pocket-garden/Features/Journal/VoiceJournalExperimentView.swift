@@ -46,6 +46,7 @@ struct VoiceJournalExperimentView: View {
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+    @Query private var allTrees: [GrowingTree]
     
     let emotionRating: Int
     var onComplete: (() -> Void)? = nil
@@ -69,6 +70,10 @@ struct VoiceJournalExperimentView: View {
     @State private var previousTranscription: String = "" // For appending mode
     @State private var saveAudioAsFavorite: Bool = false
     
+    // Tree selection for when no tree exists
+    @State private var showTreeSelectionAfterJournal = false
+    @State private var selectedTreeTypeForPlanting: TreeType = .oak
+    
     // Animation states
     @State private var breatheScale: CGFloat = 1.0
     @State private var ringRotation: Double = 0
@@ -82,6 +87,11 @@ struct VoiceJournalExperimentView: View {
     enum DiscardAction {
         case redo
         case dismiss
+    }
+    
+    /// Check if there's a current tree that isn't fully grown
+    private var hasGrowingTree: Bool {
+        allTrees.contains { !$0.isFullyGrown }
     }
     
     
@@ -221,10 +231,30 @@ struct VoiceJournalExperimentView: View {
             if let entry = savedEntry {
                 MascotFeedbackView(entry: entry) {
                     showMascotFeedback = false
-                    dismiss()
-                    // Call completion callback to switch to garden tab
-                    onComplete?()
+                    
+                    // If no tree exists (or all fully grown), show tree selection before completing
+                    if !hasGrowingTree && PendingTreePlanting.shared.pendingTreeType == nil {
+                        // Small delay to let the cover dismiss
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                            showTreeSelectionAfterJournal = true
+                        }
+                    } else {
+                        dismiss()
+                        // Call completion callback to switch to garden tab
+                        onComplete?()
+                    }
                 }
+            }
+        }
+        .sheet(isPresented: $showTreeSelectionAfterJournal) {
+            TreeSelectionAfterJournalSheet(
+                selectedType: $selectedTreeTypeForPlanting
+            ) {
+                // Store the selected tree type for auto-planting when garden tab appears
+                PendingTreePlanting.shared.pendingTreeType = selectedTreeTypeForPlanting
+                showTreeSelectionAfterJournal = false
+                dismiss()
+                onComplete?()
             }
         }
         .overlay {
@@ -1210,6 +1240,119 @@ protocol VoiceServiceProtocol {
 extension SpeechRecognitionService: VoiceServiceProtocol {}
 extension WhisperService: VoiceServiceProtocol {}
 */
+
+// MARK: - Tree Selection After Journal Sheet
+
+struct TreeSelectionAfterJournalSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Binding var selectedType: TreeType
+    let onPlant: () -> Void
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.peacefulGradient
+                    .ignoresSafeArea()
+                
+                VStack(spacing: Spacing.xl) {
+                    // Success message
+                    VStack(spacing: Spacing.md) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.successGreen.opacity(0.15))
+                                .frame(width: 80, height: 80)
+                            
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 44))
+                                .foregroundColor(.successGreen)
+                        }
+                        
+                        Text("Journal Saved!")
+                            .font(.system(size: 24, weight: .semibold))
+                            .foregroundColor(.textPrimary)
+                        
+                        Text("Now let's plant a tree to nurture with your daily entries!")
+                            .font(Typography.body)
+                            .foregroundColor(.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top, Spacing.xl)
+                    
+                    Text("Choose Your Tree")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                        .padding(.top, Spacing.lg)
+                    
+                    ForEach(TreeType.allCases, id: \.self) { type in
+                        TreeTypeCardCompact(
+                            type: type,
+                            isSelected: selectedType == type
+                        ) {
+                            selectedType = type
+                        }
+                    }
+                    
+                    Spacer(minLength: Spacing.lg)
+                    
+                    PrimaryButton("Plant \(selectedType.name)", icon: "leaf.fill") {
+                        onPlant()
+                    }
+                    .padding(.horizontal, Layout.screenPadding)
+                    .padding(.bottom, Spacing.xl)
+                }
+                .padding(.horizontal, Layout.screenPadding)
+            }
+            .navigationBarTitleDisplayMode(.inline)
+            .interactiveDismissDisabled() // Don't allow dismissing without selecting
+        }
+    }
+}
+
+struct TreeTypeCardCompact: View {
+    let type: TreeType
+    let isSelected: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: {
+            Theme.Haptics.light()
+            onTap()
+        }) {
+            HStack(spacing: Spacing.lg) {
+                Text(type.emoji)
+                    .font(.system(size: 40))
+                
+                VStack(alignment: .leading, spacing: Spacing.xs) {
+                    Text(type.name)
+                        .font(Typography.headline)
+                        .foregroundColor(.textPrimary)
+                    
+                    Text(type.description)
+                        .font(Typography.caption)
+                        .foregroundColor(.textSecondary)
+                        .lineLimit(1)
+                }
+                
+                Spacer()
+                
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundColor(isSelected ? .primaryGreen : .clear)
+            }
+            .padding(Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: CornerRadius.md)
+                    .fill(Color.cardBackground)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: CornerRadius.md)
+                            .stroke(isSelected ? Color.primaryGreen : Color.clear, lineWidth: 2)
+                    )
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
 
 // MARK: - Preview
 

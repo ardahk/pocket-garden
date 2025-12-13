@@ -428,7 +428,7 @@ struct WeeklyInsightCard: View {
 
                     insightStat(
                         value: String(format: "%.1f", insight.averageRating),
-                        label: "Avg Rating",
+                        label: "Avg Mood",
                         color: .accentGold
                     )
 

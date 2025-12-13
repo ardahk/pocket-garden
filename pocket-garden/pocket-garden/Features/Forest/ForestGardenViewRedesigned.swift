@@ -8,11 +8,13 @@
 import SwiftUI
 import SwiftData
 import Darwin
+internal import Combine
 
 struct ForestGardenViewRedesigned: View {
     @Query private var grownTrees: [GrowingTree]
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
     @Environment(\.modelContext) private var modelContext
+    @ObservedObject private var pendingPlanting = PendingTreePlanting.shared
     
     @State private var currentTree: GrowingTree?
     @State private var showPlantingAnimation = false
@@ -21,6 +23,7 @@ struct ForestGardenViewRedesigned: View {
     @State private var selectedTreeType: TreeType = .oak
     @State private var showTreeInfo = false
     @State private var selectedEntry: EmotionEntry?
+    @State private var hasCheckedPendingPlanting = false
     
     var body: some View {
         ZStack {
@@ -91,6 +94,13 @@ struct ForestGardenViewRedesigned: View {
         .onAppear {
             loadCurrentTree()
             checkForWatering()
+            checkForPendingPlanting()
+        }
+        .onChange(of: pendingPlanting.pendingTreeType) { _, newType in
+            // When pending tree type changes while view is visible
+            if newType != nil {
+                checkForPendingPlanting()
+            }
         }
     }
     
@@ -295,6 +305,23 @@ struct ForestGardenViewRedesigned: View {
     private func loadCurrentTree() {
         // Find the tree that's not fully grown
         currentTree = grownTrees.first(where: { !$0.isFullyGrown })
+    }
+    
+    private func checkForPendingPlanting() {
+        // Check if there's a pending tree to plant after completing a journal
+        guard let pendingType = pendingPlanting.pendingTreeType else { return }
+        
+        // Only plant if we have journaled today and don't have a current growing tree
+        guard hasJournaledToday else { return }
+        guard currentTree == nil || currentTree?.isFullyGrown == true else { return }
+        
+        // Clear the pending tree type first to prevent re-triggering
+        pendingPlanting.pendingTreeType = nil
+        
+        // Small delay to let the view settle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            plantNewTree(type: pendingType)
+        }
     }
     
     private func checkForWatering() {
@@ -723,6 +750,9 @@ struct TreeSelectionSheet: View {
                         .padding(.horizontal, Layout.screenPadding)
                         
                         PrimaryButton("Journal", icon: "leaf.fill") {
+                            // Store the selected tree type to plant after journaling
+                            PendingTreePlanting.shared.pendingTreeType = selectedType
+                            
                             // Navigate to home tab and show journal
                             dismiss()
                             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -757,6 +787,14 @@ struct TreeSelectionSheet: View {
 
 extension Notification.Name {
     static let showJournalFromForest = Notification.Name("showJournalFromForest")
+    static let plantTreeAfterJournal = Notification.Name("plantTreeAfterJournal")
+}
+
+// MARK: - Pending Tree Type Storage
+/// Stores the tree type selected before journaling, so it can be planted automatically after
+class PendingTreePlanting: ObservableObject {
+    static let shared = PendingTreePlanting()
+    @Published var pendingTreeType: TreeType?
 }
 
 struct TreeTypeCard: View {

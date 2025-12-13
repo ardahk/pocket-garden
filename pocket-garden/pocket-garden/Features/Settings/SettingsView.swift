@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var showExportSheet = false
     @State private var isExporting = false
     @State private var showExportToast = false
+    @State private var showDeleteWarning = false
     @State private var showDeleteConfirmation = false
     @State private var showDeleteSuccess = false
     @State private var exportURL: URL?
@@ -140,6 +141,105 @@ struct SettingsView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .overlay {
+            if showDeleteWarning {
+                deleteWarningOverlay
+            }
+        }
+    }
+    
+    // MARK: - Delete Warning Overlay
+    
+    private var deleteWarningOverlay: some View {
+        ZStack {
+            // Dimmed background
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showDeleteWarning = false
+                    }
+                }
+            
+            // Confirmation card
+            VStack(spacing: Spacing.xl) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(Color.errorRed.opacity(0.12))
+                        .frame(width: 72, height: 72)
+                    
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.errorRed)
+                }
+                
+                // Text
+                VStack(spacing: Spacing.sm) {
+                    Text("Delete All Data?")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    
+                    Text("This will permanently delete all your journal entries, trees, achievements, and exercises from this device. This action cannot be undone.")
+                        .font(.system(size: 15))
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                }
+                
+                // Buttons
+                VStack(spacing: Spacing.md) {
+                    // Destructive action - proceed to system confirmation
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showDeleteWarning = false
+                        }
+                        // Small delay to let the overlay dismiss, then show system confirmation
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            showDeleteConfirmation = true
+                        }
+                    }) {
+                        Text("Yes, Delete Everything")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.errorRed)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Cancel action
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showDeleteWarning = false
+                        }
+                    }) {
+                        Text("Cancel")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.primaryGreen)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.primaryGreen.opacity(0.12))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(Spacing.xl)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.cardBackground)
+                    .shadow(color: Color.black.opacity(0.2), radius: 30, y: 10)
+            )
+            .padding(.horizontal, Spacing.xl)
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showDeleteWarning)
     }
     
     // MARK: - Notifications Section
@@ -404,7 +504,9 @@ struct SettingsView: View {
                     description: "Permanently remove all entries from this device"
                 ) {
                     Theme.Haptics.warning()
-                    showDeleteConfirmation = true
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showDeleteWarning = true
+                    }
                 }
             }
         }
