@@ -47,6 +47,7 @@ struct VoiceJournalExperimentView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query private var allTrees: [GrowingTree]
+    @Query(sort: \EmotionEntry.date, order: .reverse) private var allEntries: [EmotionEntry]
     
     let emotionRating: Int
     var onComplete: (() -> Void)? = nil
@@ -1126,6 +1127,15 @@ struct VoiceJournalExperimentView: View {
             // Cancel evening notification since user journaled today
             NotificationService.shared.cancelEveningNotification()
             
+            // Check achievements after saving entry
+            let currentStreak = calculateStreak()
+            AchievementManager.shared.checkAndUpdateAchievements(
+                entries: allEntries,
+                trees: allTrees,
+                currentStreak: currentStreak,
+                modelContext: modelContext
+            )
+            
             // Classify entry in background
             Task {
                 await classifyEntry(entry)
@@ -1199,6 +1209,32 @@ struct VoiceJournalExperimentView: View {
         let minutes = seconds / 60
         let remainingSeconds = seconds % 60
         return String(format: "%d:%02d", minutes, remainingSeconds)
+    }
+    
+    private func calculateStreak() -> Int {
+        var streak = 0
+        let calendar = Calendar.current
+        let today = Date()
+        
+        // Check if there's an entry today
+        let hasEntryToday = allEntries.contains { calendar.isDate($0.date, inSameDayAs: today) }
+        
+        // If no entry today, start checking from yesterday to show existing streak
+        let startDay = hasEntryToday ? 0 : 1
+        
+        // Check enough days to cover all possible streak days
+        let maxDaysToCheck = allEntries.count + 1
+        
+        for i in startDay..<maxDaysToCheck {
+            let expectedDate = calendar.date(byAdding: .day, value: -i, to: today)!
+            if allEntries.first(where: { calendar.isDate($0.date, inSameDayAs: expectedDate) }) != nil {
+                streak += 1
+            } else {
+                break
+            }
+        }
+        
+        return streak
     }
 }
 

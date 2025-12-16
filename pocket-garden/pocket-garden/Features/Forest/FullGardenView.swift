@@ -11,18 +11,14 @@ import Darwin
 
 struct FullGardenView: View {
     @Query private var grownTrees: [GrowingTree]
-    @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
     
     @State private var scale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var lastOffset: CGSize = .zero
-    @State private var initialOffset: CGSize = .zero
-    @State private var selectedEntry: EmotionEntry?
+    @State private var selectedTree: GrowingTree?
+    @State private var zoomAnchor: UnitPoint = .center
+    @State private var hasActiveZoomAnchor: Bool = false
     
     @GestureState private var magnifyBy: CGFloat = 1.0
-    @GestureState private var dragOffset: CGSize = .zero
     
-    private let minScale: CGFloat = 0.3
     private let maxScale: CGFloat = 2.0
     
     
@@ -65,8 +61,8 @@ struct FullGardenView: View {
         }
         .navigationTitle("My Garden")
         .navigationBarTitleDisplayMode(.inline)
-        .sheet(item: $selectedEntry) { entry in
-            EntryDetailViewRedesigned(entry: entry)
+        .sheet(item: $selectedTree) { tree in
+            TreeDetailView(tree: tree)
         }
         .onAppear {
             autoZoomToFit()
@@ -116,64 +112,120 @@ struct FullGardenView: View {
     private var gardenCanvasView: some View {
         GeometryReader { geometry in
             let treePositions = calculateTreePositions(in: geometry.size)
-            let bounds = calculateBounds(positions: treePositions, screenSize: geometry.size)
+            let canvasSize = calculateCanvasSize(positions: treePositions)
+            let dynamicMinScale = calculateMinScale(positions: treePositions, screenSize: geometry.size)
             
-            ZStack {
-                // Fully grown trees
-                ForEach(Array(zip(fullyGrownTrees, treePositions)), id: \.0.id) { tree, position in
-                    GardenTreeView(tree: tree, globalScale: scale)
-                        .position(position)
-                        .onTapGesture {
-                            handleTreeTap(tree: tree)
-                        }
+            // Clamp scale continuously so pinch can't over-zoom while fingers are down
+            let clampedScale = min(max(scale * magnifyBy, dynamicMinScale), maxScale)
+            
+            ScrollView([.horizontal, .vertical], showsIndicators: false) {
+                ZStack {
+                    // Fully grown trees
+                    ForEach(Array(zip(fullyGrownTrees, treePositions)), id: \.0.id) { tree, position in
+                        GardenTreeView(tree: tree, globalScale: clampedScale)
+                            .position(x: position.x, y: position.y)
+                            .onTapGesture {
+                                handleTreeTap(tree: tree)
+                            }
+                    }
+                    
+                    // Currently growing tree (shown with its current stage emoji)
+                    if let growingTree = currentlyGrowingTree {
+                        let growingPosition = calculateGrowingTreePosition(in: geometry.size, existingPositions: treePositions)
+                        GrowingTreeInGardenView(tree: growingTree, globalScale: clampedScale)
+                            .position(x: growingPosition.x, y: growingPosition.y)
+                            .onTapGesture {
+                                handleTreeTap(tree: growingTree)
+                            }
+                    }
                 }
-                
-                // Currently growing tree (shown with its current stage emoji)
-                if let growingTree = currentlyGrowingTree {
-                    let growingPosition = calculateGrowingTreePosition(in: geometry.size, existingPositions: treePositions)
-                    GrowingTreeInGardenView(tree: growingTree, globalScale: scale)
-                        .position(growingPosition)
-                        .onTapGesture {
-                            handleTreeTap(tree: growingTree)
-                        }
-                }
+                .frame(width: canvasSize.width, height: canvasSize.height)
+                .scaleEffect(clampedScale, anchor: zoomAnchor)
             }
-            .frame(width: bounds.width, height: bounds.height)
-            .scaleEffect(scale * magnifyBy)
-            .offset(
-                x: clampOffset(
-                    current: offset.width + dragOffset.width,
-                    bounds: bounds.width * scale,
-                    screen: geometry.size.width
-                ),
-                y: clampOffset(
-                    current: offset.height + dragOffset.height,
-                    bounds: bounds.height * scale,
-                    screen: geometry.size.height
-                )
-            )
-            .gesture(
+            .scrollClipDisabled(false)
+            .simultaneousGesture(
                 MagnificationGesture()
                     .updating($magnifyBy) { value, state, _ in
                         state = value
+                        
+                        // On first update in this gesture, lock the anchor to the closest tree to reduce snapping
+                        if !hasActiveZoomAnchor {
+                            zoomAnchor = anchorPoint(for: treePositions, canvasSize: canvasSize, viewportSize: geometry.size)
+                            hasActiveZoomAnchor = true
+                        }
                     }
                     .onEnded { value in
                         let newScale = scale * value
-                        scale = min(max(newScale, minScale), maxScale)
-                    }
-            )
-            .simultaneousGesture(
-                DragGesture()
-                    .updating($dragOffset) { value, state, _ in
-                        state = value.translation
-                    }
-                    .onEnded { value in
-                        offset.width += value.translation.width
-                        offset.height += value.translation.height
-                        clampOffsetToBounds(screenSize: geometry.size, boundsSize: bounds)
+                        // Set scale directly without animation to prevent any tweaking/bouncing effect
+                        let finalScale = min(max(newScale, dynamicMinScale), maxScale)
+                        scale = finalScale
+                        hasActiveZoomAnchor = false
                     }
             )
         }
+    }
+    
+    /// Calculate canvas size based on tree positions
+    private func calculateCanvasSize(positions: [CGPoint]) -> CGSize {
+        guard !positions.isEmpty else { return CGSize(width: 400, height: 600) }
+        
+        let minX = positions.map { $0.x }.min() ?? 0
+        let maxX = positions.map { $0.x }.max() ?? 400
+        let minY = positions.map { $0.y }.min() ?? 0
+        let maxY = positions.map { $0.y }.max() ?? 600
+        
+        let padding: CGFloat = 150
+        return CGSize(
+            width: max(400, maxX - minX + padding * 2),
+            height: max(600, maxY - minY + padding * 2)
+        )
+    }
+    
+    /// Calculate minimum scale to ensure trees don't overlap when zoomed out
+    private func calculateMinScale(positions: [CGPoint], screenSize: CGSize) -> CGFloat {
+        guard positions.count > 1 else { return 0.5 }
+        
+        // Find the minimum distance between any two trees
+        var minDistance: CGFloat = .greatestFiniteMagnitude
+        for i in 0..<positions.count {
+            for j in (i + 1)..<positions.count {
+                let dx = positions[i].x - positions[j].x
+                let dy = positions[i].y - positions[j].y
+                let distance = sqrt(dx * dx + dy * dy)
+                minDistance = min(minDistance, distance)
+            }
+        }
+        
+        // At minScale, trees should still have at least 60pt spacing
+        let desiredMinSpacing: CGFloat = 60
+        let calculatedMinScale = desiredMinSpacing / minDistance
+        
+        // Clamp to reasonable range
+        return max(0.4, min(calculatedMinScale, 0.8))
+    }
+    
+    /// Anchor zoom near the closest tree to the viewport center for a natural feel
+    private func anchorPoint(for positions: [CGPoint], canvasSize: CGSize, viewportSize: CGSize) -> UnitPoint {
+        guard !positions.isEmpty else { return .center }
+        
+        // Use viewport center in canvas coordinates
+        let viewportCenter = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
+        var closest = positions.first!
+        var minDist = CGFloat.greatestFiniteMagnitude
+        
+        for p in positions {
+            let dx = p.x - viewportCenter.x
+            let dy = p.y - viewportCenter.y
+            let dist = dx * dx + dy * dy
+            if dist < minDist {
+                minDist = dist
+                closest = p
+            }
+        }
+        
+        let anchorX = max(0, min(1, closest.x / canvasSize.width))
+        let anchorY = max(0, min(1, closest.y / canvasSize.height))
+        return UnitPoint(x: anchorX, y: anchorY)
     }
     
     // MARK: - Stats Bar
@@ -252,79 +304,79 @@ struct FullGardenView: View {
     
     // MARK: - Helper Functions
     
+    /// Minimum distance between any two trees to prevent overlap
+    private let minTreeSpacing: CGFloat = 120
+    
     private func calculateTreePositions(in size: CGSize) -> [CGPoint] {
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         var positions: [CGPoint] = []
         
-        // Forest layout - cluster-based placement with first tree centered
         guard !fullyGrownTrees.isEmpty else { return positions }
         
         // First tree is always at center
         positions.append(center)
         
-        // Remaining trees in clusters around center
+        // Place remaining trees using spiral placement with collision detection
         if fullyGrownTrees.count > 1 {
-            let remainingTrees = Array(fullyGrownTrees.dropFirst())
-            let clusterCount = max(1, remainingTrees.count / 3)
-            var clusters: [CGPoint] = []
+            let goldenAngle = .pi * (3.0 - sqrt(5.0)) // ~137.5 degrees - optimal for even distribution
             
-            for i in 0..<clusterCount {
-                let angle = Double(i) * (2 * .pi / Double(clusterCount)) - .pi / 2
-                let radius = min(size.width, size.height) * 0.28
-                clusters.append(CGPoint(
-                    x: center.x + CGFloat(Darwin.cos(angle)) * radius,
-                    y: center.y + CGFloat(Darwin.sin(angle)) * radius
-                ))
-            }
-            
-            for (i, tree) in remainingTrees.enumerated() {
-                let cluster = clusters[i % clusters.count]
-                let seed = tree.id.hashValue
-                let angle = Double(seed & 0xFFFF) / Double(0xFFFF) * 2 * .pi
-                let distance = 40 + CGFloat((seed >> 16) & 0xFF) / 255.0 * 70
-                let x = cluster.x + CGFloat(Darwin.cos(angle)) * distance
-                let y = cluster.y + CGFloat(Darwin.sin(angle)) * distance
-                positions.append(CGPoint(x: x, y: y))
+            for i in 1..<fullyGrownTrees.count {
+                var placed = false
+                var attempts = 0
+                let maxAttempts = 50
+                
+                // Start with spiral placement, increase radius until no collision
+                while !placed && attempts < maxAttempts {
+                    // Spiral outward with golden angle
+                    let baseRadius = minTreeSpacing * 0.8 * sqrt(CGFloat(i))
+                    let adjustedRadius = baseRadius + CGFloat(attempts) * 20
+                    let angle = goldenAngle * Double(i) + Double(attempts) * 0.3
+                    
+                    let x = center.x + CGFloat(Darwin.cos(angle)) * adjustedRadius
+                    let y = center.y + CGFloat(Darwin.sin(angle)) * adjustedRadius
+                    let candidatePoint = CGPoint(x: x, y: y)
+                    
+                    if !hasCollision(point: candidatePoint, existingPoints: positions, minDistance: minTreeSpacing) {
+                        positions.append(candidatePoint)
+                        placed = true
+                    }
+                    
+                    attempts += 1
+                }
+                
+                // Fallback: place at next available spiral position with larger radius
+                if !placed {
+                    let fallbackRadius = minTreeSpacing * CGFloat(positions.count)
+                    let angle = goldenAngle * Double(i)
+                    positions.append(CGPoint(
+                        x: center.x + CGFloat(Darwin.cos(angle)) * fallbackRadius,
+                        y: center.y + CGFloat(Darwin.sin(angle)) * fallbackRadius
+                    ))
+                }
             }
         }
         
         return positions
     }
     
-    private func calculateBounds(positions: [CGPoint], screenSize: CGSize) -> CGSize {
-        guard !positions.isEmpty else { return screenSize }
-        
-        let minX = positions.map { $0.x }.min() ?? 0
-        let maxX = positions.map { $0.x }.max() ?? screenSize.width
-        let minY = positions.map { $0.y }.min() ?? 0
-        let maxY = positions.map { $0.y }.max() ?? screenSize.height
-        
-        let padding: CGFloat = 100
-        let width = max(screenSize.width, maxX - minX + padding * 2)
-        let height = max(screenSize.height, maxY - minY + padding * 2)
-        
-        return CGSize(width: width, height: height)
-    }
-    
-    private func clampOffset(current: CGFloat, bounds: CGFloat, screen: CGFloat) -> CGFloat {
-        let maxOffset = max(0, (bounds - screen) / 2)
-        return min(max(current, -maxOffset), maxOffset)
-    }
-    
-    private func clampOffsetToBounds(screenSize: CGSize, boundsSize: CGSize) {
-        let maxOffsetX = max(0, (boundsSize.width * scale - screenSize.width) / 2)
-        let maxOffsetY = max(0, (boundsSize.height * scale - screenSize.height) / 2)
-        
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-            offset.width = min(max(offset.width, -maxOffsetX), maxOffsetX)
-            offset.height = min(max(offset.height, -maxOffsetY), maxOffsetY)
+    /// Check if a point collides with any existing points
+    private func hasCollision(point: CGPoint, existingPoints: [CGPoint], minDistance: CGFloat) -> Bool {
+        for existing in existingPoints {
+            let dx = point.x - existing.x
+            let dy = point.y - existing.y
+            let distance = sqrt(dx * dx + dy * dy)
+            if distance < minDistance {
+                return true
+            }
         }
+        return false
     }
     
     private func autoZoomToFit() {
         let treeCount = totalTreeCount
         if treeCount > 5 {
-            scale = max(minScale, 1.0 - CGFloat(treeCount) * 0.03)
+            // Gradually zoom out for more trees, but respect min scale
+            scale = max(0.5, 1.0 - CGFloat(treeCount) * 0.025)
         }
     }
     
@@ -336,37 +388,36 @@ struct FullGardenView: View {
             return center
         }
         
-        // Otherwise place it in a new position using the same algorithm
-        let count = existingPositions.count
-        let angle = Double(count) * (2 * .pi / Double(max(1, count))) - .pi / 2
-        let radius = min(size.width, size.height) * 0.28
+        // Find a collision-free position using spiral placement
+        let goldenAngle = .pi * (3.0 - sqrt(5.0))
+        let index = existingPositions.count
         
+        for attempt in 0..<50 {
+            let baseRadius = minTreeSpacing * 0.8 * sqrt(CGFloat(index))
+            let adjustedRadius = baseRadius + CGFloat(attempt) * 20
+            let angle = goldenAngle * Double(index) + Double(attempt) * 0.3
+            
+            let x = center.x + CGFloat(Darwin.cos(angle)) * adjustedRadius
+            let y = center.y + CGFloat(Darwin.sin(angle)) * adjustedRadius
+            let candidatePoint = CGPoint(x: x, y: y)
+            
+            if !hasCollision(point: candidatePoint, existingPoints: existingPositions, minDistance: minTreeSpacing) {
+                return candidatePoint
+            }
+        }
+        
+        // Fallback
+        let fallbackRadius = minTreeSpacing * CGFloat(existingPositions.count + 1)
+        let angle = goldenAngle * Double(index)
         return CGPoint(
-            x: center.x + CGFloat(Darwin.cos(angle)) * radius,
-            y: center.y + CGFloat(Darwin.sin(angle)) * radius
+            x: center.x + CGFloat(Darwin.cos(angle)) * fallbackRadius,
+            y: center.y + CGFloat(Darwin.sin(angle)) * fallbackRadius
         )
     }
     
     private func handleTreeTap(tree: GrowingTree) {
         Theme.Haptics.light()
-        
-        // Find the entry from when the tree was fully grown
-        let calendar = Calendar.current
-        let completionDay = tree.plantedDate.addingTimeInterval(TimeInterval(tree.daysToGrow * 24 * 60 * 60))
-        
-        // Find entries around that date
-        let relevantEntries = entries.filter { entry in
-            calendar.isDate(entry.date, inSameDayAs: completionDay) ||
-            (entry.date < completionDay &&
-             calendar.dateComponents([.day], from: entry.date, to: completionDay).day ?? 0 <= 1)
-        }
-        
-        if let lastEntry = relevantEntries.first {
-            selectedEntry = lastEntry
-        } else if let latestEntry = entries.first {
-            // Fallback to most recent entry
-            selectedEntry = latestEntry
-        }
+        selectedTree = tree
     }
 }
 
@@ -383,6 +434,14 @@ struct GardenTreeView: View {
     }
     
     var body: some View {
+        // Keep label area in the layout at all times to prevent vertical “twitching”
+        // while zooming (caused by conditional view insertion/removal).
+        let labelOpacity: Double = {
+            if globalScale <= 0.6 { return 0.0 }
+            if globalScale >= 0.8 { return 1.0 }
+            return Double((globalScale - 0.6) / 0.2)
+        }()
+
         VStack(spacing: 4) {
             // Tree with shadow
             ZStack {
@@ -397,13 +456,12 @@ struct GardenTreeView: View {
                     .scaleEffect(isAnimating ? 1.0 : 0.8)
             }
             
-            // Label (visible when zoomed in)
-            if globalScale > 0.5 {
-                Text(treeType.name)
-                    .font(.system(size: 11))
-                    .foregroundColor(.textSecondary)
-                    .opacity(globalScale > 0.7 ? 1.0 : (globalScale - 0.5) * 5.0)
-            }
+            // Label (fade in/out, but keep reserved height so emoji doesn't jump)
+            Text(treeType.name)
+                .font(.system(size: 11))
+                .foregroundColor(.textSecondary)
+                .opacity(labelOpacity)
+                .frame(height: 14)
         }
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double.random(in: 0...0.2))) {
@@ -435,6 +493,14 @@ struct GrowingTreeInGardenView: View {
     }
     
     var body: some View {
+        // Same idea as `GardenTreeView`: don't insert/remove the label container based on zoom,
+        // otherwise the emoji “twitches” vertically as layout reflows mid-gesture.
+        let labelOpacity: Double = {
+            if globalScale <= 0.6 { return 0.0 }
+            if globalScale >= 0.8 { return 1.0 }
+            return Double((globalScale - 0.6) / 0.2)
+        }()
+
         VStack(spacing: 4) {
             // Tree with pulsing glow to indicate it's growing
             ZStack {
@@ -458,19 +524,18 @@ struct GrowingTreeInGardenView: View {
                     .scaleEffect(isAnimating ? 1.0 : 0.8)
             }
             
-            // Label with progress (visible when zoomed in)
-            if globalScale > 0.5 {
-                VStack(spacing: 2) {
-                    Text(treeType.name)
-                        .font(.system(size: 11))
-                        .foregroundColor(.textSecondary)
-                    
-                    Text(progressLabel)
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(.primaryGreen)
-                }
-                .opacity(globalScale > 0.7 ? 1.0 : (globalScale - 0.5) * 5.0)
+            // Label with progress (fade in/out, but keep reserved height so emoji doesn't jump)
+            VStack(spacing: 2) {
+                Text(treeType.name)
+                    .font(.system(size: 11))
+                    .foregroundColor(.textSecondary)
+                
+                Text(progressLabel)
+                    .font(.system(size: 9, weight: .medium))
+                    .foregroundColor(.primaryGreen)
             }
+            .opacity(labelOpacity)
+            .frame(height: 28)
         }
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.7).delay(Double.random(in: 0...0.2))) {

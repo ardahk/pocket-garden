@@ -6,133 +6,185 @@
 //
 
 import SwiftUI
+import SwiftData
 
-// MARK: - Achievement Unlock Notification
+// MARK: - Achievement Unlock Notification (Duolingo-Style)
 
 struct AchievementUnlockView: View {
     let achievement: Achievement
     let onDismiss: () -> Void
 
-    @State private var scale: CGFloat = 0
-    @State private var rotation: Double = -10
-    @State private var showSparkles = false
+    @State private var badgeScale: CGFloat = 0
+    @State private var badgeRotation: Double = -15
+    @State private var contentOpacity: Double = 0
+    @State private var showCelebration = false
+    @State private var backgroundOpacity: Double = 0
 
     var body: some View {
-        VStack(spacing: 0) {
-            Spacer()
+        ZStack {
+            // Dimmed background
+            Color.black
+                .opacity(backgroundOpacity * 0.6)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    dismiss()
+                }
+            
+            // Celebration effects (no pulse rings - removed per user request)
+            if showCelebration {
+                // Extra stars for legendary
+                if achievement.rarity == .legendary {
+                    FloatingStars(count: 12)
+                }
+            }
 
             VStack(spacing: Spacing.xl) {
-                // Sparkles effect
-                if showSparkles {
-                    SparklesView(sparkleCount: 20)
-                }
+                Spacer()
 
                 // Achievement badge
                 ZStack {
-                    // Glow effect
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [
-                                    achievement.rarity.color.opacity(0.3),
-                                    Color.clear
-                                ],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: 80
+                    // Badge with SF Symbol
+                    ZStack {
+                        // Outer ring
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: achievement.rarity.gradientColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
                             )
-                        )
-                        .frame(width: 160, height: 160)
+                            .frame(width: 130, height: 130)
+                            .shadow(color: achievement.rarity.color.opacity(0.5), radius: 20)
+                        
+                        // Inner circle
+                        Circle()
+                            .fill(Color.cardBackground)
+                            .frame(width: 110, height: 110)
 
-                    // Badge circle
-                    Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    achievement.rarity.color.opacity(0.8),
-                                    achievement.rarity.color
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 120, height: 120)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.cardBackground.opacity(0.5), lineWidth: 4)
-                        )
-                        .shadow(color: achievement.rarity.color.opacity(0.5), radius: 20)
-
-                    // Emoji
-                    Text(achievement.emoji)
-                        .font(.system(size: 60))
-                }
-                .scaleEffect(scale)
-                .rotationEffect(.degrees(rotation))
-
-                // Achievement info card
-                Card {
-                    VStack(spacing: Spacing.md) {
-                        // Rarity badge
-                        Text(achievement.rarity.name.uppercased())
-                            .font(Typography.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(achievement.rarity.color)
-                            .padding(.horizontal, Spacing.md)
-                            .padding(.vertical, Spacing.xs)
-                            .background(achievement.rarity.color.opacity(0.1))
-                            .cornerRadius(CornerRadius.sm)
-
-                        Text("Achievement Unlocked!")
-                            .font(Typography.title3)
-                            .foregroundColor(.textPrimary)
-
-                        Text(achievement.title)
-                            .font(Typography.title2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.primaryGreen)
-
-                        Text(achievement.achievementDescription)
-                            .font(Typography.body)
-                            .foregroundColor(.textSecondary)
-                            .multilineTextAlignment(.center)
+                        // SF Symbol with shimmer effect (same as achievements page)
+                        Image(systemName: achievement.symbolName)
+                            .font(.system(size: 50, weight: .semibold))
+                            .symbolRenderingMode(.monochrome)
+                            .foregroundStyle(achievement.rarity.color)
+                            .shimmer(isActive: true)
                     }
                 }
-                .padding(.horizontal, Layout.screenPadding)
+                .scaleEffect(badgeScale)
+                .rotationEffect(.degrees(badgeRotation))
+                .rotation3DEffect(
+                    .degrees(badgeRotation * 2),
+                    axis: (x: 0.0, y: 1.0, z: 0.0)
+                )
 
-                // Dismiss button
-                PrimaryButton("Awesome!", icon: "checkmark") {
-                    dismiss()
+                // Achievement info card
+                VStack(spacing: Spacing.lg) {
+                    // Rarity badge
+                    Text(achievement.rarity.name.uppercased())
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(achievement.rarity.color)
+                        .padding(.horizontal, Spacing.md)
+                        .padding(.vertical, Spacing.xs)
+                        .background(
+                            Capsule()
+                                .fill(achievement.rarity.color.opacity(0.15))
+                        )
+                    
+                    Text("Achievement Unlocked!")
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundColor(.textSecondary)
+
+                    Text(achievement.title)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.textPrimary)
+                        .multilineTextAlignment(.center)
+
+                    Text(achievement.achievementDescription)
+                        .font(Typography.body)
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, Spacing.md)
+                }
+                .padding(Spacing.xl)
+                .background(
+                    RoundedRectangle(cornerRadius: CornerRadius.xl)
+                        .fill(Color.cardBackground)
+                        .shadow(color: Color.black.opacity(0.15), radius: 20, y: 10)
+                )
+                .padding(.horizontal, Layout.screenPadding)
+                .opacity(contentOpacity)
+
+                // Buttons
+                VStack(spacing: Spacing.sm) {
+                    Button(action: dismiss) {
+                        HStack(spacing: Spacing.sm) {
+                            Image(systemName: "checkmark")
+                                .font(.system(size: 16, weight: .bold))
+                            Text("Awesome!")
+                                .font(.system(size: 17, weight: .semibold))
+                        }
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 56)
+                        .background(
+                            LinearGradient(
+                                colors: achievement.rarity.gradientColors,
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .cornerRadius(CornerRadius.lg)
+                        .shadow(color: achievement.rarity.color.opacity(0.4), radius: 10, y: 5)
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(contentOpacity)
                 }
                 .padding(.horizontal, Layout.screenPadding)
-            }
 
-            Spacer()
+                Spacer()
+            }
         }
-        .background(Color.black.opacity(0.4).ignoresSafeArea())
         .onAppear {
+            startAnimation()
+        }
+    }
+    
+    private func startAnimation() {
+        _ = achievement.rarity.animationDuration
+        
+        // Background fade in
+        withAnimation(.easeOut(duration: 0.3)) {
+            backgroundOpacity = 1.0
+        }
+        
+        // Badge animation with elastic bounce
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.5).delay(0.1)) {
+            badgeScale = 1.0
+            badgeRotation = 0
+        }
+        
+        // Celebration effects
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            showCelebration = true
             Theme.Haptics.success()
-
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.6)) {
-                scale = 1.0
-                rotation = 0
-            }
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                withAnimation {
-                    showSparkles = true
-                }
-            }
+        }
+        
+        // Content fade in
+        withAnimation(.easeOut(duration: 0.5).delay(0.5)) {
+            contentOpacity = 1.0
         }
     }
 
     private func dismiss() {
         Theme.Haptics.light()
-        withAnimation {
-            scale = 0.8
+        
+        withAnimation(.easeIn(duration: 0.2)) {
+            badgeScale = 0.8
+            backgroundOpacity = 0
+            contentOpacity = 0
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             onDismiss()
         }
     }
@@ -142,85 +194,111 @@ struct AchievementUnlockView: View {
 
 struct AchievementCard: View {
     let achievement: Achievement
+    
+    @State private var isPressed = false
 
     var body: some View {
-        Card {
-            HStack(spacing: Spacing.md) {
-                // Badge
-                ZStack {
-                    Circle()
-                        .fill(
-                            achievement.isUnlocked ?
-                            LinearGradient(
-                                colors: [achievement.rarity.color.opacity(0.3), achievement.rarity.color.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            ) :
-                            LinearGradient(
-                                colors: [Color.gray.opacity(0.2), Color.gray.opacity(0.1)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 60, height: 60)
+        HStack(spacing: Spacing.md) {
+            // Badge
+            AchievementSymbolView(
+                symbolName: achievement.symbolName,
+                symbolStyle: achievement.symbolStyle,
+                paletteColors: achievement.paletteColors,
+                rarity: achievement.rarity,
+                isUnlocked: achievement.isUnlocked,
+                size: 64
+            )
+            .shimmer(isActive: achievement.isUnlocked)
 
-                    Text(achievement.emoji)
-                        .font(.system(size: 32))
-                        .grayscale(achievement.isUnlocked ? 0 : 0.99)
-                        .opacity(achievement.isUnlocked ? 1.0 : 0.3)
-                }
+            // Info
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                HStack {
+                    Text(achievement.title)
+                        .font(Typography.headline)
+                        .foregroundColor(achievement.isUnlocked ? .textPrimary : .textSecondary)
 
-                // Info
-                VStack(alignment: .leading, spacing: Spacing.xs) {
-                    HStack {
-                        Text(achievement.title)
-                            .font(Typography.headline)
-                            .foregroundColor(achievement.isUnlocked ? .textPrimary : .textSecondary)
-
-                        if achievement.isUnlocked {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.system(size: 14))
-                                .foregroundColor(.successGreen)
-                        }
-                    }
-
-                    Text(achievement.achievementDescription)
-                        .font(Typography.callout)
-                        .foregroundColor(.textSecondary)
-                        .lineLimit(2)
-
-                    // Progress bar
-                    if !achievement.isUnlocked {
-                        VStack(alignment: .leading, spacing: Spacing.xs) {
-                            GeometryReader { geometry in
-                                ZStack(alignment: .leading) {
-                                    // Background
-                                    Capsule()
-                                        .fill(Color.gray.opacity(0.2))
-
-                                    // Progress
-                                    Capsule()
-                                        .fill(achievement.rarity.color)
-                                        .frame(width: geometry.size.width * achievement.progressPercentage)
-                                }
-                            }
-                            .frame(height: 6)
-
-                            Text("\(achievement.progress)/\(achievement.targetProgress)")
-                                .font(Typography.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                    } else if let date = achievement.unlockedDate {
-                        Text("Unlocked \(date.formatted(date: .abbreviated, time: .omitted))")
-                            .font(Typography.caption)
+                    if achievement.isUnlocked {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 14))
                             .foregroundColor(.successGreen)
                     }
+                    
+                    Spacer()
+                    
+                    // Rarity indicator
+                    Text(achievement.rarity.name)
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundColor(achievement.rarity.color)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(achievement.rarity.color.opacity(0.15))
+                        )
                 }
 
-                Spacer()
+                Text(achievement.achievementDescription)
+                    .font(Typography.callout)
+                    .foregroundColor(.textSecondary)
+                    .lineLimit(2)
+
+                // Progress bar or unlock date
+                if !achievement.isUnlocked {
+                    VStack(alignment: .leading, spacing: Spacing.xs) {
+                        GeometryReader { geometry in
+                            ZStack(alignment: .leading) {
+                                // Background
+                                Capsule()
+                                    .fill(Color.gray.opacity(0.2))
+
+                                // Progress
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: achievement.rarity.gradientColors,
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        )
+                                    )
+                                    .frame(width: geometry.size.width * achievement.progressPercentage)
+                            }
+                        }
+                        .frame(height: 6)
+
+                        Text("\(achievement.progress)/\(achievement.targetProgress)")
+                            .font(Typography.caption)
+                            .foregroundColor(.textSecondary)
+                    }
+                } else if let date = achievement.unlockedDate {
+                    HStack(spacing: Spacing.xs) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10))
+                        Text("Unlocked \(date.formatted(date: .abbreviated, time: .omitted))")
+                            .font(Typography.caption)
+                    }
+                    .foregroundColor(.successGreen)
+                }
             }
-            .padding(Spacing.sm)
         }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: CornerRadius.md)
+                .fill(Color.cardBackground)
+                .shadow(
+                    color: achievement.isUnlocked ? achievement.rarity.color.opacity(0.1) : Color.black.opacity(0.05),
+                    radius: achievement.isUnlocked ? 8 : 4,
+                    y: 2
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.md)
+                .stroke(
+                    achievement.isUnlocked ? achievement.rarity.color.opacity(0.2) : Color.clear,
+                    lineWidth: 1
+                )
+        )
+        .scaleEffect(isPressed ? 0.98 : 1.0)
+        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
     }
 }
 
@@ -228,43 +306,79 @@ struct AchievementCard: View {
 
 struct AchievementsOverviewView: View {
     @Environment(\.dismiss) private var dismiss
-    let achievements: [Achievement]
-
-    private var categories: [String] {
-        Array(Set(achievements.map { $0.category })).sorted()
+    @Query(sort: \Achievement.category) private var achievements: [Achievement]
+    
+    
+    private var sortedAchievements: [Achievement] {
+        // Sort unlocked first, then by progress
+        achievements.sorted { a, b in
+            if a.isUnlocked != b.isUnlocked {
+                return a.isUnlocked
+            }
+            return a.progressPercentage > b.progressPercentage
+        }
     }
 
     var body: some View {
-        ZStack {
-            Color.peacefulGradient.ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                Color.peacefulGradient.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: Spacing.xl) {
-                    // Header stats
-                    headerSection
+                ScrollView {
+                    VStack(spacing: Spacing.xl) {
+                        // Header stats
+                        headerSection
 
-                    // Achievements by category
-                    ForEach(categories, id: \.self) { category in
-                        categorySection(category: category)
+                        // Achievements list
+                        achievementsList
                     }
+                    .padding(Layout.screenPadding)
+                    .padding(.bottom, Spacing.xxxl)
                 }
-                .padding(Layout.screenPadding)
-                .padding(.bottom, Spacing.xxxl)
+            }
+            .navigationTitle("Achievements")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") {
+                        dismiss()
+                    }
+                    .foregroundColor(.primaryGreen)
+                }
             }
         }
-        .navigationTitle("Achievements")
-        .navigationBarTitleDisplayMode(.large)
     }
 
     private var headerSection: some View {
         Card {
             VStack(spacing: Spacing.lg) {
-                Text("🏆")
-                    .font(.system(size: 60))
+                // Trophy icon with glow
+                ZStack {
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [Color.accentGold.opacity(0.3), Color.clear],
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 50
+                            )
+                        )
+                        .frame(width: 100, height: 100)
+                    
+                    Image(systemName: "trophy.fill")
+                        .font(.system(size: 50))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [Color(red: 1.0, green: 0.85, blue: 0.3), .accentGold],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                }
 
                 VStack(spacing: Spacing.xs) {
                     Text("\(unlockedCount) of \(totalCount)")
-                        .font(Typography.title)
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
                         .foregroundColor(.textPrimary)
 
                     Text("Achievements Unlocked")
@@ -294,18 +408,33 @@ struct AchievementsOverviewView: View {
                 Text("\(Int(completionPercentage * 100))% Complete")
                     .font(Typography.caption)
                     .foregroundColor(.textSecondary)
+                
+                // Rarity breakdown
+                HStack(spacing: Spacing.lg) {
+                    ForEach(AchievementRarity.allCases, id: \.self) { rarity in
+                        let count = achievements.filter { $0.rarity == rarity && $0.isUnlocked }.count
+                        let total = achievements.filter { $0.rarity == rarity }.count
+                        
+                        VStack(spacing: 2) {
+                            Circle()
+                                .fill(rarity.color)
+                                .frame(width: 12, height: 12)
+                            Text("\(count)/\(total)")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.textSecondary)
+                        }
+                    }
+                }
+                .padding(.top, Spacing.sm)
             }
-            .padding(Spacing.md)
+            .padding(Spacing.lg)
         }
     }
-
-    private func categorySection(category: String) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.md) {
-            Text(category)
-                .font(Typography.headline)
-                .foregroundColor(.textPrimary)
-
-            ForEach(achievements.filter { $0.category == category }) { achievement in
+    
+    
+    private var achievementsList: some View {
+        VStack(spacing: Spacing.md) {
+            ForEach(sortedAchievements) { achievement in
                 AchievementCard(achievement: achievement)
             }
         }
@@ -323,7 +452,10 @@ struct AchievementsOverviewView: View {
         guard totalCount > 0 else { return 0 }
         return Double(unlockedCount) / Double(totalCount)
     }
+
+    // Quick Tip removed per UX request (keep this screen focused and clean).
 }
+
 
 // MARK: - Daily Challenge Card
 
@@ -477,7 +609,7 @@ struct WeeklyInsightCard: View {
         id: "streak_7",
         title: "Week Warrior",
         description: "Maintain a 7-day streak",
-        emoji: "🔥",
+        symbolName: "flame.fill",
         targetProgress: 7,
         category: "Streaks",
         rarity: .rare
@@ -494,7 +626,7 @@ struct WeeklyInsightCard: View {
         id: "streak_3",
         title: "Getting Started",
         description: "Maintain a 3-day streak",
-        emoji: "🌱",
+        symbolName: "leaf.fill",
         targetProgress: 3,
         category: "Streaks",
         rarity: .common
@@ -505,7 +637,7 @@ struct WeeklyInsightCard: View {
         id: "streak_7",
         title: "Week Warrior",
         description: "Maintain a 7-day streak",
-        emoji: "🔥",
+        symbolName: "flame.fill",
         targetProgress: 7,
         category: "Streaks",
         rarity: .rare

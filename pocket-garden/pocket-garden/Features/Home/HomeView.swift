@@ -13,6 +13,9 @@ struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
     @Query private var allTrees: [GrowingTree]
+    @Query private var achievements: [Achievement]
+    
+    @ObservedObject private var achievementManager = AchievementManager.shared
 
     @Binding var selectedTab: Int
     @State private var todayRating: Int = 7
@@ -25,6 +28,9 @@ struct HomeView: View {
     @State private var showWeeklyInsightDetail = false
     @State private var openWeeklyInsightWithCalendar = false
     @State private var showMoodTrendChart = false
+    
+    // Achievements
+    @State private var showAchievementsOverview = false
     
     // Quote of the day
     @State private var dailyQuote: Quote?
@@ -143,6 +149,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showMoodTrendChart) {
             MoodTrendChartView(entries: entries)
+        }
+        .sheet(isPresented: $showAchievementsOverview) {
+            AchievementsOverviewView()
         }
         .enableInjection()
     }
@@ -385,6 +394,13 @@ struct HomeView: View {
                 .font(Typography.headline)
                 .foregroundColor(.textPrimary)
 
+            // Use screen width to compute a consistent, equal-sized 3-up layout.
+            // This avoids any GeometryReader sizing quirks that can make the middle card
+            // *appear* smaller on some devices.
+            let availableWidth = UIScreen.main.bounds.width - (Layout.screenPadding * 2)
+            let cardWidth = max(0, (availableWidth - (Spacing.md * 2)) / 3)
+            let cardHeight = cardWidth * 1.15
+
             HStack(spacing: Spacing.md) {
                 StatCard(
                     value: "\(currentStreak)",
@@ -392,6 +408,7 @@ struct HomeView: View {
                     icon: "flame.fill",
                     color: .accentGold
                 )
+                .frame(width: cardWidth, height: cardHeight)
                 .onTapGesture {
                     openWeeklyInsightWithCalendar = true
                     showWeeklyInsightDetail = true
@@ -404,20 +421,31 @@ struct HomeView: View {
                     icon: "chart.line.uptrend.xyaxis",
                     color: .primaryGreen
                 )
+                .frame(width: cardWidth, height: cardHeight)
                 .onTapGesture {
                     showMoodTrendChart = true
                     Theme.Haptics.light()
                 }
 
-                StatCard(
-                    value: "\(totalTrees)",
-                    label: "Trees",
-                    icon: "leaf.fill",
-                    color: .emotionContent
-                )
+                ZStack(alignment: .topTrailing) {
+                    StatCard(
+                        value: "\(unlockedAchievementCount)",
+                        label: "Badges",
+                        icon: "trophy.fill",
+                        color: .secondaryTerracotta
+                    )
+                    .frame(width: cardWidth, height: cardHeight)
+
+                    if achievementManager.hasUnseenUnlock {
+                        Circle()
+                            .fill(Color.secondaryTerracotta)
+                            .frame(width: 10, height: 10)
+                            .offset(x: -4, y: 4)
+                    }
+                }
                 .onTapGesture {
-                    // Navigate to Garden tab instead of showing sheet
-                    selectedTab = 1
+                    showAchievementsOverview = true
+                    achievementManager.markAchievementsAsSeen()
                     Theme.Haptics.light()
                 }
             }
@@ -545,6 +573,10 @@ struct HomeView: View {
 
     private var totalTrees: Int {
         allTrees.count
+    }
+    
+    private var unlockedAchievementCount: Int {
+        achievements.filter { $0.isUnlocked }.count
     }
     
     private var moodPromptTitle: String {

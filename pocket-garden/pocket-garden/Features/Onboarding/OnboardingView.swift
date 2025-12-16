@@ -4,7 +4,6 @@ import UserNotifications
 struct OnboardingView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var currentPage = 0
-    @State private var isRequestingPermission = false
 
     // Feature Pages
     private let features: [OnboardingFeature] = [
@@ -132,18 +131,10 @@ struct OnboardingView: View {
     }
 
     private func completeOnboarding() {
-        // Request notification permission before completing onboarding
-        isRequestingPermission = true
-        Task {
-            // Request permission (will show system dialog)
-            _ = await NotificationService.shared.requestAuthorization()
-            
-            await MainActor.run {
-                isRequestingPermission = false
-                withAnimation {
-                    hasCompletedOnboarding = true
-                }
-            }
+        // Complete onboarding without requesting notifications
+        // Notifications will be requested after first tree is planted
+        withAnimation {
+            hasCompletedOnboarding = true
         }
     }
 }

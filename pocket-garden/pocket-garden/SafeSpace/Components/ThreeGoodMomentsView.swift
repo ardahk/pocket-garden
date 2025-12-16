@@ -30,7 +30,7 @@ struct ThreeGoodMomentsView: View {
     @State private var usedAFM: Bool = false
     @State private var showContent = false
     @State private var showInfoSheet: Bool = false
-    
+
     // Animation states for thinking animation
     @State private var breatheScale: CGFloat = 1.0
     @State private var ringRotation: Double = 0

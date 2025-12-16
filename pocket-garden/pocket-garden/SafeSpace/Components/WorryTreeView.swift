@@ -624,79 +624,79 @@ struct WorryTreeView: View {
                 thinkingAnimationView
             } else {
                 // Completion content
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(Color.primaryGreen)
-                    .padding(.top, 8)
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(Color.primaryGreen)
+                .padding(.top, 8)
+            
+            VStack(spacing: 10) {
+                Text("Well Done!")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(Color.textPrimary)
                 
-                VStack(spacing: 10) {
-                    Text("Well Done!")
-                        .font(.title2)
+                if canControl == true {
+                    Text("You have a plan to address your worry")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                } else {
+                    Text("You've acknowledged and released your worry")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                }
+            }
+            
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    Image("panda_happy")
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 32, height: 32)
+                    
+                    Text("Bumblebee's suggestion")
+                        .font(.caption)
                         .fontWeight(.semibold)
-                        .foregroundStyle(Color.textPrimary)
-                    
-                    if canControl == true {
-                        Text("You have a plan to address your worry")
-                            .font(.body)
-                            .foregroundStyle(Color.textSecondary)
-                            .multilineTextAlignment(.center)
-                    } else {
-                        Text("You've acknowledged and released your worry")
-                            .font(.body)
-                            .foregroundStyle(Color.textSecondary)
-                            .multilineTextAlignment(.center)
-                    }
+                        .foregroundStyle(Color.textSecondary)
                 }
                 
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(spacing: 8) {
-                        Image("panda_happy")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 32, height: 32)
-                        
-                        Text("Bumblebee's suggestion")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundStyle(Color.textSecondary)
-                    }
-                    
-                    if let feedback = pandaFeedback {
-                        Text(cleanedPandaFeedback(feedback))
-                            .font(.body)
-                            .foregroundStyle(Color.textSecondary)
-                            .multilineTextAlignment(.leading)
-                    } else {
-                        Text("Remember: It's okay to have worries. What matters is how you respond to them.")
-                            .font(.body)
-                            .foregroundStyle(Color.textSecondary)
-                            .multilineTextAlignment(.leading)
-                    }
+                if let feedback = pandaFeedback {
+                    Text(cleanedPandaFeedback(feedback))
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.leading)
+                } else {
+                    Text("Remember: It's okay to have worries. What matters is how you respond to them.")
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.leading)
                 }
-                .padding(16)
-                .background(
-                    RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.cardBackground)
-                )
-                .padding(.horizontal, 24)
-                
-                Button(action: {
-                    onComplete()
-                    dismiss()
-                }) {
-                    Text("Done")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 52)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color.primaryGreen)
-                        )
-                }
-                .padding(.horizontal, 24)
-                .buttonStyle(.plain)
-                .padding(.bottom, 8)
+            }
+            .padding(16)
+            .background(
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(Color.cardBackground)
+            )
+            .padding(.horizontal, 24)
+            
+            Button(action: {
+                onComplete()
+                dismiss()
+            }) {
+                Text("Done")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.primaryGreen)
+                    )
+            }
+            .padding(.horizontal, 24)
+            .buttonStyle(.plain)
+            .padding(.bottom, 8)
             }
         }
         .padding(.top, 24)

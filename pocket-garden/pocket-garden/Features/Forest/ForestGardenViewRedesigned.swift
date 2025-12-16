@@ -24,6 +24,7 @@ struct ForestGardenViewRedesigned: View {
     @State private var showTreeInfo = false
     @State private var selectedEntry: EmotionEntry?
     @State private var hasCheckedPendingPlanting = false
+    @AppStorage("hasRequestedNotificationsAfterFirstTree") private var hasRequestedNotifications = false
     
     var body: some View {
         ZStack {
@@ -355,14 +356,22 @@ struct ForestGardenViewRedesigned: View {
         
         Theme.Haptics.success()
         
+        // Update achievement progress on every watering (keeps progress bars current)
+        let currentStreak = calculateStreak()
+        AchievementManager.shared.checkAndUpdateAchievements(
+            entries: entries,
+            trees: grownTrees,
+            currentStreak: currentStreak,
+            modelContext: modelContext
+        )
+        
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation {
                 showWateringAnimation = false
             }
             
-            // Check if tree is now fully grown
+            // Extra celebration when tree is fully grown
             if tree.isFullyGrown {
-                // Show celebration
                 Theme.Haptics.success()
             }
         }
@@ -373,6 +382,9 @@ struct ForestGardenViewRedesigned: View {
         guard hasJournaledToday else {
             return
         }
+        
+        // Check if this is the first tree ever planted (before creating the new tree)
+        let isFirstTree = grownTrees.isEmpty && currentTree == nil
         
         // Move current tree to grown trees if it's fully grown
         if let tree = currentTree, tree.isFullyGrown {
@@ -422,6 +434,16 @@ struct ForestGardenViewRedesigned: View {
         }
         
         try? modelContext.save()
+        
+        // Request notifications after first tree is planted
+        if isFirstTree && !hasRequestedNotifications {
+            hasRequestedNotifications = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                Task {
+                    _ = await NotificationService.shared.requestAuthorization()
+                }
+            }
+        }
     }
     
     private func findNextTreePosition() -> GrowingTreePosition {
@@ -514,6 +536,10 @@ struct ForestGardenViewRedesigned: View {
     private var hasJournaledToday: Bool {
         guard let todayEntry = entries.first else { return false }
         return Calendar.current.isDateInToday(todayEntry.date)
+    }
+    
+    private func calculateStreak() -> Int {
+        return currentStreak
     }
 }
 

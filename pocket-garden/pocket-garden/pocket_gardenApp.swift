@@ -27,9 +27,11 @@ struct pocket_gardenApp: App {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @State private var shouldOpenJournal = false
     @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var achievementManager = AchievementManager.shared
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([EmotionEntry.self, GrowingTree.self, Quote.self, Achievement.self, CalmSession.self, WorryTreeEntry.self])
+        // Use default SwiftData location to preserve existing user data
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -48,10 +50,21 @@ struct pocket_gardenApp: App {
                     OnboardingView()
                         .transition(.move(edge: .leading).combined(with: .opacity))
                 }
+                
+                // Global achievement unlock overlay
+                if achievementManager.showUnlockAnimation,
+                   let achievement = achievementManager.recentlyUnlockedAchievement {
+                    AchievementUnlockView(achievement: achievement) {
+                        achievementManager.dismissUnlockAnimation()
+                    }
+                    .transition(.opacity)
+                    .zIndex(1000)
+                }
             }
             .animation(.spring(response: 0.6, dampingFraction: 0.85), value: hasCompletedOnboarding)
             .onAppear {
                 setupNotificationHandler()
+                initializeAndBackfillAchievements()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .active {
@@ -67,6 +80,39 @@ struct pocket_gardenApp: App {
             // Trigger journal opening when notification is tapped
             shouldOpenJournal = true
         }
+    }
+    
+    @MainActor
+    private func initializeAndBackfillAchievements() {
+        let context = sharedModelContainer.mainContext
+        AchievementManager.shared.initializeAchievements(modelContext: context)
+        
+        // Backfill progress for existing users - runs after initialization
+        backfillAchievementProgress(context: context)
+    }
+    
+    @MainActor
+    private func backfillAchievementProgress(context: ModelContext) {
+        // Fetch all entries and trees
+        let entryDescriptor = FetchDescriptor<EmotionEntry>(sortBy: [SortDescriptor(\.date, order: .reverse)])
+        let treeDescriptor = FetchDescriptor<GrowingTree>()
+        
+        guard let entries = try? context.fetch(entryDescriptor),
+              let trees = try? context.fetch(treeDescriptor) else { return }
+        
+        // Only backfill if user has data
+        guard !entries.isEmpty || !trees.isEmpty else { return }
+        
+        // Calculate current streak
+        let streak = calculateCurrentStreak(context: context)
+        
+        // Run full achievement check to backfill progress
+        AchievementManager.shared.checkAndUpdateAchievements(
+            entries: entries,
+            trees: trees,
+            currentStreak: streak,
+            modelContext: context
+        )
     }
     
     @MainActor

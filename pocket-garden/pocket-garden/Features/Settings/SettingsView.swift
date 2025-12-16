@@ -23,6 +23,17 @@ struct SettingsView: View {
     @State private var showDeleteSuccess = false
     @State private var exportURL: URL?
     @State private var exportTask: Task<Void, Never>? = nil
+    @State private var showNotificationSettingsAlert = false
+    
+    // Import states
+    @State private var showImportPicker = false
+    @State private var showImportWarning = false
+    @State private var showImportSuccess = false
+    @State private var showImportError = false
+    @State private var importErrorMessage = ""
+    @State private var isImporting = false
+    @State private var selectedImportURL: URL?
+    @State private var pendingImportData: ExportData?
     
     var body: some View {
         NavigationStack {
@@ -122,6 +133,31 @@ struct SettingsView: View {
             } message: {
                 Text("All your data has been successfully deleted from this device.")
             }
+            .alert("Notifications Permission Required", isPresented: $showNotificationSettingsAlert) {
+                Button("Open Settings") {
+                    openAppSettings()
+                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Notifications are currently disabled. To enable them, please go to Settings > Pocket Garden > Notifications and turn on \"Allow Notifications\".")
+            }
+            .alert("Import Successful", isPresented: $showImportSuccess) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("All your data has been successfully imported. Your trees, entries, and progress have been restored.")
+            }
+            .alert("Import Failed", isPresented: $showImportError) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(importErrorMessage)
+            }
+            .fileImporter(
+                isPresented: $showImportPicker,
+                allowedContentTypes: [.json],
+                allowsMultipleSelection: false
+            ) { result in
+                handleImportFile(result)
+            }
         }
         .overlay(alignment: .bottom) {
             if showExportToast {
@@ -144,6 +180,25 @@ struct SettingsView: View {
         .overlay {
             if showDeleteWarning {
                 deleteWarningOverlay
+            }
+        }
+        .overlay {
+            if showImportWarning {
+                importWarningOverlay
+            }
+        }
+        .overlay {
+            if isImporting {
+                importLoadingOverlay
+            }
+        }
+        .onAppear {
+            // Sync notification toggle with actual authorization status
+            Task {
+                await notificationService.checkAuthorizationStatus()
+                if notificationService.authorizationStatus == .denied {
+                    notificationService.preferences.notificationsEnabled = false
+                }
             }
         }
     }
@@ -242,6 +297,132 @@ struct SettingsView: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showDeleteWarning)
     }
     
+    // MARK: - Import Warning Overlay
+    
+    private var importWarningOverlay: some View {
+        ZStack {
+            // Dimmed background
+            Color.black.opacity(0.5)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showImportWarning = false
+                    }
+                }
+            
+            // Confirmation card
+            VStack(spacing: Spacing.xl) {
+                // Icon
+                ZStack {
+                    Circle()
+                        .fill(Color.primaryGreen.opacity(0.12))
+                        .frame(width: 72, height: 72)
+                    
+                    Image(systemName: "arrow.down.doc.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.primaryGreen)
+                }
+                
+                // Text
+                VStack(spacing: Spacing.sm) {
+                    Text("Import Data?")
+                        .font(.system(size: 20, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                    
+                    Text("This will replace all your current journal entries, trees, achievements, and exercises with the imported data. Your current data will be permanently deleted. This action cannot be undone.")
+                        .font(.system(size: 15))
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                }
+                
+                // Buttons
+                VStack(spacing: Spacing.md) {
+                    // Import action
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showImportWarning = false
+                        }
+                        // Small delay to let the overlay dismiss, then perform import
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            performImport()
+                        }
+                    }) {
+                        Text("Yes, Import Data")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.primaryGreen)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    
+                    // Cancel action
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showImportWarning = false
+                            selectedImportURL = nil
+                            pendingImportData = nil
+                        }
+                    }) {
+                        Text("Cancel")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.gray.opacity(0.12))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(Spacing.xl)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.cardBackground)
+                    .shadow(color: Color.black.opacity(0.2), radius: 30, y: 10)
+            )
+            .padding(.horizontal, Spacing.xl)
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: showImportWarning)
+    }
+    
+    // MARK: - Import Loading Overlay
+    
+    private var importLoadingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.4)
+                .ignoresSafeArea()
+            
+            VStack(spacing: Spacing.lg) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .primaryGreen))
+                    .scaleEffect(1.2)
+                
+                Text("Importing your data...")
+                    .font(Typography.body)
+                    .foregroundColor(.textPrimary)
+                    .multilineTextAlignment(.center)
+                
+                Text("Please don't close the app")
+                    .font(Typography.caption)
+                    .foregroundColor(.textSecondary)
+            }
+            .padding(Spacing.xl)
+            .background(Color.backgroundCream)
+            .cornerRadius(CornerRadius.lg)
+            .shadow(color: Color.black.opacity(0.15), radius: 16, x: 0, y: 8)
+            .frame(maxWidth: 260)
+        }
+        .transition(.opacity)
+    }
+    
     // MARK: - Notifications Section
     
     private var notificationsSection: some View {
@@ -256,15 +437,29 @@ struct SettingsView: View {
                     Toggle(isOn: Binding(
                         get: { notificationService.preferences.notificationsEnabled },
                         set: { newValue in
-                            notificationService.preferences.notificationsEnabled = newValue
                             if newValue {
+                                // User is trying to enable notifications
                                 Task {
-                                    let granted = await notificationService.requestAuthorization()
-                                    if !granted {
-                                        notificationService.preferences.notificationsEnabled = false
+                                    // Check current authorization status
+                                    await notificationService.checkAuthorizationStatus()
+                                    
+                                    if notificationService.authorizationStatus == .denied {
+                                        // Already denied - show alert with instructions
+                                        await MainActor.run {
+                                            showNotificationSettingsAlert = true
+                                        }
+                                    } else {
+                                        // Either .notDetermined or .authorized
+                                        // Request/re-check authorization
+                                        let granted = await notificationService.requestAuthorization()
+                                        await MainActor.run {
+                                            notificationService.preferences.notificationsEnabled = granted
+                                        }
                                     }
                                 }
                             } else {
+                                // User is disabling notifications
+                                notificationService.preferences.notificationsEnabled = false
                                 notificationService.cancelAllNotifications()
                             }
                         }
@@ -496,6 +691,17 @@ struct SettingsView: View {
                     exportData()
                 }
                 
+                // Import
+                SettingsRow(
+                    icon: "square.and.arrow.down.fill",
+                    iconColor: .primaryGreen,
+                    title: "Import Your Data",
+                    description: "Restore data from another device"
+                ) {
+                    Theme.Haptics.light()
+                    showImportPicker = true
+                }
+                
                 // Delete
                 SettingsRow(
                     icon: "trash.fill",
@@ -543,10 +749,12 @@ struct SettingsView: View {
                 }
             }
 
-            // Build export entries on the main actor (SwiftData-bound)
-            let exportEntries: [ExportEntry] = await MainActor.run {
-                entries.map { entry in
+            // Fetch all data models on the main actor (SwiftData-bound)
+            let (exportEntries, exportTrees, exportWorryEntries) = await MainActor.run {
+                // Entries
+                let entriesData = entries.map { entry in
                     ExportEntry(
+                        id: entry.id,
                         date: entry.date,
                         emotionRating: entry.emotionRating,
                         transcription: entry.transcription,
@@ -554,26 +762,74 @@ struct SettingsView: View {
                         tags: entry.tags,
                         moodCategory: entry.moodCategory,
                         focusArea: entry.focusArea,
-                        isFavorite: entry.isFavorite
+                        isFavorite: entry.isFavorite,
+                        hasViewedFeedback: entry.hasViewedFeedback,
+                        treeStage: entry.treeStage
                     )
                 }
+                
+                // Trees
+                let treeDescriptor = FetchDescriptor<GrowingTree>()
+                let trees = (try? modelContext.fetch(treeDescriptor)) ?? []
+                let treesData = trees.map { tree in
+                    ExportTree(
+                        id: tree.id,
+                        plantedDate: tree.plantedDate,
+                        lastWateredDate: tree.lastWateredDate,
+                        waterCount: tree.waterCount,
+                        treeType: tree.treeType,
+                        isFullyGrown: tree.isFullyGrown,
+                        position: ExportTreePosition(x: tree.position.x, y: tree.position.y)
+                    )
+                }
+                
+                // Worry Tree Entries (from Safe Space - Worry Tree exercise)
+                let worryDescriptor = FetchDescriptor<WorryTreeEntry>()
+                let worryEntries = (try? modelContext.fetch(worryDescriptor)) ?? []
+                let worryData = worryEntries.map { entry in
+                    ExportWorryTreeEntry(
+                        id: entry.id,
+                        date: entry.date,
+                        worryText: entry.worryText,
+                        canControl: entry.canControl,
+                        actionPlan: entry.actionPlan,
+                        letGoNote: entry.letGoNote,
+                        pandaFeedback: entry.pandaFeedback
+                    )
+                }
+                
+                return (entriesData, treesData, worryData)
             }
 
             if Task.isCancelled { return }
 
-            if Task.isCancelled { return }
-
-            let export = ExportData(
+            // Create export with placeholder signature
+            var export = ExportData(
                 exportDate: Date(),
                 appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
-                entries: exportEntries
+                signature: "", // Placeholder
+                entries: exportEntries,
+                trees: exportTrees,
+                worryTreeEntries: exportWorryEntries
             )
 
             do {
                 let encoder = JSONEncoder()
                 encoder.dateEncodingStrategy = .iso8601
+                encoder.outputFormatting = [.sortedKeys] // Sorted keys for consistent signing
+                
+                // Get payload for signing (without signature)
+                let payloadDict = export.dictionaryForSigning()
+                guard let payloadData = DataSecurityService.shared.createPayloadForSigning(payloadDict) else {
+                    throw NSError(domain: "ExportError", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to create payload for signing"])
+                }
+                
+                // Generate signature
+                let signature = DataSecurityService.shared.generateSignature(for: payloadData)
+                export.signature = signature
+                
+                // Re-encode with signature and pretty printing
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-
                 let data = try encoder.encode(export)
 
                 if Task.isCancelled { return }
@@ -616,6 +872,14 @@ struct SettingsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: Date())
+    }
+    
+    private func openAppSettings() {
+        if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+            if UIApplication.shared.canOpenURL(settingsURL) {
+                UIApplication.shared.open(settingsURL)
+            }
+        }
     }
     
     private func deleteAllData() {
@@ -664,6 +928,93 @@ struct SettingsView: View {
             showDeleteSuccess = true
         } catch {
             print("Delete failed: \(error)")
+        }
+    }
+    
+    // MARK: - Import Functions
+    
+    private func handleImportFile(_ result: Result<[URL], Error>) {
+        switch result {
+        case .success(let urls):
+            guard let url = urls.first else { return }
+            selectedImportURL = url
+            
+            // Validate file first
+            do {
+                let exportData = try DataImportService().validateAndParse(fileURL: url)
+                pendingImportData = exportData
+                // Valid file - show warning
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                    showImportWarning = true
+                }
+            } catch let error as DataImportService.ImportError {
+                switch error {
+                case .signatureValidationFailed:
+                    importErrorMessage = "This file was not exported from Pocket Garden or has been modified."
+                case .invalidFile:
+                    importErrorMessage = "Unable to read this file. Please ensure it's a valid Pocket Garden export."
+                case .corruptedData:
+                    importErrorMessage = "The export file appears to be corrupted or contains invalid data."
+                case .incompatibleVersion:
+                    importErrorMessage = "This export was created with an incompatible version of Pocket Garden."
+                case .importFailed(let message):
+                    importErrorMessage = "Import failed: \(message)"
+                }
+                showImportError = true
+            } catch {
+                importErrorMessage = "Unable to read this file. Please ensure it's a valid Pocket Garden export."
+                showImportError = true
+            }
+            
+        case .failure(let error):
+            print("File picker error: \(error)")
+            importErrorMessage = "Could not access the selected file."
+            showImportError = true
+        }
+    }
+    
+    private func performImport() {
+        guard let url = selectedImportURL else { return }
+        
+        withAnimation {
+            isImporting = true
+        }
+        
+        Task {
+            do {
+                let exportData = try DataImportService().validateAndParse(fileURL: url)
+                try DataImportService().importData(exportData, to: modelContext)
+                
+                await MainActor.run {
+                    withAnimation {
+                        isImporting = false
+                    }
+                    selectedImportURL = nil
+                    pendingImportData = nil
+                    showImportSuccess = true
+                    Theme.Haptics.success()
+                }
+            } catch let error as DataImportService.ImportError {
+                await MainActor.run {
+                    withAnimation {
+                        isImporting = false
+                    }
+                    selectedImportURL = nil
+                    pendingImportData = nil
+                    importErrorMessage = error.localizedDescription
+                    showImportError = true
+                }
+            } catch {
+                await MainActor.run {
+                    withAnimation {
+                        isImporting = false
+                    }
+                    selectedImportURL = nil
+                    pendingImportData = nil
+                    importErrorMessage = "Import failed. Please try again."
+                    showImportError = true
+                }
+            }
         }
     }
 }
@@ -721,10 +1072,36 @@ struct SettingsRow: View {
 struct ExportData: Codable {
     let exportDate: Date
     let appVersion: String
+    var signature: String // HMAC-SHA256 signature (mutable for signing process)
     let entries: [ExportEntry]
+    let trees: [ExportTree]
+    // NOTE: Achievements are NOT exported/imported because they:
+    // - Auto-initialize on first launch
+    // - Auto-backfill progress from entries/trees on import
+    // - Are recalculated to match the imported data
+    // NOTE: CalmSessions are NOT exported/imported because:
+    // - The app doesn't currently track calm sessions
+    // - This was planned functionality that isn't implemented yet
+    let worryTreeEntries: [ExportWorryTreeEntry]
+    
+    /// Create a dictionary for signing (excludes signature field)
+    func dictionaryForSigning() -> [String: Any] {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        
+        // Encode to JSON then decode to dictionary to get proper representation
+        guard let data = try? encoder.encode(self),
+              var dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            return [:]
+        }
+        
+        dict.removeValue(forKey: "signature")
+        return dict
+    }
 }
 
 struct ExportEntry: Codable {
+    let id: UUID
     let date: Date
     let emotionRating: Int
     let transcription: String?
@@ -733,6 +1110,33 @@ struct ExportEntry: Codable {
     let moodCategory: String?
     let focusArea: String?
     let isFavorite: Bool
+    let hasViewedFeedback: Bool
+    let treeStage: Int
+}
+
+struct ExportTree: Codable {
+    let id: UUID
+    let plantedDate: Date
+    let lastWateredDate: Date?
+    let waterCount: Int
+    let treeType: String
+    let isFullyGrown: Bool
+    let position: ExportTreePosition
+}
+
+struct ExportTreePosition: Codable {
+    let x: Double
+    let y: Double
+}
+
+struct ExportWorryTreeEntry: Codable {
+    let id: UUID
+    let date: Date
+    let worryText: String
+    let canControl: Bool?
+    let actionPlan: String?
+    let letGoNote: String?
+    let pandaFeedback: String?
 }
 
 // MARK: - Share Sheet
