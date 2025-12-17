@@ -20,6 +20,9 @@ class AchievementManager: ObservableObject {
     @Published var showUnlockAnimation = false
     @Published var hasUnseenUnlock = false
     
+    /// Callback triggered when achievement popup is dismissed
+    var onAchievementDismissed: (() -> Void)?
+    
     private init() {}
     
     // MARK: - Initialization
@@ -342,8 +345,17 @@ class AchievementManager: ObservableObject {
     // MARK: - Helpers
     
     func dismissUnlockAnimation() {
+        // Show floating coin before clearing the achievement
+        if let achievement = recentlyUnlockedAchievement {
+            FloatingCoinManager.shared.showCoin(for: achievement)
+        }
+        
         showUnlockAnimation = false
         recentlyUnlockedAchievement = nil
+        
+        // Trigger the callback if it exists
+        onAchievementDismissed?()
+        onAchievementDismissed = nil // Clear the callback after use
     }
     
     func markAchievementsAsSeen() {

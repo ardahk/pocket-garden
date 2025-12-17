@@ -139,7 +139,7 @@ struct SettingsView: View {
                 }
                 Button("Cancel", role: .cancel) { }
             } message: {
-                Text("Notifications are currently disabled. To enable them, please go to Settings > Pocket Garden > Notifications and turn on \"Allow Notifications\".")
+                Text("Notifications are currently disabled. To enable them, please go to Settings > Pocket Forest > Notifications and turn on \"Allow Notifications\".")
             }
             .alert("Import Successful", isPresented: $showImportSuccess) {
                 Button("OK", role: .cancel) { }
@@ -835,7 +835,7 @@ struct SettingsView: View {
                 if Task.isCancelled { return }
 
                 let tempDir = FileManager.default.temporaryDirectory
-                let fileName = "pocket-garden-export-\(formattedExportDate).json"
+                let fileName = "pocket-forest-export-\(formattedExportDate).json"
                 let fileURL = tempDir.appendingPathComponent(fileName)
 
                 try data.write(to: fileURL)
@@ -950,19 +950,19 @@ struct SettingsView: View {
             } catch let error as DataImportService.ImportError {
                 switch error {
                 case .signatureValidationFailed:
-                    importErrorMessage = "This file was not exported from Pocket Garden or has been modified."
+                    importErrorMessage = "This file was not exported from Pocket Forest or has been modified."
                 case .invalidFile:
-                    importErrorMessage = "Unable to read this file. Please ensure it's a valid Pocket Garden export."
+                    importErrorMessage = "Unable to read this file. Please ensure it's a valid Pocket Forest export."
                 case .corruptedData:
                     importErrorMessage = "The export file appears to be corrupted or contains invalid data."
                 case .incompatibleVersion:
-                    importErrorMessage = "This export was created with an incompatible version of Pocket Garden."
+                    importErrorMessage = "This export was created with an incompatible version of Pocket Forest."
                 case .importFailed(let message):
                     importErrorMessage = "Import failed: \(message)"
                 }
                 showImportError = true
             } catch {
-                importErrorMessage = "Unable to read this file. Please ensure it's a valid Pocket Garden export."
+                importErrorMessage = "Unable to read this file. Please ensure it's a valid Pocket Forest export."
                 showImportError = true
             }
             

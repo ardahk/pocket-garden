@@ -195,6 +195,7 @@ struct ThreeGoodMomentsView: View {
                         .font(isCompact ? .subheadline : .body)
                         .foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 16)
                 }
                 .opacity(showContent ? 1 : 0)
@@ -850,6 +851,8 @@ struct HowItWorksRow: View {
             Text(text)
                 .font(.subheadline)
                 .foregroundStyle(Color.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.leading)
         }
     }
 }

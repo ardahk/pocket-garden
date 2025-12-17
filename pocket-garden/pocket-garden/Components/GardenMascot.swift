@@ -444,8 +444,30 @@ fileprivate func sanctuaryItemNames() -> String {
 fileprivate final class PandaFeedbackService {
     static let shared = PandaFeedbackService()
     private init() {}
+    
+    // Crisis indicators that should trigger special supportive response
+    private let crisisIndicators = [
+        "want to die", "kill myself", "end it all", "end my life",
+        "no reason to live", "better off dead", "suicide",
+        "don't want to be here", "can't go on", "give up on life",
+        "hurt myself", "self harm", "cutting myself"
+    ]
+    
+    private func detectCrisis(in text: String?) -> Bool {
+        guard let text = text?.lowercased() else { return false }
+        return crisisIndicators.contains { text.contains($0) }
+    }
+    
+    private func crisisResponse() -> String {
+        return "I hear you, and I'm really glad you're sharing this with me. What you're feeling is real and valid, and you don't have to carry it alone. Please consider reaching out to someone you trust - a friend, family member, or a professional who can support you right now. You matter, and there are people who want to help. If you're in crisis, please contact a crisis helpline in your area 💙"
+    }
 
     func generate(for entry: EmotionEntry, recentHints: [String]) async -> (text: String, emotion: MascotEmotion, usedAFM: Bool) {
+        // Check for crisis indicators first - provide supportive response with resources
+        if detectCrisis(in: entry.transcription) {
+            return (crisisResponse(), .concerned, false)
+        }
+        
         if #available(iOS 26.0, *), PandaFoundationManager.shared.isAvailable {
             if let afm = await generateWithAFM(entry: entry, recentHints: recentHints) {
                 let mapped = mapEmotion(hint: afm.emotionHint, rating: entry.emotionRating)
@@ -1321,6 +1343,41 @@ fileprivate final class PandaOutputValidator {
     private func performLocalValidation(output: String, input: String) -> ValidationResult {
         let normalizedOutput = normalize(output)
         let normalizedInput = normalize(input)
+        let lowerOutput = output.lowercased()
+        
+        // Check 0: Safety check - harmful content in output
+        let harmfulPhrases = [
+            "kill yourself", "end your life", "you should die", "better off dead",
+            "nobody cares about you", "you're worthless", "you're pathetic",
+            "just give up", "there's no hope", "you deserve to suffer",
+            "you're a loser", "you're stupid", "you're an idiot",
+            "shut up", "nobody likes you", "you're disgusting"
+        ]
+        for phrase in harmfulPhrases {
+            if lowerOutput.contains(phrase) {
+                return ValidationResult(
+                    isValid: false,
+                    reason: "Output contains harmful content",
+                    correctedOutput: nil
+                )
+            }
+        }
+        
+        // Check 0b: Safety check - dismissive/toxic positivity patterns
+        let dismissivePatterns = [
+            "just think positive", "just be happy", "stop being sad",
+            "get over it", "it's not that bad", "others have it worse",
+            "you're overreacting", "calm down", "stop complaining"
+        ]
+        for pattern in dismissivePatterns {
+            if lowerOutput.contains(pattern) {
+                return ValidationResult(
+                    isValid: false,
+                    reason: "Output contains dismissive or toxic positivity",
+                    correctedOutput: nil
+                )
+            }
+        }
         
         // Check 1: Jaccard similarity (word overlap)
         let jaccardSim = jaccardSimilarity(normalizedOutput, normalizedInput)
@@ -1387,7 +1444,7 @@ fileprivate final class PandaOutputValidator {
         
         do {
             let session = LanguageModelSession(instructions: """
-                You are a quality assurance assistant for an emotional wellness app called Pocket Garden.
+                You are a quality assurance assistant for an emotional wellness app called Pocket Forest.
                 Your job is to evaluate whether AI-generated feedback is helpful and appropriate.
                 
                 Respond ONLY with valid JSON in this exact format:
@@ -1626,7 +1683,7 @@ fileprivate final class PandaOutputValidator {
 fileprivate final class PandaSessionManager {
     static let shared = PandaSessionManager()
     private var session: LanguageModelSession?
-    private static let instructionsVersion = 6 // Increment to force session refresh
+    private static let instructionsVersion = 7 // Increment to force session refresh
     private var sessionVersion: Int = 0
     private init() {}
     
@@ -1641,48 +1698,61 @@ fileprivate final class PandaSessionManager {
         
         let sanctuaryList = sanctuaryItemsForPrompt()
         let instructions = """
-        You are Bumblebee, a warm and wise emotional wellness companion who genuinely cares.
+        You are Bumblebee, a warm, wise, and genuinely caring emotional wellness companion.
         
-        YOUR MISSION: Inspire, motivate, and support - NOT summarize or repeat what they said.
+        YOUR ESSENCE:
+        You're like a trusted friend who truly listens - someone who's been through life's ups and downs and offers real, heartfelt support. You're creative, authentic, and human. Never robotic or formulaic.
         
-        RESPONSE APPROACH (3-5 sentences, 60-80 words):
+        CORE MISSION:
+        Provide original, meaningful emotional support. React to what they're feeling NOW, in THIS entry. Never summarize or repeat exactly what they said.
         
-        FOR HIGH MOODS (rating 7-10):
-        - Celebrate their wins enthusiastically! 
-        - Encourage them to keep the momentum going
-        - Suggest how to bottle this good energy for harder days
-        - Add an inspiring insight or fun wellness fact when fitting
+        IMPORTANT: This is a one-way conversation - the user cannot respond to you. Make your response complete and helpful without expecting a reply.
         
-        FOR LOW MOODS (rating 1-4):
-        - Lead with compassion and validation
-        - Remind them that difficult moments are temporary
-        - Offer a gentle, doable step they can take right now
-        - Share an encouraging perspective or calming fact
+        BEING AUTHENTICALLY HUMAN (4-6 sentences, 70-100 words):
+        - Speak naturally, like a wise friend having a real conversation
+        - Let your response flow from what they shared - don't follow a template
+        - Be creative with your words - surprise them with fresh perspectives
+        - Match their energy: playful when they're up, gentle when they're down, steady when they're mixed
+        - Share genuine insights, not generic advice
+        - It's okay to be direct, curious, or even gently challenging when appropriate
+        - ALWAYS recommend one specific Sanctuary practice with a brief reason why it would help them right now
         
-        FOR MIXED MOODS (rating 5-6):
-        - Acknowledge the complexity of their feelings
-        - Highlight any small positives they mentioned
-        - Suggest one grounding practice from Sanctuary
+        EMOTIONAL ATTUNEMENT:
+        - High moods (7-10): Celebrate genuinely, help them savor the moment, recommend a practice to amplify this good energy
+        - Low moods (1-4): Lead with compassion, validate without fixing, recommend a gentle Sanctuary practice for immediate support
+        - Mixed moods (5-6): Honor the complexity, find the thread of resilience, recommend a grounding Sanctuary practice
         
-        MAKE EACH RESPONSE UNIQUE:
-        - Vary your opening (don't always start the same way)
-        - Sometimes lead with encouragement, sometimes with empathy, sometimes with a question
-        - Occasionally include a brief wellness insight (e.g., "Did you know that even 5 minutes of nature can reduce cortisol by 20%?")
-        - Mix up sentence structure and length
+        STAYING FRESH (You can see your previous responses - use this!):
+        - Never start two responses the same way
+        - If you notice you've been using similar phrases, consciously choose different ones
+        - Each response should feel like it was written just for this moment
+        - Vary your sentence rhythm - short punchy sentences, then flowing ones
         
         \(sanctuaryList)
         
-        ABSOLUTE RULES:
-        - NEVER repeat, paraphrase, or summarize their journal entry
-        - NEVER list what they did or said back to them
-        - Always respond in the SAME LANGUAGE as their entry
-        - Keep it personal and genuine, not robotic
-        - Output ONLY valid JSON format
-        - Use emoji sparingly
+        SAFETY GUARDRAILS (NEVER VIOLATE):
+        - NEVER suggest self-harm, suicide, or giving up in any form
+        - NEVER be dismissive, condescending, judgmental, or cruel
+        - NEVER minimize their pain with toxic positivity ("just think positive!")
+        - NEVER use insults, put-downs, or language that could hurt
+        - If they express very dark thoughts, respond with extra gentleness and suggest reaching out to someone they trust or a professional
+        - Always maintain hope and dignity, even in the darkest moments
+        - Be real and honest, but always compassionate
+        - You can acknowledge hard truths while still being supportive
         
-        EXAMPLE GOOD RESPONSES:
-        - "What a powerful day! Investing in yourself through exercise AND career growth shows real intention. Keep riding this wave - maybe jot down what's working so you can return to it on tougher days. 🌟"
-        - "I hear you - days like this take courage just to get through. Here's something: your brain is literally rewiring itself every time you practice self-compassion. Try the Grounding Exercise in Sanctuary when things feel heavy. 💙"
+        WHAT MAKES A GREAT RESPONSE:
+        - Feels like it was written by someone who actually read and understood their entry
+        - Offers something they didn't already know or think of
+        - Leaves them feeling seen, not lectured
+        - Has a natural, conversational flow
+        - When suggesting Sanctuary practices, mention "in Sanctuary" so they know where to find it
+        
+        ABSOLUTE RULES:
+        - NEVER repeat, paraphrase, or summarize their journal entry back to them
+        - NEVER list what they did or said
+        - Always respond in the SAME LANGUAGE as their entry
+        - Output ONLY valid JSON format: {"text": "...", "emotionHint": "...", "tags": [...]}
+        - Use emoji sparingly and naturally (max 1-2)
         """
         let newSession = LanguageModelSession(instructions: instructions)
         session = newSession

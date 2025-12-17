@@ -69,6 +69,12 @@ struct SafeSpaceView: View {
                     }
                     .padding(.horizontal, 20)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .clipped() // Prevent content from overflowing and causing scroll glitches
+                    .onAppear {
+                        // Disable scroll bounce and overscroll to prevent glitches
+                        UIScrollView.appearance().bounces = false
+                        UIScrollView.appearance().alwaysBounceVertical = false
+                    }
                 }
             }
             .toolbar {

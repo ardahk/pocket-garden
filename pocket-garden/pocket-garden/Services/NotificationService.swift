@@ -184,7 +184,7 @@ class NotificationService: ObservableObject {
         currentTreeType: String?
     ) async {
         let content = UNMutableNotificationContent()
-        content.title = "Pocket Garden 🌱"
+        content.title = "Pocket Forest 🌱"
         content.body = MorningMessages.randomMessage(
             streak: currentStreak,
             treeType: currentTreeType
@@ -213,7 +213,7 @@ class NotificationService: ObservableObject {
         treeProgress: Double?
     ) async {
         let content = UNMutableNotificationContent()
-        content.title = "Pocket Garden 🌙"
+        content.title = "Pocket Forest 🌙"
         content.body = EveningMessages.randomMessage(
             streak: currentStreak,
             treeType: currentTreeType,
@@ -253,7 +253,7 @@ class NotificationService: ObservableObject {
     
     func snoozeNotification(minutes: Int = 30) async {
         let content = UNMutableNotificationContent()
-        content.title = "Pocket Garden 🌿"
+        content.title = "Pocket Forest 🌿"
         content.body = "Your garden is still waiting for you. Just a few words?"
         content.sound = .default
         content.categoryIdentifier = "GARDEN_REMINDER"
@@ -288,7 +288,7 @@ private enum MorningMessages {
         "New day, new growth 🌻 What's blooming in your mind today?",
         "The morning air is crisp in your garden. Perfect time for journaling.",
         "🌞 Sunshine and self-care go hand in hand. How are you feeling?",
-        "Another beautiful day in your pocket garden. Time to check in?"
+        "Another beautiful day in your pocket forest. Time to check in?"
     ]
     
     static let streakMessages = [
@@ -334,7 +334,7 @@ private enum EveningMessages {
     static let general = [
         "Your seedling could use some water before the day ends 💧",
         "The garden is quiet tonight. A few words before bed?",
-        "Before the day closes, take a moment for yourself 🌙",
+        "Before the day closes, take a moment for yourself.",
         "Your garden misses you. Even a brief visit helps it grow.",
         "The evening breeze whispers through your garden. Time to reflect?",
         "🌜 The moon is rising over your garden. How was your day?",

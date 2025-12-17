@@ -112,7 +112,7 @@ final class DataSecurityService {
     /// Validate HMAC-SHA256 signature against the given data
     ///
     /// This verifies that:
-    /// 1. The file was created by an authentic copy of Pocket Garden
+    /// 1. The file was created by an authentic copy of Pocket Forest
     /// 2. The file contents have not been modified since export
     ///
     /// SECURITY: Uses constant-time comparison to prevent timing attacks

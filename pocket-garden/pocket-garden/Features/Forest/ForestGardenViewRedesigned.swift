@@ -431,19 +431,35 @@ struct ForestGardenViewRedesigned: View {
             withAnimation {
                 showPlantingAnimation = false
             }
-        }
-        
-        try? modelContext.save()
-        
-        // Request notifications after first tree is planted
-        if isFirstTree && !hasRequestedNotifications {
-            hasRequestedNotifications = true
-            DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
-                Task {
-                    _ = await NotificationService.shared.requestAuthorization()
+            
+            // Check achievements AFTER planting animation is complete
+            // so the achievement popup doesn't interrupt the tree planting animation
+            let currentStreak = self.calculateStreak()
+            AchievementManager.shared.checkAndUpdateAchievements(
+                entries: self.entries,
+                trees: self.grownTrees,
+                currentStreak: currentStreak,
+                modelContext: self.modelContext
+            )
+            
+            // For first tree: set up callback to request notifications 5 seconds after
+            // user dismisses their first achievement popup
+            if isFirstTree && !self.hasRequestedNotifications {
+                AchievementManager.shared.onAchievementDismissed = {
+                    // Wait 5 seconds after user dismisses achievement before showing notification request
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                        Task {
+                            _ = await NotificationService.shared.requestAuthorization()
+                            await MainActor.run {
+                                self.hasRequestedNotifications = true
+                            }
+                        }
+                    }
                 }
             }
         }
+        
+        try? modelContext.save()
     }
     
     private func findNextTreePosition() -> GrowingTreePosition {

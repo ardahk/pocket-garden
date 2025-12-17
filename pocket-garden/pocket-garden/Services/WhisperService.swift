@@ -517,7 +517,7 @@ enum WhisperError: LocalizedError, Identifiable {
         case .modelNotFound:
             return "Whisper model not found. Please add a model file to the app."
         case .microphoneAccessDenied:
-            return "Microphone access was denied. Please enable it in Settings."
+            return "Microphone access was denied. Please enable it in Settings for Pocket Forest."
         case .recordingFailed(let message):
             return "Recording failed: \(message)"
         case .transcriptionFailed(let message):
@@ -530,7 +530,7 @@ enum WhisperError: LocalizedError, Identifiable {
         case .modelNotFound:
             return "Download a Whisper model from https://huggingface.co/ggerganov/whisper.cpp and add it to your app bundle."
         case .microphoneAccessDenied:
-            return "Go to Settings > Privacy > Microphone and enable access for Pocket Garden."
+            return "Go to Settings > Privacy > Microphone and enable access for Pocket Forest."
         default:
             return "Please try again. If the problem persists, restart the app."
         }

@@ -9,7 +9,7 @@ struct OnboardingView: View {
     private let features: [OnboardingFeature] = [
         OnboardingFeature(
             type: .welcome,
-            title: "Welcome to\nPocket Garden",
+            title: "Welcome to\nPocket Forest",
             description: "Your cozy corner for self-care, reflection, and growing a little forest of calm 🌿",
             color: Color(red: 0.95, green: 0.75, blue: 0.8), // Soft rose pink
             mascotImage: "panda_welcome"
@@ -53,21 +53,8 @@ struct OnboardingView: View {
 
     // Background color that changes based on current page
     private var backgroundColor: some View {
-        Group {
-            if currentPage == 0 {
-                // Welcome page - warm cream that matches the mascot image background
-                LinearGradient(
-                    colors: [
-                        Color(red: 0.98, green: 0.97, blue: 0.94), // Warm cream top
-                        Color(red: 0.96, green: 0.95, blue: 0.92), // Slightly warmer bottom
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            } else {
-                Color.backgroundCream
-            }
-        }
+        // All pages use backgroundCream which adapts to dark mode
+        Color.backgroundCream
     }
     
     var body: some View {
@@ -253,29 +240,42 @@ struct MockPhoneFrame<Content: View>: View {
     }
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 32)
-                .fill(Color.backgroundCream)
-                .shadow(color: Color.black.opacity(0.06), radius: 18, x: 0, y: 8)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 32)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                )
+        GeometryReader { geo in
+            // Base “design size” for our mock phone.
+            // We render at this size and scale down *only if needed* so it never overflows
+            // on smaller devices (e.g., iPhone mini / 16e) while staying large on bigger phones.
+            let baseW: CGFloat = 280
+            let baseH: CGFloat = 380
+            let scale = min(1, min(geo.size.width / baseW, geo.size.height / baseH))
 
-            VStack(spacing: 0) {
-                // Status bar hint
-                Capsule()
-                    .fill(Color.gray.opacity(0.2))
-                    .frame(width: 80, height: 6)
-                    .padding(.top, 12)
+            ZStack {
+                RoundedRectangle(cornerRadius: 32)
+                    .fill(Color.backgroundCream)
+                    .shadow(color: Color.black.opacity(0.06), radius: 18, x: 0, y: 8)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 32)
+                            .stroke(Color.gray.opacity(0.1), lineWidth: 1)
+                    )
 
-                Spacer()
+                VStack(spacing: 0) {
+                    // Status bar hint
+                    Capsule()
+                        .fill(Color.gray.opacity(0.2))
+                        .frame(width: 80, height: 6)
+                        .padding(.top, 12)
+
+                    Spacer()
+                }
+
+                // Content is laid out at base size and scales together with the frame.
+                content
+                    .frame(width: baseW, height: baseH, alignment: .center)
+                    .clipShape(RoundedRectangle(cornerRadius: 32))
             }
-
-            content
-                .clipShape(RoundedRectangle(cornerRadius: 32))
+            .frame(width: baseW, height: baseH)
+            .scaleEffect(scale, anchor: .center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
-        .frame(width: 280, height: 380)
     }
 }
 
@@ -333,13 +333,13 @@ struct WelcomeMockView: View {
                 
                 // Main mascot with soft glow (no hard edges)
                 ZStack {
-                    // Very soft glow behind mascot - blends with background
+                    // Very soft glow behind mascot - adapts to dark mode
                     Circle()
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    Color(red: 1.0, green: 0.95, blue: 0.88).opacity(0.6),
-                                    Color(red: 1.0, green: 0.95, blue: 0.88).opacity(0.2),
+                                    Color.backgroundCream.opacity(0.6),
+                                    Color.backgroundCream.opacity(0.2),
                                     Color.clear
                                 ],
                                 center: .center,
@@ -368,7 +368,7 @@ struct WelcomeMockView: View {
                 .padding(.bottom, 32)
             }
         }
-        .frame(width: 300, height: 380)
+        .frame(width: 280, height: 380) // Match MockPhoneFrame dimensions for consistency
         .onAppear {
             // Floating animation
             withAnimation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true)) {
@@ -420,7 +420,7 @@ struct WelcomeFeatureIcon: View {
         VStack(spacing: 6) {
             ZStack {
                 Circle()
-                    .fill(Color.white)
+                    .fill(Color.cardBackground) // Adapts to dark mode
                     .frame(width: 50, height: 50)
                     .shadow(color: Color.black.opacity(0.05), radius: 8, y: 3)
                 
@@ -490,13 +490,13 @@ struct JournalMockView: View {
     ]
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) { // Match spacing with other mock views
             Color.clear.frame(height: 30)
             // Mood header
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("How are you feeling?")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundStyle(Color.textSecondary)
 
                     HStack(spacing: 8) {
@@ -505,7 +505,7 @@ struct JournalMockView: View {
                             .frame(width: 10, height: 10)
 
                         Text("8 / 10 · Great")
-                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .font(.system(size: 18, weight: .semibold, design: .rounded))
                             .foregroundStyle(Color.textPrimary)
                     }
                 }
@@ -517,7 +517,7 @@ struct JournalMockView: View {
             // Mini emotion slider with labels
             VStack(alignment: .leading, spacing: 6) {
                 Text("Mood from 1 to 10")
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
                     .foregroundStyle(Color.textSecondary.opacity(0.8))
 
                 GeometryReader { geo in
@@ -564,11 +564,11 @@ struct JournalMockView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "waveform")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 15, weight: .medium))
                         .foregroundStyle(Color.primaryGreen)
 
                     Text("Speak it, see it, feel it")
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color.textPrimary)
                 }
 
@@ -589,7 +589,7 @@ struct JournalMockView: View {
             .clipShape(RoundedRectangle(cornerRadius: 16))
             .padding(.horizontal, 20)
 
-            Spacer()
+            //Spacer()
 
             // Mic button
             ZStack {
@@ -605,7 +605,7 @@ struct JournalMockView: View {
                     .font(.title2)
                     .foregroundStyle(.white)
             }
-            .padding(.bottom, 36)
+            .padding(.bottom, 50)
         }
     }
 }
@@ -619,43 +619,42 @@ struct SanctuaryMockView: View {
     private let subtitles = ["Guided breath", "5–4–3–2–1", "Affirmations", "Write & release"]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Color.clear.frame(height: 30)
-            // Header
+        VStack(alignment: .leading, spacing: 14) {
+            // Header - reduced top padding to use space better
             Text("Sanctuary")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(.system(size: 24, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color.textPrimary)
                 .padding(.leading, 20)
-                .padding(.top, 20)
+                .padding(.top, 24)
 
-            // Grid
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+            // Grid - slightly larger spacing for better visual balance
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
                 ForEach(0..<4) { index in
                     RoundedRectangle(cornerRadius: 18)
                         .fill(Color.cardBackground)
                         .overlay(
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: 9) {
                                 Circle()
                                     .fill(colors[index].opacity(0.15))
-                                    .frame(width: 32, height: 32)
+                                    .frame(width: 36, height: 36)
                                     .overlay(
                                         Image(systemName: icons[index])
-                                            .font(.system(size: 15, weight: .medium))
+                                            .font(.system(size: 16, weight: .medium))
                                             .foregroundStyle(colors[index])
                                     )
 
                                 Text(titles[index])
-                                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                    .font(.system(size: 14, weight: .semibold, design: .rounded))
                                     .foregroundStyle(Color.textPrimary)
 
                                 Text(subtitles[index])
-                                    .font(.system(size: 11, weight: .regular, design: .rounded))
+                                    .font(.system(size: 12, weight: .regular, design: .rounded))
                                     .foregroundStyle(Color.textSecondary.opacity(0.7))
                             }
-                            .padding(12)
+                            .padding(14)
                             , alignment: .topLeading
                         )
-                        .frame(height: 100)
+                        .frame(height: 110)
                 }
             }
             .padding(.horizontal, 20)
@@ -774,6 +773,7 @@ struct ForestMockView: View {
                     forestStat(icon: "tree.fill", value: "12", label: "Trees")
                     forestStat(icon: "flame.fill", value: "7", label: "Streak")
                 }
+                .font(.title2)
                 .padding(.top, 38) // Extra padding for status bar since we removed it from frame
                 .padding(.horizontal, 20)
 
@@ -841,14 +841,15 @@ struct StreaksMockView: View {
     private let points: [CGFloat] = [0.4, 0.6, 0.35, 0.8, 0.55, 0.9, 0.7]
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 16) { // Match spacing with other mock views
+            Color.clear.frame(height: 30) // Match status bar spacing
             // Summary cards
             HStack(spacing: 16) {
                 summaryCard(value: "7", label: "Days")
                 summaryCard(value: "12", label: "Trees")
             }
             .padding(.horizontal, 20)
-            .padding(.top, 30)
+            .padding(.top, 20) // Reduced from 30 to match other views
 
             Spacer(minLength: 8)
 
@@ -955,21 +956,21 @@ struct StreaksMockView: View {
 
 struct PrivacyMockView: View {
     var body: some View {
-        VStack(spacing: 10) {
-            // Header - closer to top
-            VStack(spacing: 6) {
+        VStack(spacing: 14) {
+            // Header - consistent top padding with other mock views
+            VStack(spacing: 8) {
                 Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 32))
+                    .font(.system(size: 36))
                     .foregroundStyle(Color(red: 0.55, green: 0.65, blue: 0.85))
                 
                 Text("100% Private")
-                    .font(.system(size: 24, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .bold, design: .rounded))
                     .foregroundStyle(Color.textPrimary)
             }
             .padding(.top, 28)
             
-            // Privacy features - larger and more readable
-            VStack(spacing: 8) {
+            // Privacy features - better spacing and sizing
+            VStack(spacing: 10) {
                 PrivacyRow(
                     icon: "iphone",
                     iconColor: .primaryGreen,
@@ -995,27 +996,12 @@ struct PrivacyMockView: View {
                     icon: "eye.slash.fill",
                     iconColor: Color(red: 0.55, green: 0.65, blue: 0.85),
                     title: "Invisible",
-                    description: "Apple can't see it"
+                    description: "Even Apple can't see it"
                 )
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 16)
             
             Spacer()
-            
-            // Bottom badge
-            HStack(spacing: 5) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 16))
-                    .foregroundStyle(.green)
-                Text("Your thoughts stay yours")
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(Color.textSecondary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 7)
-            .background(Color.primaryGreen.opacity(0.1))
-            .clipShape(Capsule())
-            .padding(.bottom, 50)
         }
         .background(Color.backgroundCream)
     }
@@ -1028,39 +1014,46 @@ struct PrivacyRow: View {
     let description: String
     
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ZStack {
                 Circle()
                     .fill(iconColor.opacity(0.15))
-                    .frame(width: 32, height: 32)
+                    .frame(width: 36, height: 36)
                 
                 Image(systemName: icon)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(iconColor)
             }
             
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(Color.textPrimary)
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .truncationMode(.tail)
                 
                 Text(description)
-                    .font(.system(size: 13, weight: .regular, design: .rounded))
+                    .font(.system(size: 14, weight: .regular, design: .rounded))
                     .foregroundStyle(Color.textSecondary.opacity(0.8))
                     .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .truncationMode(.tail)
             }
+            // Prefer keeping text visible over pushing it out by the trailing check.
+            .layoutPriority(1)
             
-            Spacer(minLength: 4)
+            Spacer(minLength: 6)
             
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 16))
+                .font(.system(size: 18))
                 .foregroundStyle(.green.opacity(0.8))
+                .fixedSize()
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 8)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
         .background(Color.cardBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 

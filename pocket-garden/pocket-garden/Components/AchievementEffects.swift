@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+internal import Combine
 
 // MARK: - Achievement Confetti View (with custom colors)
 
@@ -544,5 +545,164 @@ struct FloatingStarView: View {
                     rotation = 360
                 }
             }
+    }
+}
+
+// MARK: - Floating Achievement Coin
+
+/// A small coin-like badge that floats up and fades away after achievement dismissal
+struct FloatingAchievementCoin: View {
+    let achievement: Achievement
+    let onComplete: () -> Void
+    
+    @State private var scale: CGFloat = 0.5
+    @State private var opacity: Double = 1.0
+    @State private var offsetY: CGFloat = 0
+    @State private var rotation3D: Double = 0
+    @State private var shimmerPhase: CGFloat = -1
+    
+    var body: some View {
+        ZStack {
+            // Coin badge
+            ZStack {
+                // Outer ring with gradient
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: achievement.rarity.gradientColors,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 56, height: 56)
+                    .shadow(color: achievement.rarity.color.opacity(0.6), radius: 8)
+                
+                // Inner circle
+                Circle()
+                    .fill(Color.cardBackground)
+                    .frame(width: 46, height: 46)
+                
+                // Achievement symbol
+                Image(systemName: achievement.symbolName)
+                    .font(.system(size: 22, weight: .semibold))
+                    .symbolRenderingMode(.monochrome)
+                    .foregroundStyle(achievement.rarity.color)
+            }
+            // Shimmer overlay
+            .overlay {
+                GeometryReader { geometry in
+                    let w = geometry.size.width
+                    let h = geometry.size.height
+                    let bandWidth = w * 0.6
+                    
+                    LinearGradient(
+                        colors: [
+                            Color.clear,
+                            Color.white.opacity(0.9),
+                            Color.clear
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .frame(width: bandWidth, height: h)
+                    .rotationEffect(.degrees(20))
+                    .offset(x: shimmerPhase * (w + bandWidth))
+                    .blendMode(.screen)
+                }
+                .mask(
+                    Circle()
+                        .frame(width: 56, height: 56)
+                )
+                .clipped()
+            }
+        }
+        .scaleEffect(scale)
+        .opacity(opacity)
+        .offset(y: offsetY)
+        .rotation3DEffect(
+            .degrees(rotation3D),
+            axis: (x: 0, y: 1, z: 0)
+        )
+        .onAppear {
+            startAnimation()
+        }
+    }
+    
+    private func startAnimation() {
+        // Pop in with bounce
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
+            scale = 1.0
+        }
+        
+        // Shimmer sweep
+        withAnimation(.easeInOut(duration: 0.6)) {
+            shimmerPhase = 1
+        }
+        
+        // Gentle 3D rotation (coin flip feel)
+        withAnimation(.easeInOut(duration: 0.8)) {
+            rotation3D = 360
+        }
+        
+        // Float up and fade out
+        withAnimation(.easeOut(duration: 1.8).delay(0.4)) {
+            offsetY = -120
+            opacity = 0
+            scale = 0.6
+        }
+        
+        // Callback when animation completes
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+            onComplete()
+        }
+    }
+}
+
+// MARK: - Floating Coin Manager
+
+/// Manages the display of floating achievement coins
+@MainActor
+class FloatingCoinManager: ObservableObject {
+    //var objectWillChange: ObservableObjectPublisher
+    
+    static let shared = FloatingCoinManager()
+    
+    @Published var currentCoin: Achievement?
+    @Published var showCoin = false
+    
+    private init() {}
+    
+    func showCoin(for achievement: Achievement) {
+        currentCoin = achievement
+        showCoin = true
+    }
+    
+    func hideCoin() {
+        showCoin = false
+        currentCoin = nil
+    }
+}
+
+/// View modifier to display floating coins anywhere in the app
+struct FloatingCoinOverlay: ViewModifier {
+    @ObservedObject var coinManager = FloatingCoinManager.shared
+    
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: .center) {
+                if coinManager.showCoin, let achievement = coinManager.currentCoin {
+                    FloatingAchievementCoin(achievement: achievement) {
+                        coinManager.hideCoin()
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                    .zIndex(9999)
+                }
+            }
+    }
+}
+
+extension View {
+    func floatingCoinOverlay() -> some View {
+        modifier(FloatingCoinOverlay())
     }
 }

@@ -61,6 +61,7 @@ struct pocket_gardenApp: App {
                     .zIndex(1000)
                 }
             }
+            .floatingCoinOverlay() // Floating achievement coin after dismissal
             .animation(.spring(response: 0.6, dampingFraction: 0.85), value: hasCompletedOnboarding)
             .onAppear {
                 setupNotificationHandler()

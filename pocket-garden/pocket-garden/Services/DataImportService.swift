@@ -8,30 +8,22 @@
 import Foundation
 import SwiftData
 
-/// Service for importing exported Pocket Garden data
+/// Service for importing exported Pocket Forest data
 final class DataImportService {
     
     // MARK: - Testing Configuration
     
-    /// ⚠️ SECURITY BYPASS FLAG - FOR TESTING ONLY ⚠️
+    /// 🔒 SECURITY FLAG - SIGNATURE VALIDATION
     /// 
-    /// CURRENT STATUS: ENABLED (signature validation is BYPASSED)
+    /// CURRENT STATUS: ENABLED (signature validation is ACTIVE)
     /// 
-    /// This flag allows importing test data without valid HMAC signatures.
-    /// This is DANGEROUS and should NEVER be enabled in production builds!
-    /// 
-    /// 📍 TO RE-ENABLE SECURITY (REQUIRED BEFORE APP STORE):
-    /// ========================================================
-    /// 1. Find this line (line ~16 in DataImportService.swift)
-    /// 2. Change: private let bypassSignatureValidation = true
-    ///       To: private let bypassSignatureValidation = false
-    /// 3. Rebuild the app (⌘+B)
-    /// 4. Test: Try importing the test data - it should now FAIL with signature error
-    /// 5. Test: Export real data, then import it - it should SUCCEED
-    /// 
-    /// With security enabled, only files exported by the app can be imported.
+    /// This flag controls whether HMAC-SHA256 signature validation is enforced.
+    /// When enabled (false), only files exported by the app can be imported.
     /// This prevents users from manually editing JSON or importing malicious files.
-    private let bypassSignatureValidation = true // ⚠️ TODO: Set to FALSE before production!
+    /// 
+    /// ⚠️ FOR TESTING ONLY: Set to true to bypass signature validation
+    /// This should NEVER be true in production builds!
+    private let bypassSignatureValidation = false // 🔒 SECURITY ENABLED
     
     // MARK: - Error Types
     
@@ -45,13 +37,13 @@ final class DataImportService {
         var errorDescription: String? {
             switch self {
             case .invalidFile:
-                return "The file is not a valid Pocket Garden export."
+                return "The file is not a valid Pocket Forest export."
             case .signatureValidationFailed:
-                return "This file was not exported from Pocket Garden or has been modified."
+                return "This file was not exported from Pocket GaForestrden or has been modified."
             case .corruptedData:
                 return "The export file appears to be corrupted."
             case .incompatibleVersion:
-                return "This export was created with an incompatible version of Pocket Garden."
+                return "This export was created with an incompatible version of Pocket Forest."
             case .importFailed(let message):
                 return "Import failed: \(message)"
             }
