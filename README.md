@@ -33,5 +33,10 @@ Pocket Garden is a **privacy-first** iOS app for daily emotional wellness. All p
 
 [![Live Demo](https://img.youtube.com/vi/lgqVMDDE434/0.jpg)](https://www.youtube.com/watch?v=lgqVMDDE434)
 
+## License
+
+Copyright © 2026  
+All rights reserved. This code is provided for learning and personal use only.  
+Commercial use, redistribution, or publishing derivative apps based on this code is **not** permitted without explicit written permission.
 ---
 Built for clarity, calm, and consistency. 
