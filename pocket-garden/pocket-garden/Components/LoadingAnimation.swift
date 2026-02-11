@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+internal import Combine
 
 // MARK: - Growing Plant Loader
 
@@ -65,26 +66,120 @@ struct GrowingPlantLoader: View {
 // MARK: - Pulsing Dots Loader
 
 struct PulsingDotsLoader: View {
-    @State private var isAnimating = false
+    @State private var activeDot: Int = 0
+    
+    let timer = Timer.publish(every: 0.35, on: .main, in: .common).autoconnect()
 
     var body: some View {
         HStack(spacing: Spacing.sm) {
-            ForEach(0..<3) { index in
+            ForEach(0..<3, id: \.self) { index in
                 Circle()
                     .fill(Color.primaryGreen)
                     .frame(width: 12, height: 12)
-                    .scaleEffect(isAnimating ? 1.0 : 0.5)
-                    .opacity(isAnimating ? 1.0 : 0.3)
-                    .animation(
-                        .easeInOut(duration: 0.6)
-                        .repeatForever()
-                        .delay(Double(index) * 0.2),
-                        value: isAnimating
-                    )
+                    .scaleEffect(activeDot == index ? 1.2 : 0.6)
+                    .opacity(activeDot == index ? 1.0 : 0.35)
+                    .animation(.easeInOut(duration: 0.3), value: activeDot)
             }
         }
+        .onReceive(timer) { _ in
+            activeDot = (activeDot + 1) % 3
+        }
+    }
+}
+
+// MARK: - Bouncing Dots View (Honey-themed)
+
+struct BouncingDotsView: View {
+    @State private var activeDot: Int = 0
+    
+    let timer = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
+    
+    var body: some View {
+        HStack(spacing: 14) {
+            ForEach(0..<3, id: \.self) { index in
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [Color.accentGold, Color.accentGold.opacity(0.6)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .frame(width: 12, height: 12)
+                    .scaleEffect(activeDot == index ? 1.4 : 0.7)
+                    .offset(y: activeDot == index ? -6 : 0)
+                    .animation(.spring(response: 0.3, dampingFraction: 0.5), value: activeDot)
+            }
+        }
+        .onReceive(timer) { _ in
+            activeDot = (activeDot + 1) % 3
+        }
+    }
+}
+
+// MARK: - Thinking Indicator (Bumblebee feedback generation)
+
+struct ThinkingIndicatorView: View {
+    @State private var activeDot: Int = 0
+    @State private var messageIndex: Int = 0
+    @State private var messageOpacity: Double = 1.0
+    
+    let timer = Timer.publish(every: 0.4, on: .main, in: .common).autoconnect()
+    
+    private let messages = [
+        "Reflecting on your words...",
+        "Thinking of something thoughtful...",
+        "Buzzing through my thoughts...",
+        "Finding the right words for you...",
+    ]
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            // Animated message
+            HStack(spacing: 6) {
+                Text("🐝")
+                    .font(.system(size: 14))
+                
+                Text(messages[messageIndex])
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(.textSecondary)
+                    .opacity(messageOpacity)
+            }
+            
+            // Honey-colored bouncing dots
+            HStack(spacing: 8) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.accentGold, Color.accentGold.opacity(0.5)],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
+                        .frame(width: 10, height: 10)
+                        .scaleEffect(activeDot == index ? 1.3 : 0.6)
+                        .offset(y: activeDot == index ? -4 : 0)
+                        .animation(.spring(response: 0.3, dampingFraction: 0.5), value: activeDot)
+                }
+            }
+        }
+        .onReceive(timer) { _ in
+            activeDot = (activeDot + 1) % 3
+        }
         .onAppear {
-            isAnimating = true
+            cycleMessage()
+        }
+    }
+    
+    private func cycleMessage() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.easeOut(duration: 0.2)) { messageOpacity = 0 }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                messageIndex = (messageIndex + 1) % messages.count
+                withAnimation(.easeIn(duration: 0.2)) { messageOpacity = 1.0 }
+                cycleMessage()
+            }
         }
     }
 }

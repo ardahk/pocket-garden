@@ -18,6 +18,7 @@ struct BreathingExerciseView: View {
     @State private var phaseSecondsRemaining: Int = 0
     @State private var ringProgress: CGFloat = 0
     @State private var showInfoSheet: Bool = false
+    @State private var timerTask: Task<Void, Never>?
 
     @Environment(\.dismiss) private var dismiss
 
@@ -386,6 +387,8 @@ struct BreathingExerciseView: View {
     }
 
     private func stopBreathing() {
+        timerTask?.cancel()
+        timerTask = nil
         isAnimating = false
     }
 
@@ -442,24 +445,24 @@ struct BreathingExerciseView: View {
     }
 
     private func startTimer() {
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            guard isAnimating else {
-                timer.invalidate()
-                return
-            }
-
-            timeRemaining -= 1
-            phaseSecondsRemaining -= 1
-
-            if phaseSecondsRemaining <= 0 {
-                nextPhase()
-            }
-
-            if timeRemaining <= 0 {
-                timer.invalidate()
-                isAnimating = false
-                onComplete()
-                dismiss()
+        timerTask = Task {
+            while !Task.isCancelled && isAnimating && timeRemaining > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                
+                await MainActor.run {
+                    timeRemaining -= 1
+                    phaseSecondsRemaining -= 1
+                    
+                    if phaseSecondsRemaining <= 0 {
+                        nextPhase()
+                    }
+                    
+                    if timeRemaining <= 0 {
+                        isAnimating = false
+                        onComplete()
+                        dismiss()
+                    }
+                }
             }
         }
     }

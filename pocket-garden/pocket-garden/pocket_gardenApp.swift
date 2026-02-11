@@ -9,6 +9,45 @@ import SwiftUI
 import SwiftData
 import UserNotifications
 
+// MARK: - App Lifecycle Manager
+
+@Observable
+class AppLifecycleManager {
+    static let shared = AppLifecycleManager()
+    
+    weak var activeAmbientService: AmbientSoundService?
+    private var wasPlayingBeforeInactive: Bool = false
+    private var soundBeforeInactive: AmbientSoundType?
+    
+    private init() {}
+    
+    func handleScenePhase(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            // Immediately stop all ambient music when app goes to background (no fade)
+            activeAmbientService?.stopImmediate()
+            wasPlayingBeforeInactive = false
+            soundBeforeInactive = nil
+        case .inactive:
+            // Store state and immediately stop when app becomes inactive
+            wasPlayingBeforeInactive = activeAmbientService?.isPlaying ?? false
+            soundBeforeInactive = activeAmbientService?.currentSound
+            activeAmbientService?.stopImmediate()
+        case .active:
+            // Resume with fade-in if music was playing before inactive
+            if wasPlayingBeforeInactive, let sound = soundBeforeInactive {
+                activeAmbientService?.play(sound) // Fades in automatically
+            }
+            wasPlayingBeforeInactive = false
+            soundBeforeInactive = nil
+        @unknown default:
+            break
+        }
+    }
+}
+
+// MARK: - App Delegate
+
 class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask {
         return .portrait
@@ -25,6 +64,11 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 struct pocket_gardenApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    // TODO: Interactive tour - disabled for now, may revisit later
+    // @AppStorage("hasSeenAppTour") private var hasSeenAppTour = false
+    // @State private var showTourPrompt = false
+    // @State private var showTour = false
+    // @State private var tourSelectedTab: Int? = nil
     @State private var shouldOpenJournal = false
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var achievementManager = AchievementManager.shared
@@ -46,6 +90,17 @@ struct pocket_gardenApp: App {
                 if hasCompletedOnboarding {
                     MainTabView(openJournalFromNotification: $shouldOpenJournal)
                         .transition(.move(edge: .trailing).combined(with: .opacity))
+                    
+                    // TODO: Interactive tour - disabled for now, may revisit later
+                    // To re-enable: uncomment tour state vars above, add tourSelectedTab binding
+                    // to MainTabView, and uncomment the tour prompt + overlay blocks below.
+                    //
+                    // if showTourPrompt {
+                    //     AppTourPromptView(onAccept: { ... }, onDecline: { ... })
+                    // }
+                    // if showTour {
+                    //     AppTourOverlay(tourSelectedTab: $tourSelectedTab) { ... }
+                    // }
                 } else {
                     OnboardingView()
                         .transition(.move(edge: .leading).combined(with: .opacity))
@@ -68,6 +123,9 @@ struct pocket_gardenApp: App {
                 initializeAndBackfillAchievements()
             }
             .onChange(of: scenePhase) { _, newPhase in
+                // Handle global app lifecycle for ambient music
+                AppLifecycleManager.shared.handleScenePhase(newPhase)
+                
                 if newPhase == .active {
                     rescheduleNotificationsOnLaunch()
                 }

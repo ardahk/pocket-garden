@@ -71,6 +71,11 @@ struct VoiceJournalExperimentView: View {
     @State private var previousTranscription: String = "" // For appending mode
     @State private var saveAudioAsFavorite: Bool = false
     
+    // Typing mode (for users who can't speak)
+    @State private var isTypingMode = false
+    @AppStorage("typedEntryWeekId") private var typedEntryWeekId: Int = 0
+    @AppStorage("typedEntryCount") private var typedEntryCount: Int = 0
+    
     // Tree selection for when no tree exists
     @State private var showTreeSelectionAfterJournal = false
     @State private var selectedTreeTypeForPlanting: TreeType = .oak
@@ -93,6 +98,19 @@ struct VoiceJournalExperimentView: View {
     /// Check if there's a current tree that isn't fully grown
     private var hasGrowingTree: Bool {
         allTrees.contains { !$0.isFullyGrown }
+    }
+    
+    private var currentWeekId: Int {
+        Calendar.current.component(.weekOfYear, from: Date()) + Calendar.current.component(.year, from: Date()) * 100
+    }
+    
+    private var typedEntriesRemainingThisWeek: Int {
+        if typedEntryWeekId != currentWeekId { return 3 }
+        return max(0, 3 - typedEntryCount)
+    }
+    
+    private var canTypeEntry: Bool {
+        typedEntriesRemainingThisWeek > 0
     }
     
     
@@ -126,6 +144,7 @@ struct VoiceJournalExperimentView: View {
                             Theme.Haptics.warning()
                         } else {
                             cancelRecording()
+                            isTypingMode = false
                             dismiss()
                         }
                     }) {
@@ -372,7 +391,12 @@ struct VoiceJournalExperimentView: View {
                             .frame(height: screenHeight - 120)
                     } else {
                         // Transcription card (only after transcription complete)
-                        if !transcription().isEmpty && !isRecording() {
+                        if isTypingMode || (!transcription().isEmpty && !isRecording()) {
+                            // Typing mode info banner
+                            if isTypingMode {
+                                typingModeInfoBanner
+                            }
+                            
                             transcriptionView
                             
                             // Action buttons
@@ -418,124 +442,280 @@ struct VoiceJournalExperimentView: View {
         }
     }
     
-    // MARK: - Transcribing State
+    // MARK: - Typing Mode Info Banner
     
-    private var transcribingView: some View {
-        VStack(spacing: Spacing.xxl) {
+    private var typingModeInfoBanner: some View {
+        HStack(spacing: Spacing.sm) {
+            Text("🐝")
+                .font(.system(size: 20))
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Typing mode")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(.textPrimary)
+                Text("Voice helps you express more freely and deeply")
+                    .font(.system(size: 12))
+                    .foregroundColor(.textSecondary)
+            }
+            
             Spacer()
             
-            // Animated mascot with glow
+            Text("\(typedEntriesRemainingThisWeek) left")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(.accentGold)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Color.accentGold.opacity(0.15)))
+        }
+        .padding(Spacing.md)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.accentGold.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.accentGold.opacity(0.15), lineWidth: 1)
+                )
+        )
+    }
+    
+    // MARK: - Transcribing State
+    
+    @State private var transcribingMessageIndex: Int = 0
+    @State private var messageOpacity: Double = 1.0
+    @State private var mascotBounce: CGFloat = 0
+    @State private var sparklePhase: CGFloat = 0
+    @State private var honeyDropOffset: CGFloat = -20
+    @State private var honeyDropOpacity: Double = 0
+    
+    private let transcribingMessages: [(String, String)] = [
+        ("🎧", "Listening carefully to every word..."),
+        ("✨", "Turning your voice into text..."),
+        ("🍯", "Gathering the honey from your thoughts..."),
+        ("💭", "Processing your reflections..."),
+        ("🌸", "Almost there, hang tight!"),
+        ("📝", "Capturing every detail..."),
+        ("🐝", "Buzzing through your words..."),
+    ]
+    
+    private var transcribingView: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+            
+            // Bumblebee mascot with enhanced animations
             ZStack {
-                // Outer pulsing glow
+                // Floating sparkle particles
+                ForEach(0..<8, id: \.self) { index in
+                    Circle()
+                        .fill(
+                            [Color.accentGold, Color.primaryGreen, Color.emotionCalm, Color.accentGold.opacity(0.7)][index % 4]
+                        )
+                        .frame(width: CGFloat.random(in: 4...8), height: CGFloat.random(in: 4...8))
+                        .offset(
+                            x: cos(sparklePhase + Double(index) * .pi / 4) * CGFloat(80 + index * 12),
+                            y: sin(sparklePhase + Double(index) * .pi / 4) * CGFloat(60 + index * 10)
+                        )
+                        .opacity(0.4 + 0.3 * sin(sparklePhase * 2 + Double(index)))
+                        .blur(radius: 1)
+                }
+                
+                // Outer warm glow
                 Circle()
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color.accentGold.opacity(0.2),
-                                Color.accentGold.opacity(0.05),
+                                Color.accentGold.opacity(0.25),
+                                Color.accentGold.opacity(0.1),
+                                Color.primaryGreen.opacity(0.05),
                                 Color.clear
                             ],
                             center: .center,
-                            startRadius: 40,
-                            endRadius: 120
+                            startRadius: 30,
+                            endRadius: 130
                         )
                     )
-                    .frame(width: 240, height: 240)
+                    .frame(width: 260, height: 260)
                     .scaleEffect(breatheScale)
                 
-                // Rotating ring
+                // Animated orbiting ring
                 Circle()
                     .stroke(
                         AngularGradient(
                             colors: [
-                                Color.accentGold.opacity(0.4),
+                                Color.accentGold.opacity(0.5),
+                                Color.primaryGreen.opacity(0.3),
                                 Color.accentGold.opacity(0.1),
-                                Color.accentGold.opacity(0.4)
+                                Color.primaryGreen.opacity(0.3),
+                                Color.accentGold.opacity(0.5)
                             ],
                             center: .center
                         ),
-                        lineWidth: 3
+                        lineWidth: 2.5
                     )
-                    .frame(width: 180, height: 180)
+                    .frame(width: 190, height: 190)
                     .rotationEffect(.degrees(ringRotation))
                 
-                // Mascot
+                // Second counter-rotating ring
+                Circle()
+                    .stroke(
+                        AngularGradient(
+                            colors: [
+                                Color.primaryGreen.opacity(0.2),
+                                Color.clear,
+                                Color.primaryGreen.opacity(0.2)
+                            ],
+                            center: .center
+                        ),
+                        style: StrokeStyle(lineWidth: 1.5, dash: [8, 12])
+                    )
+                    .frame(width: 210, height: 210)
+                    .rotationEffect(.degrees(-ringRotation * 0.7))
+                
+                // Mascot with gentle bounce
                 GardenMascot(emotion: .thinking, size: 120)
+                    .offset(y: mascotBounce)
             }
             .onAppear {
                 startIdleAnimations()
+                startTranscribingAnimations()
+            }
+            .onDisappear {
+                stopTranscribingAnimations()
             }
             
-            // Status text
-            VStack(spacing: Spacing.md) {
-                Text("Transcribing your thoughts")
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .foregroundColor(.textPrimary)
+            // Speech bubble with cycling messages
+            HStack(spacing: Spacing.sm) {
+                Text(transcribingMessages[transcribingMessageIndex].0)
+                    .font(.system(size: 18))
                 
-                Text("Bumblebee is listening carefully...")
-                    .font(.system(size: 15))
-                    .foregroundColor(.textSecondary)
+                Text(transcribingMessages[transcribingMessageIndex].1)
+                    .font(.system(size: 15, weight: .medium, design: .rounded))
+                    .foregroundColor(.textPrimary)
             }
+            .padding(.horizontal, Spacing.lg)
+            .padding(.vertical, Spacing.md)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.cardBackground)
+                    .shadow(color: Color.accentGold.opacity(0.15), radius: 12, y: 4)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(Color.accentGold.opacity(0.15), lineWidth: 1)
+            )
+            .opacity(messageOpacity)
+            .scaleEffect(messageOpacity > 0.5 ? 1.0 : 0.95)
+            .animation(.easeInOut(duration: 0.4), value: messageOpacity)
             
-            // Progress indicator
-            if whisperService.transcriptionProgress > 0 {
-                VStack(spacing: Spacing.sm) {
-                    // Custom progress bar
-                    GeometryReader { geometry in
+            // Progress section
+            VStack(spacing: Spacing.md) {
+                if whisperService.transcriptionProgress > 0 {
+                    // Progress bar with bumblebee indicator
+                    VStack(spacing: Spacing.sm) {
                         ZStack(alignment: .leading) {
                             // Track
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color.primaryGreen.opacity(0.15))
-                                .frame(height: 12)
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.accentGold.opacity(0.12))
+                                .frame(height: 14)
                             
-                            // Fill with gradient
-                            RoundedRectangle(cornerRadius: 6)
+                            // Fill with honey gradient
+                            RoundedRectangle(cornerRadius: 8)
                                 .fill(
                                     LinearGradient(
-                                        colors: [Color.primaryGreen, Color.primaryGreen.opacity(0.8)],
+                                        colors: [Color.accentGold.opacity(0.8), Color.accentGold],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
                                 )
-                                .frame(width: geometry.size.width * whisperService.transcriptionProgress, height: 12)
+                                .frame(width: max(14, 280 * whisperService.transcriptionProgress), height: 14)
                                 .animation(.easeOut(duration: 0.3), value: whisperService.transcriptionProgress)
                             
-                            // Shimmer effect
-                            RoundedRectangle(cornerRadius: 6)
+                            // Shimmer sweep
+                            RoundedRectangle(cornerRadius: 8)
                                 .fill(
                                     LinearGradient(
                                         colors: [
                                             Color.white.opacity(0),
-                                            Color.white.opacity(0.3),
+                                            Color.white.opacity(0.4),
                                             Color.white.opacity(0)
                                         ],
                                         startPoint: .leading,
                                         endPoint: .trailing
                                     )
                                 )
-                                .frame(width: 60, height: 12)
-                                .offset(x: (geometry.size.width * whisperService.transcriptionProgress) - 30)
+                                .frame(width: 80, height: 14)
+                                .offset(x: (280 * whisperService.transcriptionProgress) - 40)
                                 .mask(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .frame(width: geometry.size.width * whisperService.transcriptionProgress, height: 12)
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .frame(width: max(14, 280 * whisperService.transcriptionProgress), height: 14)
                                         .frame(maxWidth: .infinity, alignment: .leading)
                                 )
+                            
+                            // Bee emoji at progress tip
+                            Text("🐝")
+                                .font(.system(size: 16))
+                                .offset(x: max(0, 280 * whisperService.transcriptionProgress - 12), y: -14)
+                                .animation(.easeOut(duration: 0.3), value: whisperService.transcriptionProgress)
                         }
+                        .frame(width: 280, height: 14)
+                        
+                        Text("\(Int(whisperService.transcriptionProgress * 100))%")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundColor(.accentGold)
                     }
-                    .frame(width: 260, height: 12)
-                    
-                    // Percentage
-                    Text("\(Int(whisperService.transcriptionProgress * 100))%")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundColor(.textSecondary)
+                } else {
+                    // Sequential bouncing dots
+                    BouncingDotsView()
                 }
-            } else {
-                // Animated loading dots
-                LoadingDotsView()
             }
+            .padding(.top, Spacing.sm)
             
             Spacer()
             Spacer()
+        }
+    }
+    
+    private func startTranscribingAnimations() {
+        // Gentle mascot bounce
+        withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+            mascotBounce = -8
+        }
+        
+        // Sparkle orbital rotation
+        withAnimation(.linear(duration: 8).repeatForever(autoreverses: false)) {
+            sparklePhase = .pi * 2
+        }
+        
+        // Cycle through messages
+        cycleTranscribingMessage()
+    }
+    
+    private func stopTranscribingAnimations() {
+        mascotBounce = 0
+        sparklePhase = 0
+        transcribingMessageIndex = 0
+    }
+    
+    private func cycleTranscribingMessage() {
+        guard isTranscribing() else { return }
+        
+        // Fade out
+        withAnimation(.easeOut(duration: 0.3)) {
+            messageOpacity = 0
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            guard isTranscribing() else { return }
+            transcribingMessageIndex = (transcribingMessageIndex + 1) % transcribingMessages.count
+            
+            // Fade in
+            withAnimation(.easeIn(duration: 0.3)) {
+                messageOpacity = 1.0
+            }
+            
+            // Schedule next cycle
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                cycleTranscribingMessage()
+            }
         }
     }
     
@@ -572,6 +752,23 @@ struct VoiceJournalExperimentView: View {
             .frame(minHeight: isTextEditorFocused ? 140 : 200, maxHeight: isTextEditorFocused ? 200 : 350, alignment: .topLeading)
             .scrollContentBackground(.hidden)
             .focused($isTextEditorFocused)
+            .overlay(alignment: .topLeading) {
+                if isTypingMode && transcription().isEmpty {
+                    Text("Write what's on your mind...")
+                        .font(.system(size: 17))
+                        .foregroundColor(.textSecondary.opacity(0.4))
+                        .padding(.top, 8)
+                        .padding(.leading, 5)
+                        .allowsHitTesting(false)
+                }
+            }
+            .onAppear {
+                if isTypingMode {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        isTextEditorFocused = true
+                    }
+                }
+            }
         }
         .padding(.top, Spacing.xl)
         .padding(.horizontal, Spacing.lg)
@@ -693,6 +890,37 @@ struct VoiceJournalExperimentView: View {
             }
             .onDisappear {
                 stopIdleAnimations()
+            }
+            
+            // Type instead option
+            if canTypeEntry {
+                Button(action: {
+                    isTypingMode = true
+                    Theme.Haptics.light()
+                }) {
+                    VStack(spacing: 4) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "keyboard")
+                                .font(.system(size: 13))
+                            Text("Can't talk? Type instead")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundColor(.textSecondary.opacity(0.7))
+                        
+                        Text("\(typedEntriesRemainingThisWeek) left this week")
+                            .font(.system(size: 11))
+                            .foregroundColor(.textSecondary.opacity(0.5))
+                    }
+                }
+                .buttonStyle(.plain)
+            } else {
+                HStack(spacing: 6) {
+                    Image(systemName: "keyboard")
+                        .font(.system(size: 13))
+                    Text("Typing limit reached this week")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .foregroundColor(.textSecondary.opacity(0.4))
             }
         }
         .padding(.vertical, 40)
@@ -846,6 +1074,7 @@ struct VoiceJournalExperimentView: View {
                             Theme.Haptics.medium()
                         } else {
                             cancelRecording()
+                            isTypingMode = false
                             dismiss()
                         }
                         pendingDiscardAction = nil
@@ -898,7 +1127,8 @@ struct VoiceJournalExperimentView: View {
     
     private var postRecordingActionsView: some View {
         VStack(spacing: Spacing.lg) {
-            // Favorite toggle - elegant card style
+            // Favorite toggle - elegant card style (voice recordings only)
+            if !isTypingMode {
             Button(action: {
                 if recordingSeconds <= 300 {
                     saveAudioAsFavorite.toggle()
@@ -952,8 +1182,10 @@ struct VoiceJournalExperimentView: View {
             .buttonStyle(.plain)
             .disabled(recordingSeconds > 300)
             .opacity(recordingSeconds > 300 ? 0.6 : 1.0)
+            }
             
-            // Action buttons row
+            // Action buttons row (voice recording only)
+            if !isTypingMode {
             HStack(spacing: Spacing.md) {
                 // Continue Adding - secondary style
                 Button(action: {
@@ -1001,6 +1233,7 @@ struct VoiceJournalExperimentView: View {
                 }
                 .buttonStyle(.plain)
             }
+            }
             
             // Save button - primary action
             Button(action: {
@@ -1030,7 +1263,7 @@ struct VoiceJournalExperimentView: View {
                 )
             }
             .buttonStyle(.plain)
-            .disabled(isGeneratingFeedback)
+            .disabled(isGeneratingFeedback || (isTypingMode && transcription().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
         }
     }
     
@@ -1158,11 +1391,22 @@ struct VoiceJournalExperimentView: View {
                 whisperService.discardRecordingFile()
             }
             
+            // Track typed entry usage
+            if isTypingMode {
+                if typedEntryWeekId != currentWeekId {
+                    typedEntryWeekId = currentWeekId
+                    typedEntryCount = 1
+                } else {
+                    typedEntryCount += 1
+                }
+            }
+            
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                 isGeneratingFeedback = false
                 showMascotFeedback = true
                 saveAudioAsFavorite = false
                 recordingSeconds = 0
+                isTypingMode = false
             }
         } catch {
             print("Failed to save entry: \(error)")

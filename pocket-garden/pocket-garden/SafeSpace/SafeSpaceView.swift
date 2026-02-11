@@ -7,12 +7,16 @@ struct SafeSpaceView: View {
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var viewModel: SafeSpaceViewModel
     @State private var selectedActivity: CalmActivity?
+    
+    private let isEmbedded: Bool
 
-    init(modelContext: ModelContext? = nil) {
+    init(modelContext: ModelContext? = nil, isEmbedded: Bool = false) {
         _viewModel = State(initialValue: SafeSpaceViewModel(modelContext: modelContext))
+        self.isEmbedded = isEmbedded
     }
 
     var body: some View {
@@ -39,11 +43,13 @@ struct SafeSpaceView: View {
                     
                     // Single-page content (no scroll)
                     VStack(spacing: sectionSpacing) {
-                        // Drag indicator
-                        Capsule()
-                            .fill(Color.textSecondary.opacity(0.35))
-                            .frame(width: 40, height: 5)
-                            .padding(.top, 6)
+                        // Drag indicator (only for sheet presentation)
+                        if !isEmbedded {
+                            Capsule()
+                                .fill(Color.textSecondary.opacity(0.35))
+                                .frame(width: 40, height: 5)
+                                .padding(.top, 6)
+                        }
                         
                         // Header
                         VStack(spacing: 6) {
@@ -78,20 +84,28 @@ struct SafeSpaceView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        viewModel.endSession()
-                        dismiss()
-                    }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title3)
-                            .foregroundStyle(Color.textSecondary)
+                if !isEmbedded {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        Button(action: {
+                            viewModel.cleanup()
+                            dismiss()
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title3)
+                                .foregroundStyle(Color.textSecondary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
             .onAppear {
                 viewModel.startSession(fromEmergency: true)
+            }
+            .onDisappear {
+                viewModel.cleanup()
+            }
+            .onChange(of: scenePhase) { _, newPhase in
+                viewModel.handleScenePhaseChange(newPhase)
             }
             .sheet(item: $selectedActivity) { activity in
                 activitySheet(for: activity)

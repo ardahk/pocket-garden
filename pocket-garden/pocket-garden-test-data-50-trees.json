@@ -1,0 +1,1310 @@
+{
+  "exportDate" : "2025-12-16T21:00:00Z",
+  "appVersion" : "1.0",
+  "signature" : "test-data-50-trees-no-signature",
+  "entries" : [
+    {
+      "id" : "E0000001-0001-0001-0001-000000000001",
+      "date" : "2025-10-01T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000002-0002-0002-0002-000000000002",
+      "date" : "2025-10-02T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000003-0003-0003-0003-000000000003",
+      "date" : "2025-10-03T09:00:00Z",
+      "emotionRating" : 6,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000004-0004-0004-0004-000000000004",
+      "date" : "2025-10-04T09:00:00Z",
+      "emotionRating" : 9,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000005-0005-0005-0005-000000000005",
+      "date" : "2025-10-05T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000006-0006-0006-0006-000000000006",
+      "date" : "2025-10-06T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000007-0007-0007-0007-000000000007",
+      "date" : "2025-10-07T09:00:00Z",
+      "emotionRating" : 10,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000008-0008-0008-0008-000000000008",
+      "date" : "2025-10-08T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000009-0009-0009-0009-000000000009",
+      "date" : "2025-10-09T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000010-0010-0010-0010-000000000010",
+      "date" : "2025-10-10T09:00:00Z",
+      "emotionRating" : 6,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000011-0011-0011-0011-000000000011",
+      "date" : "2025-10-11T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000012-0012-0012-0012-000000000012",
+      "date" : "2025-10-12T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000013-0013-0013-0013-000000000013",
+      "date" : "2025-10-13T09:00:00Z",
+      "emotionRating" : 9,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000014-0014-0014-0014-000000000014",
+      "date" : "2025-10-14T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000015-0015-0015-0015-000000000015",
+      "date" : "2025-10-15T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000016-0016-0016-0016-000000000016",
+      "date" : "2025-10-16T09:00:00Z",
+      "emotionRating" : 6,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000017-0017-0017-0017-000000000017",
+      "date" : "2025-10-17T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000018-0018-0018-0018-000000000018",
+      "date" : "2025-10-18T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000019-0019-0019-0019-000000000019",
+      "date" : "2025-10-19T09:00:00Z",
+      "emotionRating" : 9,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000020-0020-0020-0020-000000000020",
+      "date" : "2025-10-20T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000021-0021-0021-0021-000000000021",
+      "date" : "2025-10-21T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000022-0022-0022-0022-000000000022",
+      "date" : "2025-10-22T09:00:00Z",
+      "emotionRating" : 6,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000023-0023-0023-0023-000000000023",
+      "date" : "2025-10-23T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000024-0024-0024-0024-000000000024",
+      "date" : "2025-10-24T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000025-0025-0025-0025-000000000025",
+      "date" : "2025-10-25T09:00:00Z",
+      "emotionRating" : 9,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000026-0026-0026-0026-000000000026",
+      "date" : "2025-10-26T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000027-0027-0027-0027-000000000027",
+      "date" : "2025-10-27T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000028-0028-0028-0028-000000000028",
+      "date" : "2025-10-28T09:00:00Z",
+      "emotionRating" : 6,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000029-0029-0029-0029-000000000029",
+      "date" : "2025-10-29T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000030-0030-0030-0030-000000000030",
+      "date" : "2025-10-30T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000031-0031-0031-0031-000000000031",
+      "date" : "2025-10-31T09:00:00Z",
+      "emotionRating" : 9,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000032-0032-0032-0032-000000000032",
+      "date" : "2025-11-01T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000033-0033-0033-0033-000000000033",
+      "date" : "2025-11-02T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000034-0034-0034-0034-000000000034",
+      "date" : "2025-11-03T09:00:00Z",
+      "emotionRating" : 6,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000035-0035-0035-0035-000000000035",
+      "date" : "2025-11-04T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000036-0036-0036-0036-000000000036",
+      "date" : "2025-11-05T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000037-0037-0037-0037-000000000037",
+      "date" : "2025-11-06T09:00:00Z",
+      "emotionRating" : 9,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000038-0038-0038-0038-000000000038",
+      "date" : "2025-11-07T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000039-0039-0039-0039-000000000039",
+      "date" : "2025-11-08T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000040-0040-0040-0040-000000000040",
+      "date" : "2025-11-09T09:00:00Z",
+      "emotionRating" : 6,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000041-0041-0041-0041-000000000041",
+      "date" : "2025-11-10T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000042-0042-0042-0042-000000000042",
+      "date" : "2025-11-11T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000043-0043-0043-0043-000000000043",
+      "date" : "2025-11-12T09:00:00Z",
+      "emotionRating" : 9,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000044-0044-0044-0044-000000000044",
+      "date" : "2025-11-13T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000045-0045-0045-0045-000000000045",
+      "date" : "2025-11-14T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000046-0046-0046-0046-000000000046",
+      "date" : "2025-11-15T09:00:00Z",
+      "emotionRating" : 6,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000047-0047-0047-0047-000000000047",
+      "date" : "2025-11-16T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000048-0048-0048-0048-000000000048",
+      "date" : "2025-11-17T09:00:00Z",
+      "emotionRating" : 7,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000049-0049-0049-0049-000000000049",
+      "date" : "2025-11-18T09:00:00Z",
+      "emotionRating" : 9,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    },
+    {
+      "id" : "E0000050-0050-0050-0050-000000000050",
+      "date" : "2025-11-19T09:00:00Z",
+      "emotionRating" : 8,
+      "transcription" : "NULL",
+      "aiFeedback" : "NULL",
+      "tags" : [],
+      "moodCategory" : "Neutral",
+      "focusArea" : "General",
+      "isFavorite" : false,
+      "wasFavoritedImmediately" : false,
+      "hasViewedFeedback" : true,
+      "treeStage" : 5
+    }
+  ],
+  "trees" : [
+    {
+      "id" : "A0000001-0001-0001-0001-000000000001",
+      "plantedDate" : "2025-10-01T09:00:00Z",
+      "lastWateredDate" : "2025-10-07T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 180.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000002-0002-0002-0002-000000000002",
+      "plantedDate" : "2025-10-08T09:00:00Z",
+      "lastWateredDate" : "2025-10-17T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 90.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000003-0003-0003-0003-000000000003",
+      "plantedDate" : "2025-10-18T09:00:00Z",
+      "lastWateredDate" : "2025-11-02T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 270.0,
+        "y" : 460.0
+      }
+    },
+    {
+      "id" : "A0000004-0004-0004-0004-000000000004",
+      "plantedDate" : "2025-10-03T09:00:00Z",
+      "lastWateredDate" : "2025-10-10T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 120.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000005-0005-0005-0005-000000000005",
+      "plantedDate" : "2025-10-11T09:00:00Z",
+      "lastWateredDate" : "2025-10-21T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 240.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000006-0006-0006-0006-000000000006",
+      "plantedDate" : "2025-10-22T09:00:00Z",
+      "lastWateredDate" : "2025-11-05T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 150.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000007-0007-0007-0007-000000000007",
+      "plantedDate" : "2025-10-05T09:00:00Z",
+      "lastWateredDate" : "2025-10-12T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 300.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000008-0008-0008-0008-000000000008",
+      "plantedDate" : "2025-10-13T09:00:00Z",
+      "lastWateredDate" : "2025-10-23T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 60.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000009-0009-0009-0009-000000000009",
+      "plantedDate" : "2025-10-24T09:00:00Z",
+      "lastWateredDate" : "2025-11-08T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 210.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000010-0010-0010-0010-000000000010",
+      "plantedDate" : "2025-10-06T09:00:00Z",
+      "lastWateredDate" : "2025-10-13T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 180.0,
+        "y" : 360.0
+      }
+    },
+    {
+      "id" : "A0000011-0011-0011-0011-000000000011",
+      "plantedDate" : "2025-10-14T09:00:00Z",
+      "lastWateredDate" : "2025-10-24T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 120.0,
+        "y" : 480.0
+      }
+    },
+    {
+      "id" : "A0000012-0012-0012-0012-000000000012",
+      "plantedDate" : "2025-10-25T09:00:00Z",
+      "lastWateredDate" : "2025-11-09T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 270.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000013-0013-0013-0013-000000000013",
+      "plantedDate" : "2025-10-07T09:00:00Z",
+      "lastWateredDate" : "2025-10-14T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 90.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000014-0014-0014-0014-000000000014",
+      "plantedDate" : "2025-10-15T09:00:00Z",
+      "lastWateredDate" : "2025-10-25T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 240.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000015-0015-0015-0015-000000000015",
+      "plantedDate" : "2025-10-26T09:00:00Z",
+      "lastWateredDate" : "2025-11-10T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 150.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000016-0016-0016-0016-000000000016",
+      "plantedDate" : "2025-10-08T09:00:00Z",
+      "lastWateredDate" : "2025-10-15T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 300.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000017-0017-0017-0017-000000000017",
+      "plantedDate" : "2025-10-16T09:00:00Z",
+      "lastWateredDate" : "2025-10-26T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 60.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000018-0018-0018-0018-000000000018",
+      "plantedDate" : "2025-10-27T09:00:00Z",
+      "lastWateredDate" : "2025-11-11T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 210.0,
+        "y" : 460.0
+      }
+    },
+    {
+      "id" : "A0000019-0019-0019-0019-000000000019",
+      "plantedDate" : "2025-10-09T09:00:00Z",
+      "lastWateredDate" : "2025-10-16T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 180.0,
+        "y" : 480.0
+      }
+    },
+    {
+      "id" : "A0000020-0020-0020-0020-000000000020",
+      "plantedDate" : "2025-10-17T09:00:00Z",
+      "lastWateredDate" : "2025-10-27T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 120.0,
+        "y" : 360.0
+      }
+    },
+    {
+      "id" : "A0000021-0021-0021-0021-000000000021",
+      "plantedDate" : "2025-10-28T09:00:00Z",
+      "lastWateredDate" : "2025-11-12T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 270.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000022-0022-0022-0022-000000000022",
+      "plantedDate" : "2025-10-10T09:00:00Z",
+      "lastWateredDate" : "2025-10-17T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 90.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000023-0023-0023-0023-000000000023",
+      "plantedDate" : "2025-10-18T09:00:00Z",
+      "lastWateredDate" : "2025-10-28T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 240.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000024-0024-0024-0024-000000000024",
+      "plantedDate" : "2025-10-29T09:00:00Z",
+      "lastWateredDate" : "2025-11-13T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 150.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000025-0025-0025-0025-000000000025",
+      "plantedDate" : "2025-10-11T09:00:00Z",
+      "lastWateredDate" : "2025-10-18T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 300.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000026-0026-0026-0026-000000000026",
+      "plantedDate" : "2025-10-19T09:00:00Z",
+      "lastWateredDate" : "2025-10-29T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 60.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000027-0027-0027-0027-000000000027",
+      "plantedDate" : "2025-10-30T09:00:00Z",
+      "lastWateredDate" : "2025-11-14T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 210.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000028-0028-0028-0028-000000000028",
+      "plantedDate" : "2025-10-12T09:00:00Z",
+      "lastWateredDate" : "2025-10-19T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 180.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000029-0029-0029-0029-000000000029",
+      "plantedDate" : "2025-10-20T09:00:00Z",
+      "lastWateredDate" : "2025-10-30T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 120.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000030-0030-0030-0030-000000000030",
+      "plantedDate" : "2025-10-31T09:00:00Z",
+      "lastWateredDate" : "2025-11-15T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 270.0,
+        "y" : 480.0
+      }
+    },
+    {
+      "id" : "A0000031-0031-0031-0031-000000000031",
+      "plantedDate" : "2025-10-13T09:00:00Z",
+      "lastWateredDate" : "2025-10-20T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 90.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000032-0032-0032-0032-000000000032",
+      "plantedDate" : "2025-10-21T09:00:00Z",
+      "lastWateredDate" : "2025-10-31T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 240.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000033-0033-0033-0033-000000000033",
+      "plantedDate" : "2025-11-01T09:00:00Z",
+      "lastWateredDate" : "2025-11-16T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 150.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000034-0034-0034-0034-000000000034",
+      "plantedDate" : "2025-10-14T09:00:00Z",
+      "lastWateredDate" : "2025-10-21T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 300.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000035-0035-0035-0035-000000000035",
+      "plantedDate" : "2025-10-22T09:00:00Z",
+      "lastWateredDate" : "2025-11-01T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 60.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000036-0036-0036-0036-000000000036",
+      "plantedDate" : "2025-11-02T09:00:00Z",
+      "lastWateredDate" : "2025-11-17T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 210.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000037-0037-0037-0037-000000000037",
+      "plantedDate" : "2025-10-15T09:00:00Z",
+      "lastWateredDate" : "2025-10-22T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 180.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000038-0038-0038-0038-000000000038",
+      "plantedDate" : "2025-10-23T09:00:00Z",
+      "lastWateredDate" : "2025-11-02T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 120.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000039-0039-0039-0039-000000000039",
+      "plantedDate" : "2025-11-03T09:00:00Z",
+      "lastWateredDate" : "2025-11-18T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 270.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000040-0040-0040-0040-000000000040",
+      "plantedDate" : "2025-10-16T09:00:00Z",
+      "lastWateredDate" : "2025-10-23T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 90.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000041-0041-0041-0041-000000000041",
+      "plantedDate" : "2025-10-24T09:00:00Z",
+      "lastWateredDate" : "2025-11-03T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 240.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000042-0042-0042-0042-000000000042",
+      "plantedDate" : "2025-11-04T09:00:00Z",
+      "lastWateredDate" : "2025-11-19T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 150.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000043-0043-0043-0043-000000000043",
+      "plantedDate" : "2025-10-17T09:00:00Z",
+      "lastWateredDate" : "2025-10-24T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 300.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000044-0044-0044-0044-000000000044",
+      "plantedDate" : "2025-10-25T09:00:00Z",
+      "lastWateredDate" : "2025-11-04T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 60.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000045-0045-0045-0045-000000000045",
+      "plantedDate" : "2025-11-05T09:00:00Z",
+      "lastWateredDate" : "2025-11-15T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 210.0,
+        "y" : 440.0
+      }
+    },
+    {
+      "id" : "A0000046-0046-0046-0046-000000000046",
+      "plantedDate" : "2025-10-18T09:00:00Z",
+      "lastWateredDate" : "2025-10-25T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 180.0,
+        "y" : 380.0
+      }
+    },
+    {
+      "id" : "A0000047-0047-0047-0047-000000000047",
+      "plantedDate" : "2025-10-26T09:00:00Z",
+      "lastWateredDate" : "2025-11-05T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 120.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000048-0048-0048-0048-000000000048",
+      "plantedDate" : "2025-11-06T09:00:00Z",
+      "lastWateredDate" : "2025-11-16T09:00:00Z",
+      "waterCount" : 14,
+      "treeType" : "cherry",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 270.0,
+        "y" : 400.0
+      }
+    },
+    {
+      "id" : "A0000049-0049-0049-0049-000000000049",
+      "plantedDate" : "2025-10-19T09:00:00Z",
+      "lastWateredDate" : "2025-10-26T09:00:00Z",
+      "waterCount" : 7,
+      "treeType" : "oak",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 90.0,
+        "y" : 420.0
+      }
+    },
+    {
+      "id" : "A0000050-0050-0050-0050-000000000050",
+      "plantedDate" : "2025-10-27T09:00:00Z",
+      "lastWateredDate" : "2025-11-06T09:00:00Z",
+      "waterCount" : 10,
+      "treeType" : "pine",
+      "isFullyGrown" : true,
+      "position" : {
+        "x" : 240.0,
+        "y" : 380.0
+      }
+    }
+  ],
+  "worryTreeEntries" : []
+}

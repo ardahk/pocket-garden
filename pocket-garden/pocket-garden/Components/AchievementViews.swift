@@ -15,37 +15,91 @@ struct AchievementUnlockView: View {
     let onDismiss: () -> Void
 
     @State private var badgeScale: CGFloat = 0
-    @State private var badgeRotation: Double = -15
+    @State private var badgeRotation: Double = -30
     @State private var contentOpacity: Double = 0
     @State private var showCelebration = false
     @State private var backgroundOpacity: Double = 0
+    @State private var lightBurstScale: CGFloat = 0
+    @State private var lightBurstOpacity: Double = 0
+    @State private var titleOffset: CGFloat = 20
+    @State private var descOffset: CGFloat = 20
+    @State private var buttonOffset: CGFloat = 30
+    @State private var iconPulse: CGFloat = 1.0
+    @State private var showConfetti = false
+    @State private var outerRingRotation: Double = 0
+    @State private var outerRingPulse: CGFloat = 1.0
+    @State private var outerRingOpacity: Double = 0
+    @State private var viewSlideUp: CGFloat = UIScreen.main.bounds.height
 
     var body: some View {
         ZStack {
             // Dimmed background
             Color.black
-                .opacity(backgroundOpacity * 0.6)
+                .opacity(backgroundOpacity * 0.65)
                 .ignoresSafeArea()
                 .onTapGesture {
                     dismiss()
                 }
             
-            // Celebration effects (no pulse rings - removed per user request)
+            // Light burst behind badge
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            achievement.rarity.color.opacity(0.6),
+                            achievement.rarity.color.opacity(0.2),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 10,
+                        endRadius: 200
+                    )
+                )
+                .frame(width: 400, height: 400)
+                .scaleEffect(lightBurstScale)
+                .opacity(lightBurstOpacity)
+                .offset(y: -60)
+            
+            // Confetti particles
+            if showConfetti {
+                AchievementConfettiView(
+                    particleCount: achievement.rarity == .legendary ? 70 : (achievement.rarity == .epic ? 50 : 35),
+                    colors: achievement.rarity.gradientColors + [.accentGold, .primaryGreen]
+                )
+            }
+            
+            // Celebration effects
             if showCelebration {
-                // Extra stars for legendary
                 if achievement.rarity == .legendary {
-                    FloatingStars(count: 12)
+                    FloatingStars(count: 15)
+                } else if achievement.rarity == .epic {
+                    FloatingStars(count: 8)
                 }
             }
 
             VStack(spacing: Spacing.xl) {
                 Spacer()
 
-                // Achievement badge
+                // Achievement badge with enhanced animation
                 ZStack {
-                    // Badge with SF Symbol
+                    // Animated outer ring — rotating gradient border
+                    Circle()
+                        .stroke(
+                            AngularGradient(
+                                colors: achievement.rarity.gradientColors + [achievement.rarity.gradientColors.first ?? .clear],
+                                center: .center
+                            ),
+                            lineWidth: 4
+                        )
+                        .frame(width: 160, height: 160)
+                        .rotationEffect(.degrees(outerRingRotation))
+                        .scaleEffect(outerRingPulse)
+                        .opacity(outerRingOpacity)
+                        .shadow(color: achievement.rarity.color.opacity(0.4), radius: 12)
+                        .blur(radius: 0.5) // Slight blur for smooth gradient effect
+                    
                     ZStack {
-                        // Outer ring
+                        // Outer ring with glow
                         Circle()
                             .fill(
                                 LinearGradient(
@@ -54,19 +108,21 @@ struct AchievementUnlockView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 130, height: 130)
-                            .shadow(color: achievement.rarity.color.opacity(0.5), radius: 20)
+                            .frame(width: 140, height: 140)
+                            .shadow(color: achievement.rarity.color.opacity(0.6), radius: 30)
+                            .shadow(color: achievement.rarity.color.opacity(0.3), radius: 15)
                         
                         // Inner circle
                         Circle()
                             .fill(Color.cardBackground)
-                            .frame(width: 110, height: 110)
+                            .frame(width: 116, height: 116)
 
-                        // SF Symbol with shimmer effect (same as achievements page)
+                        // SF Symbol with shimmer + pulse
                         Image(systemName: achievement.symbolName)
-                            .font(.system(size: 50, weight: .semibold))
+                            .font(.system(size: 52, weight: .semibold))
                             .symbolRenderingMode(.monochrome)
                             .foregroundStyle(achievement.rarity.color)
+                            .scaleEffect(iconPulse)
                             .shimmer(isActive: true)
                     }
                 }
@@ -74,36 +130,44 @@ struct AchievementUnlockView: View {
                 .rotationEffect(.degrees(badgeRotation))
                 .rotation3DEffect(
                     .degrees(badgeRotation * 2),
-                    axis: (x: 0.0, y: 1.0, z: 0.0)
+                    axis: (x: 0.1, y: 1.0, z: 0.0)
                 )
 
-                // Achievement info card
+                // Achievement info card with staggered reveal
                 VStack(spacing: Spacing.lg) {
                     // Rarity badge
                     Text(achievement.rarity.name.uppercased())
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
                         .foregroundColor(achievement.rarity.color)
-                        .padding(.horizontal, Spacing.md)
-                        .padding(.vertical, Spacing.xs)
+                        .tracking(2)
+                        .padding(.horizontal, Spacing.lg)
+                        .padding(.vertical, Spacing.sm)
                         .background(
                             Capsule()
-                                .fill(achievement.rarity.color.opacity(0.15))
+                                .fill(achievement.rarity.color.opacity(0.12))
+                                .overlay(
+                                    Capsule()
+                                        .stroke(achievement.rarity.color.opacity(0.3), lineWidth: 1)
+                                )
                         )
                     
                     Text("Achievement Unlocked!")
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .font(.system(size: 15, weight: .medium, design: .rounded))
                         .foregroundColor(.textSecondary)
+                        .offset(y: titleOffset)
 
                     Text(achievement.title)
                         .font(.system(size: 28, weight: .bold, design: .rounded))
                         .foregroundColor(.textPrimary)
                         .multilineTextAlignment(.center)
+                        .offset(y: titleOffset)
 
                     Text(achievement.achievementDescription)
                         .font(Typography.body)
                         .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, Spacing.md)
+                        .offset(y: descOffset)
                 }
                 .padding(Spacing.xl)
                 .background(
@@ -114,77 +178,131 @@ struct AchievementUnlockView: View {
                 .padding(.horizontal, Layout.screenPadding)
                 .opacity(contentOpacity)
 
-                // Buttons
-                VStack(spacing: Spacing.sm) {
-                    Button(action: dismiss) {
-                        HStack(spacing: Spacing.sm) {
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 16, weight: .bold))
-                            Text("Awesome!")
-                                .font(.system(size: 17, weight: .semibold))
-                        }
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                        .background(
-                            LinearGradient(
-                                colors: achievement.rarity.gradientColors,
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
-                        .cornerRadius(CornerRadius.lg)
-                        .shadow(color: achievement.rarity.color.opacity(0.4), radius: 10, y: 5)
+                // Button with slide-up
+                Button(action: dismiss) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 16, weight: .bold))
+                        Text("Awesome!")
+                            .font(.system(size: 17, weight: .semibold))
                     }
-                    .buttonStyle(.plain)
-                    .opacity(contentOpacity)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 56)
+                    .background(
+                        LinearGradient(
+                            colors: achievement.rarity.gradientColors,
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                    .cornerRadius(CornerRadius.lg)
+                    .shadow(color: achievement.rarity.color.opacity(0.5), radius: 12, y: 6)
                 }
+                .buttonStyle(.plain)
+                .opacity(contentOpacity)
+                .offset(y: buttonOffset)
                 .padding(.horizontal, Layout.screenPadding)
 
                 Spacer()
             }
         }
+        .offset(y: viewSlideUp)
         .onAppear {
             startAnimation()
         }
     }
     
     private func startAnimation() {
-        _ = achievement.rarity.animationDuration
+        // Slide entire view up from bottom
+        withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
+            viewSlideUp = 0
+        }
         
         // Background fade in
         withAnimation(.easeOut(duration: 0.3)) {
             backgroundOpacity = 1.0
         }
         
-        // Badge animation with elastic bounce
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.5).delay(0.1)) {
+        // Light burst flash
+        withAnimation(.easeOut(duration: 0.4).delay(0.2)) {
+            lightBurstScale = 1.0
+            lightBurstOpacity = 1.0
+        }
+        withAnimation(.easeOut(duration: 0.8).delay(0.6)) {
+            lightBurstOpacity = 0.3
+        }
+        
+        // Badge slam-in with bounce
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.45).delay(0.25)) {
             badgeScale = 1.0
             badgeRotation = 0
         }
         
-        // Celebration effects
+        // Outer ring appears and starts spinning after badge lands
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            withAnimation(.easeOut(duration: 0.4)) {
+                outerRingOpacity = 1.0
+            }
+            // Smooth continuous rotation
+            withAnimation(.linear(duration: 4.0).repeatForever(autoreverses: false)) {
+                outerRingRotation = 360
+            }
+            // Gentle breathing pulse
+            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
+                outerRingPulse = 1.05
+            }
+        }
+        
+        // Icon pulse after landing
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
+                iconPulse = 1.06
+            }
+        }
+        
+        // Confetti burst
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            showCelebration = true
+            showConfetti = true
             Theme.Haptics.success()
         }
         
-        // Content fade in
-        withAnimation(.easeOut(duration: 0.5).delay(0.5)) {
+        // Celebration effects (stars)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            showCelebration = true
+        }
+        
+        // Content staggered slide-up
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.65)) {
             contentOpacity = 1.0
+            titleOffset = 0
+        }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.75)) {
+            descOffset = 0
+        }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(0.85)) {
+            buttonOffset = 0
         }
     }
 
     private func dismiss() {
         Theme.Haptics.light()
         
-        withAnimation(.easeIn(duration: 0.2)) {
-            badgeScale = 0.8
+        withAnimation(.easeIn(duration: 0.25)) {
+            badgeScale = 1.15
+        }
+        withAnimation(.easeIn(duration: 0.2).delay(0.05)) {
+            badgeScale = 0
             backgroundOpacity = 0
             contentOpacity = 0
+            lightBurstOpacity = 0
+            outerRingOpacity = 0
+        }
+        withAnimation(.easeIn(duration: 0.3).delay(0.05)) {
+            viewSlideUp = UIScreen.main.bounds.height
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             onDismiss()
         }
     }

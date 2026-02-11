@@ -57,7 +57,7 @@ class AmbientSoundService {
     }
 
     // Fade + track rotation state
-    private var fadeTimer: Timer?
+    private var fadeTask: Task<Void, Never>?
     private var nextIndexes: [AmbientSoundType: Int] = [:]
 
     init() {
@@ -124,6 +124,16 @@ class AmbientSoundService {
         isPlaying = true
     }
 
+    // Fade out and stop (for graceful exits)
+    func fadeOutAndStop(duration: TimeInterval = 1.2) {
+        stop(immediate: false)
+    }
+
+    // Immediate stop (for app lifecycle)
+    func stopImmediate() {
+        stop(immediate: true)
+    }
+
     // MARK: - Helpers
 
     private func nextURL(for soundType: AmbientSoundType) -> URL? {
@@ -142,7 +152,7 @@ class AmbientSoundService {
         guard let player = audioPlayer else { return }
 
         if immediate {
-            fadeTimer?.invalidate()
+            fadeTask?.cancel()
             player.stop()
             audioPlayer = nil
             isPlaying = false
@@ -161,38 +171,36 @@ class AmbientSoundService {
     }
 
     private func fade(to targetVolume: Float, duration: TimeInterval, completion: (() -> Void)? = nil) {
-        fadeTimer?.invalidate()
+        fadeTask?.cancel()
 
         guard let player = audioPlayer else {
             completion?()
             return
         }
 
-        let steps: Float = 20
-        let interval = duration / TimeInterval(steps)
-        let delta = (targetVolume - player.volume) / steps
+        let startVolume = player.volume
+        let startTime = Date()
 
-        if duration <= 0 || delta == 0 {
+        if duration <= 0 || startVolume == targetVolume {
             player.volume = targetVolume
             completion?()
             return
         }
 
-        fadeTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] timer in
-            guard let self, let player = self.audioPlayer else {
-                timer.invalidate()
-                completion?()
-                return
-            }
-
-            let newVolume = player.volume + delta
-
-            if (delta > 0 && newVolume >= targetVolume) || (delta < 0 && newVolume <= targetVolume) {
-                player.volume = targetVolume
-                timer.invalidate()
-                completion?()
-            } else {
+        fadeTask = Task { @MainActor in
+            while !Task.isCancelled {
+                let elapsed = Date().timeIntervalSince(startTime)
+                let progress = min(elapsed / duration, 1.0)
+                
+                let newVolume = startVolume + Float(progress) * (targetVolume - startVolume)
                 player.volume = newVolume
+                
+                if progress >= 1.0 {
+                    completion?()
+                    break
+                }
+                
+                try? await Task.sleep(for: .milliseconds(50))
             }
         }
     }

@@ -37,8 +37,11 @@ struct HomeView: View {
     @State private var isLoadingQuote = true
     private let quoteService = QuoteService()
 
-    // Safe Space
-    @State private var showSafeSpace = false
+    // Safe Space (moved to tab bar)
+    // @State private var showSafeSpace = false
+    
+    // History (moved from tab bar to home header)
+    @State private var showHistory = false
 
     var body: some View {
         ZStack {
@@ -57,8 +60,8 @@ struct HomeView: View {
                         // Quote of the Day
                         quoteOfTheDaySection
 
-                        // Safe Space - Always visible
-                        safeSpaceSection
+                        // Safe Space - Moved to tab bar
+                        // safeSpaceSection
 
                         // Daily Challenge / Today summary
                         if !hasEntryToday {
@@ -67,12 +70,12 @@ struct HomeView: View {
                             todayEntryCard
                         }
 
-                        // Stats Overview
-                        statsSection
-
-                        // Weekly Insight (show if user has entries)
+                        // Stats & Insights (only show when user has entries)
                         if !entries.isEmpty {
+                            statsSection
                             weeklyInsightSection
+                        } else {
+                            gettingStartedSection
                         }
                     }
                     .padding(.horizontal, Layout.screenPadding)
@@ -142,10 +145,16 @@ struct HomeView: View {
         .sheet(item: $selectedEntry) { entry in
             EntryDetailViewRedesigned(entry: entry)
         }
-        .sheet(isPresented: $showSafeSpace) {
-            SafeSpaceView(modelContext: modelContext)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.hidden)
+        // Safe Space sheet - moved to tab bar
+        // .sheet(isPresented: $showSafeSpace) {
+        //     SafeSpaceView(modelContext: modelContext)
+        //         .presentationDetents([.large])
+        //         .presentationDragIndicator(.hidden)
+        // }
+        .sheet(isPresented: $showHistory) {
+            NavigationStack {
+                EntriesListViewRedesigned()
+            }
         }
         .sheet(isPresented: $showMoodTrendChart) {
             MoodTrendChartView(entries: entries)
@@ -159,14 +168,36 @@ struct HomeView: View {
     // MARK: - Header Section
 
     private var headerSection: some View {
-        VStack(alignment: .leading, spacing: Spacing.xs) {
-            Text(greeting)
-                .font(.system(size: 28, weight: .semibold))
-                .foregroundColor(.textPrimary)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text(greeting)
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundColor(.textPrimary)
 
-            Text(currentDate)
-                .font(Typography.body)
-                .foregroundColor(.textSecondary.opacity(0.7))
+                Text(currentDate)
+                    .font(Typography.body)
+                    .foregroundColor(.textSecondary.opacity(0.7))
+            }
+            
+            Spacer()
+            
+            // History button
+            Button(action: {
+                showHistory = true
+                Theme.Haptics.light()
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(Color.cardBackground)
+                        .frame(width: 42, height: 42)
+                        .shadow(color: Color.black.opacity(0.06), radius: 6, y: 2)
+                    
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.secondaryTerracotta)
+                }
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .fadeIn()
@@ -378,7 +409,7 @@ struct HomeView: View {
                     title: "Past Entries",
                     color: .secondaryTerracotta
                 ) {
-                    selectedTab = 2 // Switch to history tab
+                    showHistory = true // Open history sheet
                     Theme.Haptics.light()
                 }
             }
@@ -386,6 +417,60 @@ struct HomeView: View {
         .slideInFromBottom(delay: 0.2)
     }
 
+    // MARK: - Getting Started (Empty State)
+    
+    private var gettingStartedSection: some View {
+        VStack(spacing: Spacing.lg) {
+            // Why journaling matters card
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack(spacing: Spacing.sm) {
+                    Text("🌱")
+                        .font(.system(size: 22))
+                    Text("Why Daily Check-ins Matter")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                }
+                
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    benefitRow(icon: "brain.head.profile", text: "Builds emotional self-awareness over time")
+                    benefitRow(icon: "chart.line.uptrend.xyaxis", text: "Helps you spot patterns in how you feel")
+                    benefitRow(icon: "leaf.fill", text: "Grows your personal garden as you reflect")
+                    benefitRow(icon: "heart.fill", text: "Just 1 minute a day can improve wellbeing")
+                }
+            }
+            .padding(Spacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(Color.cardBackground)
+                    .shadow(color: Color.black.opacity(0.04), radius: 8, y: 2)
+            )
+            
+            // Encouragement
+            HStack(spacing: Spacing.sm) {
+                Text("🐝")
+                    .font(.system(size: 16))
+                Text("Your progress and weekly insights will appear here after your first entry!")
+                    .font(.system(size: 14))
+                    .foregroundColor(.textSecondary)
+            }
+            .padding(.horizontal, Spacing.sm)
+        }
+        .slideInFromBottom(delay: 0.3)
+    }
+    
+    private func benefitRow(icon: String, text: String) -> some View {
+        HStack(spacing: Spacing.md) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(.primaryGreen)
+                .frame(width: 24)
+            
+            Text(text)
+                .font(.system(size: 14))
+                .foregroundColor(.textSecondary)
+        }
+    }
+    
     // MARK: - Stats Section
 
     private var statsSection: some View {
@@ -487,7 +572,7 @@ struct HomeView: View {
                 Spacer()
 
                 Button("View All") {
-                    selectedTab = 2 // Switch to history tab
+                    showHistory = true // Open history sheet
                     Theme.Haptics.light()
                 }
                 .font(Typography.callout)
@@ -624,12 +709,13 @@ struct HomeView: View {
 
     // MARK: - Safe Space Section
 
-    private var safeSpaceSection: some View {
-        SafeSpaceCard {
-            showSafeSpace = true
-        }
-        .slideInFromBottom(delay: 0.07)
-    }
+    // Safe Space section - moved to tab bar (kept for reference)
+    // private var safeSpaceSection: some View {
+    //     SafeSpaceCard {
+    //         showSafeSpace = true
+    //     }
+    //     .slideInFromBottom(delay: 0.07)
+    // }
 }
 
 // MARK: - Safe Space Card

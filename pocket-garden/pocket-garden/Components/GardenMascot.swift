@@ -184,13 +184,7 @@ struct MascotFeedbackView: View {
                                 .foregroundColor(.textPrimary)
 
                             if isGenerating {
-                                HStack(spacing: Spacing.sm) {
-                                    ProgressView()
-                                        .scaleEffect(0.8)
-                                    Text("Thinking...")
-                                        .font(Typography.body)
-                                        .foregroundColor(.textSecondary)
-                                }
+                                ThinkingIndicatorView()
                             } else {
                                 Text(generatedText ?? entry.aiFeedback ?? "You're doing great!")
                                     .font(Typography.body)

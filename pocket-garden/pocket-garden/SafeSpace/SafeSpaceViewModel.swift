@@ -23,6 +23,15 @@ class SafeSpaceViewModel {
 
     init(modelContext: ModelContext? = nil) {
         self.modelContext = modelContext
+        
+        // Register this service as the active one for app lifecycle management
+        AppLifecycleManager.shared.activeAmbientService = ambientSoundService
+    }
+    
+    deinit {
+        // Clean up when viewmodel is deallocated
+        ambientSoundService.stopImmediate()
+        AppLifecycleManager.shared.activeAmbientService = nil
     }
 
     // MARK: - Session Management
@@ -59,6 +68,33 @@ class SafeSpaceViewModel {
         sessionStartTime = nil
         completedActivities = []
         ambientSoundService.stop()
+    }
+
+    // MARK: - Cleanup
+
+    func cleanup() {
+        // Fade out when user manually exits (smooth UX)
+        ambientSoundService.fadeOutAndStop(duration: 0.8)
+        endSession()
+    }
+
+    // Handle app lifecycle changes
+    func handleScenePhaseChange(_ phase: ScenePhase) {
+        switch phase {
+        case .background:
+            // Immediately stop audio when app goes to background (no fade)
+            ambientSoundService.stopImmediate()
+        case .inactive:
+            // Immediately stop when app becomes inactive (smooth transitions)
+            ambientSoundService.stopImmediate()
+        case .active:
+            // Resume with fade-in if a sound was selected and we're in a session
+            if let sound = selectedAmbientSound, currentSession != nil {
+                ambientSoundService.play(sound) // Already fades in
+            }
+        @unknown default:
+            break
+        }
     }
 
     // MARK: - Activity Management

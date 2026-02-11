@@ -11,9 +11,11 @@ import SwiftData
 struct MainTabView: View {
     @State private var selectedTab = 0
     @Binding var openJournalFromNotification: Bool
+    @Binding var tourSelectedTab: Int?
     
-    init(openJournalFromNotification: Binding<Bool> = .constant(false)) {
+    init(openJournalFromNotification: Binding<Bool> = .constant(false), tourSelectedTab: Binding<Int?> = .constant(nil)) {
         self._openJournalFromNotification = openJournalFromNotification
+        self._tourSelectedTab = tourSelectedTab
     }
     
     var body: some View {
@@ -36,12 +38,10 @@ struct MainTabView: View {
             }
             .tag(1)
 
-            // History Tab
-            NavigationStack {
-                EntriesListViewRedesigned()
-            }
+            // Sanctuary Tab
+            SafeSpaceView(modelContext: nil, isEmbedded: true)
             .tabItem {
-                Label("History", systemImage: "clock.fill")
+                Label("Sanctuary", systemImage: "moon.stars.fill")
             }
             .tag(2)
         }
@@ -60,6 +60,13 @@ struct MainTabView: View {
                 Task { @MainActor in
                     try? await Task.sleep(for: .milliseconds(300))
                     NotificationCenter.default.post(name: .triggerJournalFromNotification, object: nil)
+                }
+            }
+        }
+        .onChange(of: tourSelectedTab) { _, newValue in
+            if let tab = newValue {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    selectedTab = tab
                 }
             }
         }
