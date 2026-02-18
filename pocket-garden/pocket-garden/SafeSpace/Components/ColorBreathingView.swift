@@ -174,9 +174,12 @@ struct ColorBreathingView: View {
                 .padding(.bottom, 40)
             }
         }
+        .onDisappear {
+            cancelBreathing()
+        }
         .enableInjection()
     }
-    
+
     private var circleSize: CGFloat {
         circleMinSize + (circleMaxSize - circleMinSize) * phaseProgress
     }
@@ -203,6 +206,10 @@ struct ColorBreathingView: View {
         isAnimating = false
         onComplete()
         dismiss()
+    }
+
+    private func cancelBreathing() {
+        isAnimating = false
     }
     
     private func startPhase(_ phase: ColorBreathPhase) {

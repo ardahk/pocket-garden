@@ -15,6 +15,8 @@ struct BodyScanView: View {
     // Lavender accent color for body scan theme
     private let lavenderAccent = Color(red: 0.60, green: 0.52, blue: 0.92)
     @State private var hasStarted = false
+    @State private var isActive = false
+    @State private var currentTimer: Timer? = nil
     @State private var showInfoSheet = false
     @Environment(\.dismiss) private var dismiss
     
@@ -202,6 +204,9 @@ struct BodyScanView: View {
         .sheet(isPresented: $showInfoSheet) {
             muscleRelaxationInfoSheet
         }
+        .onDisappear {
+            stopBodyScan()
+        }
         .enableInjection()
     }
     
@@ -298,12 +303,21 @@ struct BodyScanView: View {
     // MARK: - Body Scan Logic
 
     private func startBodyScan() {
+        isActive = true
         updatePhaseColor()
         startPulseAnimation()
         performNextPhase()
     }
 
+    private func stopBodyScan() {
+        isActive = false
+        currentTimer?.invalidate()
+        currentTimer = nil
+    }
+
     private func performNextPhase() {
+        guard isActive else { return }
+
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
 
@@ -312,28 +326,35 @@ struct BodyScanView: View {
         updatePhaseColor()
 
         // Start countdown timer
-        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
-            countdown -= 1
-            updatePhaseColor()
-
-            if countdown <= 0 {
+        currentTimer?.invalidate()
+        currentTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { timer in
+            guard self.isActive else {
                 timer.invalidate()
+                return
+            }
+
+            self.countdown -= 1
+            self.updatePhaseColor()
+
+            if self.countdown <= 0 {
+                timer.invalidate()
+                self.currentTimer = nil
 
                 // Move to next phase
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                    progress += 1
+                    self.progress += 1
 
-                    if isInstructionPhase {
+                    if self.isInstructionPhase {
                         // Move to release phase
-                        isInstructionPhase = false
-                        performNextPhase()
+                        self.isInstructionPhase = false
+                        self.performNextPhase()
                     } else {
                         // Move to next body part
-                        isInstructionPhase = true
-                        currentStep += 1
+                        self.isInstructionPhase = true
+                        self.currentStep += 1
 
-                        if currentStep < bodyParts.count {
-                            performNextPhase()
+                        if self.currentStep < self.bodyParts.count {
+                            self.performNextPhase()
                         } else {
                             // Complete
                             let completionGenerator = UINotificationFeedbackGenerator()

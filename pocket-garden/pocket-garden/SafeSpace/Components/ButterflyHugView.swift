@@ -44,7 +44,7 @@ struct ButterflyHugView: View {
                     }
                     
                     HStack {
-                        Button(action: { dismiss() }) {
+                        Button(action: { cancelHug(); dismiss() }) {
                             Image(systemName: "xmark.circle.fill")
                                 .font(.title2)
                                 .foregroundStyle(Color.textSecondary.opacity(0.6))
@@ -308,8 +308,9 @@ struct ButterflyHugView: View {
             guard self.isActive else { return }
             self.currentSide = .right
             generator.impactOccurred()
-            
+
             DispatchQueue.main.asyncAfter(deadline: .now() + self.cycleDuration / 2) {
+                guard self.isActive else { return }
                 self.startCycle()
             }
         }

@@ -482,12 +482,15 @@ struct BreathingExerciseView: View {
             let third = max(0.45, Double(phaseDuration) * 0.75)
 
             DispatchQueue.main.asyncAfter(deadline: .now() + first) {
+                guard self.isAnimating else { return }
                 generator.impactOccurred(intensity: 1.0)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + second) {
+                guard self.isAnimating else { return }
                 generator.impactOccurred(intensity: 1.0)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + third) {
+                guard self.isAnimating else { return }
                 generator.impactOccurred(intensity: 1.0)
             }
 
@@ -499,6 +502,7 @@ struct BreathingExerciseView: View {
 
             let mid = max(0.25, Double(phaseDuration) * 0.5)
             DispatchQueue.main.asyncAfter(deadline: .now() + mid) {
+                guard self.isAnimating else { return }
                 generator.impactOccurred(intensity: 0.9)
             }
 
@@ -513,12 +517,15 @@ struct BreathingExerciseView: View {
 
             generator.impactOccurred(intensity: 1.0)
             DispatchQueue.main.asyncAfter(deadline: .now() + first) {
+                guard self.isAnimating else { return }
                 generator.impactOccurred(intensity: 0.9)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + second) {
+                guard self.isAnimating else { return }
                 generator.impactOccurred(intensity: 0.8)
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + third) {
+                guard self.isAnimating else { return }
                 generator.impactOccurred(intensity: 0.7)
             }
         }

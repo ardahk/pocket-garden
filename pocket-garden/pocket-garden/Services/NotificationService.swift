@@ -3,7 +3,11 @@
 //  pocket-garden
 //
 //  Gentle Garden Push Notifications Service
-//  Handles scheduling, permissions, and message generation
+//  Handles scheduling, permissions, and message generation.
+//
+//  Two gentle nudges per day — only delivered when the user
+//  hasn't journaled yet. Times are randomised slightly each day
+//  so the notifications never feel mechanical.
 //
 
 import Foundation
@@ -15,44 +19,8 @@ internal import Combine
 
 struct NotificationPreferences: Codable {
     var notificationsEnabled: Bool
-    var morningEnabled: Bool
-    var eveningEnabled: Bool
-    var morningHour: Int
-    var morningMinute: Int
-    var eveningHour: Int
-    var eveningMinute: Int
-    
-    static let `default` = NotificationPreferences(
-        notificationsEnabled: true,
-        morningEnabled: true,
-        eveningEnabled: true,
-        morningHour: 9,
-        morningMinute: 0,
-        eveningHour: 20,
-        eveningMinute: 0
-    )
-    
-    var morningTime: Date {
-        get {
-            Calendar.current.date(from: DateComponents(hour: morningHour, minute: morningMinute)) ?? Date()
-        }
-        set {
-            let components = Calendar.current.dateComponents([.hour, .minute], from: newValue)
-            morningHour = components.hour ?? 9
-            morningMinute = components.minute ?? 0
-        }
-    }
-    
-    var eveningTime: Date {
-        get {
-            Calendar.current.date(from: DateComponents(hour: eveningHour, minute: eveningMinute)) ?? Date()
-        }
-        set {
-            let components = Calendar.current.dateComponents([.hour, .minute], from: newValue)
-            eveningHour = components.hour ?? 20
-            eveningMinute = components.minute ?? 0
-        }
-    }
+
+    static let `default` = NotificationPreferences(notificationsEnabled: true)
 }
 
 // MARK: - Notification Service
@@ -60,207 +28,224 @@ struct NotificationPreferences: Codable {
 @MainActor
 class NotificationService: ObservableObject {
     static let shared = NotificationService()
-    
+
     @Published var preferences: NotificationPreferences {
-        didSet {
-            savePreferences()
-        }
+        didSet { savePreferences() }
     }
     @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
-    
+
     private let center = UNUserNotificationCenter.current()
     private let preferencesKey = "notificationPreferences"
-    
-    // Notification identifiers
-    private let morningNotificationID = "garden.morning.reminder"
-    private let eveningNotificationID = "garden.evening.reminder"
-    
+
+    // Fixed base hours — jitter is added at scheduling time
+    private let firstReminderBaseHour  = 18 // 6:00 PM
+    private let secondReminderBaseHour = 21 // 9:00 PM
+
+    // Identifier prefixes — a date suffix is appended so each day's
+    // pair is unique and old ones expire cleanly.
+    private let firstReminderIDPrefix  = "garden.reminder.first."
+    private let secondReminderIDPrefix = "garden.reminder.second."
+
     // MARK: - Initialization
-    
+
     private init() {
         self.preferences = Self.loadPreferences()
-        Task {
-            await checkAuthorizationStatus()
-        }
+        Task { await checkAuthorizationStatus() }
     }
-    
+
     // MARK: - Persistence
-    
+
     private static func loadPreferences() -> NotificationPreferences {
         guard let data = UserDefaults.standard.data(forKey: "notificationPreferences"),
-              let preferences = try? JSONDecoder().decode(NotificationPreferences.self, from: data) else {
+              let prefs = try? JSONDecoder().decode(NotificationPreferences.self, from: data) else {
             return .default
         }
-        return preferences
+        return prefs
     }
-    
+
     private func savePreferences() {
         if let data = try? JSONEncoder().encode(preferences) {
             UserDefaults.standard.set(data, forKey: preferencesKey)
         }
     }
-    
+
     // MARK: - Authorization
-    
+
     func checkAuthorizationStatus() async {
         let settings = await center.notificationSettings()
         authorizationStatus = settings.authorizationStatus
     }
-    
+
     func requestAuthorization() async -> Bool {
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
             await checkAuthorizationStatus()
-            
             if granted {
                 await registerNotificationCategories()
                 await scheduleNotifications()
             }
-            
             return granted
         } catch {
             print("❌ Notification authorization error: \(error)")
             return false
         }
     }
-    
+
     private func registerNotificationCategories() async {
         let journalAction = UNNotificationAction(
             identifier: "JOURNAL_NOW",
             title: "Journal Now",
             options: [.foreground]
         )
-        
         let snoozeAction = UNNotificationAction(
             identifier: "SNOOZE",
-            title: "Remind Later",
+            title: "Remind in 30 min",
             options: []
         )
-        
-        let gardenCategory = UNNotificationCategory(
+        let category = UNNotificationCategory(
             identifier: "GARDEN_REMINDER",
             actions: [journalAction, snoozeAction],
             intentIdentifiers: [],
             options: []
         )
-        
-        center.setNotificationCategories([gardenCategory])
+        center.setNotificationCategories([category])
     }
-    
+
     // MARK: - Scheduling
-    
+
+    /// Schedule up to two reminders for today (and the next few days ahead)
+    /// if the user hasn't journaled yet. Already-delivered IDs are left
+    /// alone; only future ones are (re)scheduled.
     func scheduleNotifications(
         currentStreak: Int = 0,
         hasEntryToday: Bool = false,
         currentTreeType: String? = nil,
         treeProgress: Double? = nil
     ) async {
-        // Cancel existing notifications first
-        center.removePendingNotificationRequests(withIdentifiers: [morningNotificationID, eveningNotificationID])
-        
+        // Remove any stale notifications from previous days
+        await removeStalePendingNotifications()
+
         guard preferences.notificationsEnabled else { return }
         guard authorizationStatus == .authorized else { return }
-        
-        // Schedule morning notification
-        if preferences.morningEnabled {
-            await scheduleMorningNotification(
-                currentStreak: currentStreak,
-                currentTreeType: currentTreeType
-            )
+        guard !hasEntryToday else {
+            // User already journaled — no reminders needed today.
+            await cancelTodaysReminders()
+            return
         }
-        
-        // Schedule evening notification (only if no entry today)
-        if preferences.eveningEnabled && !hasEntryToday {
-            await scheduleEveningNotification(
-                currentStreak: currentStreak,
-                currentTreeType: currentTreeType,
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+
+        // Schedule for today only (called again on every app launch to refresh)
+        for (prefix, baseHour) in [
+            (firstReminderIDPrefix,  firstReminderBaseHour),
+            (secondReminderIDPrefix, secondReminderBaseHour)
+        ] {
+            let dateKey = Self.dateKey(for: today)
+            let identifier = prefix + dateKey
+
+            // Skip if already pending
+            let pending = await center.pendingNotificationRequests()
+            if pending.contains(where: { $0.identifier == identifier }) { continue }
+
+            // Add ±15 min jitter so the time never feels robotic
+            let jitter = Int.random(in: -15...15)
+            let fireHour   = baseHour
+            let fireMinute = 0 + jitter  // may go negative or > 59; Calendar handles that
+
+            guard let fireDate = calendar.date(
+                bySettingHour: fireHour,
+                minute: 0,
+                second: 0,
+                of: today
+            ).flatMap({
+                calendar.date(byAdding: .minute, value: jitter, to: $0)
+            }) else { continue }
+
+            // Don't schedule for a time that has already passed today
+            guard fireDate > Date() else { continue }
+
+            let content = UNMutableNotificationContent()
+            content.title = "Pocket Forest 🌿"
+            content.body = ReminderMessages.randomMessage(
+                isFirstReminder: (baseHour == firstReminderBaseHour),
+                streak: currentStreak,
+                treeType: currentTreeType,
                 treeProgress: treeProgress
             )
+            content.sound = .default
+            content.categoryIdentifier = "GARDEN_REMINDER"
+
+            let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+            let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+            do {
+                try await center.add(request)
+                let formatter = DateFormatter()
+                formatter.timeStyle = .short
+                print("✅ Reminder scheduled: \(formatter.string(from: fireDate))")
+            } catch {
+                print("❌ Failed to schedule reminder: \(error)")
+            }
         }
     }
-    
-    private func scheduleMorningNotification(
-        currentStreak: Int,
-        currentTreeType: String?
-    ) async {
-        let content = UNMutableNotificationContent()
-        content.title = "Pocket Forest 🌱"
-        content.body = MorningMessages.randomMessage(
-            streak: currentStreak,
-            treeType: currentTreeType
-        )
-        content.sound = .default
-        content.categoryIdentifier = "GARDEN_REMINDER"
-        
-        var dateComponents = DateComponents()
-        dateComponents.hour = preferences.morningHour
-        dateComponents.minute = preferences.morningMinute
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
-        let request = UNNotificationRequest(identifier: morningNotificationID, content: content, trigger: trigger)
-        
-        do {
-            try await center.add(request)
-            print("✅ Morning notification scheduled for \(preferences.morningHour):\(String(format: "%02d", preferences.morningMinute))")
-        } catch {
-            print("❌ Failed to schedule morning notification: \(error)")
-        }
-    }
-    
-    private func scheduleEveningNotification(
-        currentStreak: Int,
-        currentTreeType: String?,
-        treeProgress: Double?
-    ) async {
-        let content = UNMutableNotificationContent()
-        content.title = "Pocket Forest 🌙"
-        content.body = EveningMessages.randomMessage(
-            streak: currentStreak,
-            treeType: currentTreeType,
-            treeProgress: treeProgress
-        )
-        content.sound = .default
-        content.categoryIdentifier = "GARDEN_REMINDER"
-        
-        var dateComponents = DateComponents()
-        dateComponents.hour = preferences.eveningHour
-        dateComponents.minute = preferences.eveningMinute
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: false)
-        let request = UNNotificationRequest(identifier: eveningNotificationID, content: content, trigger: trigger)
-        
-        do {
-            try await center.add(request)
-            print("✅ Evening notification scheduled for \(preferences.eveningHour):\(String(format: "%02d", preferences.eveningMinute))")
-        } catch {
-            print("❌ Failed to schedule evening notification: \(error)")
-        }
-    }
-    
-    // MARK: - Cancel Notifications
-    
+
+    // MARK: - Cancel Helpers
+
     func cancelAllNotifications() {
         center.removeAllPendingNotificationRequests()
         print("🔕 All notifications cancelled")
     }
-    
+
     func cancelEveningNotification() {
-        center.removePendingNotificationRequests(withIdentifiers: [eveningNotificationID])
-        print("🔕 Evening notification cancelled (user journaled today)")
+        // Legacy helper kept for call-site compatibility — now cancels today's second reminder
+        let dateKey = Self.dateKey(for: Date())
+        center.removePendingNotificationRequests(withIdentifiers: [secondReminderIDPrefix + dateKey])
     }
-    
+
+    /// Called when the user submits a journal entry — dismiss both today's reminders.
+    func cancelTodayRemindersAfterEntry() {
+        Task { await cancelTodaysReminders() }
+    }
+
+    private func cancelTodaysReminders() async {
+        let dateKey = Self.dateKey(for: Date())
+        center.removePendingNotificationRequests(withIdentifiers: [
+            firstReminderIDPrefix  + dateKey,
+            secondReminderIDPrefix + dateKey
+        ])
+    }
+
+    /// Prune pending notifications from previous days (they'll never fire usefully)
+    private func removeStalePendingNotifications() async {
+        let pending = await center.pendingNotificationRequests()
+        let todayKey = Self.dateKey(for: Date())
+
+        let staleIDs = pending
+            .map(\.identifier)
+            .filter { id in
+                (id.hasPrefix(firstReminderIDPrefix) || id.hasPrefix(secondReminderIDPrefix))
+                && !id.hasSuffix(todayKey)
+            }
+
+        if !staleIDs.isEmpty {
+            center.removePendingNotificationRequests(withIdentifiers: staleIDs)
+        }
+    }
+
     // MARK: - Snooze
-    
+
     func snoozeNotification(minutes: Int = 30) async {
         let content = UNMutableNotificationContent()
         content.title = "Pocket Forest 🌿"
-        content.body = "Your garden is still waiting for you. Just a few words?"
+        content.body = SnoozeMessages.random()
         content.sound = .default
         content.categoryIdentifier = "GARDEN_REMINDER"
-        
+
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(minutes * 60), repeats: false)
         let request = UNNotificationRequest(identifier: "garden.snooze", content: content, trigger: trigger)
-        
+
         do {
             try await center.add(request)
             print("✅ Snooze notification scheduled for \(minutes) minutes")
@@ -268,122 +253,124 @@ class NotificationService: ObservableObject {
             print("❌ Failed to schedule snooze notification: \(error)")
         }
     }
-}
 
-// MARK: - Morning Messages
+    // MARK: - Utilities
 
-private enum MorningMessages {
-    static let general = [
-        "Good morning! ☀️ Your garden is bathed in sunlight. Ready to plant today's seeds?",
-        "A new day, a new chance to grow 🌱 Time for reflection?",
-        "The morning dew has settled on your garden. How are you feeling today?",
-        "Rise and shine! Your peaceful garden awaits your visit 🌿",
-        "Good morning! A moment of reflection can set the tone for your whole day.",
-        "The sun is up and your garden is ready. How's your heart today? 💚",
-        "Morning light filters through the leaves. Take a breath and check in.",
-        "🌅 A fresh start awaits. Your garden grows with every word you share.",
-        "The birds are singing in your garden. Time for your morning reflection?",
-        "Good morning! Even a small seed of thought can grow into something beautiful.",
-        "Your garden has been waiting patiently. Ready to tend to your thoughts?",
-        "New day, new growth 🌻 What's blooming in your mind today?",
-        "The morning air is crisp in your garden. Perfect time for journaling.",
-        "🌞 Sunshine and self-care go hand in hand. How are you feeling?",
-        "Another beautiful day in your pocket forest. Time to check in?"
-    ]
-    
-    static let streakMessages = [
-        "🔥 %d days strong! Your garden is thriving. Keep the momentum going!",
-        "Day %d of your growth journey. Your garden is getting stronger!",
-        "%d days of consistent care 🌳 Your forest is flourishing!",
-        "Amazing! %d days in a row. Your dedication is beautiful to see.",
-        "Your %d-day streak is incredible! The garden thanks you 💚",
-        "%d days of growth! You're cultivating something special here."
-    ]
-    
-    static let treeMessages = [
-        "A new day, a new chance to grow. Your %@ is waiting 🌳",
-        "Your %@ could use some morning sunlight and care.",
-        "Good morning! Your %@ stretches toward the sun ☀️",
-        "Your %@ is growing beautifully. Time to nurture it today?",
-        "The %@ in your garden sways gently, waiting for you."
-    ]
-    
-    static func randomMessage(streak: Int, treeType: String?) -> String {
-        var pool: [String] = general
-        
-        // Add streak-specific messages if streak > 3
-        if streak > 3 {
-            let streakMsg = streakMessages.randomElement()!
-            pool.append(String(format: streakMsg, streak))
-        }
-        
-        // Add tree-specific messages if there's an active tree
-        if let tree = treeType {
-            let treeName = TreeType(rawValue: tree)?.name ?? "tree"
-            let treeMsg = treeMessages.randomElement()!
-            pool.append(String(format: treeMsg, treeName))
-        }
-        
-        return pool.randomElement() ?? general[0]
+    private static func dateKey(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
     }
 }
 
-// MARK: - Evening Messages
+// MARK: - Reminder Messages
 
-private enum EveningMessages {
-    static let general = [
-        "Your seedling could use some water before the day ends 💧",
-        "The garden is quiet tonight. A few words before bed?",
-        "Before the day closes, take a moment for yourself.",
-        "Your garden misses you. Even a brief visit helps it grow.",
-        "The evening breeze whispers through your garden. Time to reflect?",
-        "🌜 The moon is rising over your garden. How was your day?",
-        "Wind down with a moment of reflection. Your garden awaits.",
-        "The stars are coming out ✨ Perfect time for evening thoughts.",
-        "Before sleep, nurture your garden with a few gentle words.",
-        "Your plants are settling in for the night. Join them for a moment?",
-        "Evening peace awaits in your garden 🍃 Care to visit?",
-        "The day is winding down. Your garden is a safe space to reflect.",
-        "🌸 Soft evening light fills your garden. Time for a check-in?",
-        "One small entry before bed keeps your garden growing strong.",
-        "The fireflies are out in your garden tonight ✨ Come say hello?"
+private enum ReminderMessages {
+
+    // First reminder (~6 PM) — soft, encouraging, forward-looking
+    static let earlyEvening: [String] = [
+        "Hey, the garden's been waiting for you all day 🌿 How's your heart doing?",
+        "The evening light is beautiful right now. Come sit with your thoughts for a minute?",
+        "You've made it through the day — take a breath and tell your garden how it went 🍃",
+        "A little check-in before dinner? Your garden grows one honest moment at a time 🌱",
+        "The soft part of the day is here. How are you really doing?",
+        "Even a tiny entry keeps the roots strong 🌳 What's on your mind today?",
+        "Hey you — how was your day? Your garden wants to know 💚",
+        "Before the evening gets away from you, a quiet moment with your thoughts?",
+        "The trees in your garden stretch toward the last bit of sunlight. How are you feeling? 🌅",
+        "One honest sentence is all it takes. What do you want to remember about today?",
+        "Your garden misses your voice. Just a few words? 🌼",
+        "The day isn't over yet — there's still time to tend to yourself 🌿"
     ]
-    
-    static let streakAtRisk = [
-        "⏰ Your %d-day garden streak ends at midnight. Don't let it wilt!",
-        "Streak alert! 🔥 %d days of growth are on the line tonight.",
-        "Your %d-day streak needs one more watering before midnight 💧",
-        "Keep the flame alive! 🔥 Day %d is waiting for you.",
-        "Just a quick visit? Your %d-day streak is counting on you!",
-        "Your garden's %d-day streak is almost through another day! 🌟"
+
+    // Second reminder (~9 PM) — gentle, warm, nudging before bed
+    static let lateEvening: [String] = [
+        "Almost bedtime 🌙 Your garden is still here, soft and quiet, waiting for you.",
+        "Before you drift off — how was your day really? Just a little note 💫",
+        "The moon is up and your garden is peaceful. A few words before you rest?",
+        "Ending the day with a little reflection makes tomorrow feel lighter 🍃",
+        "Hey, it's getting late — don't let today go unnoticed. You matter 💚",
+        "Your garden keeps a safe space for you, even at night 🌙 Come say hi?",
+        "One small entry before bed keeps the streak alive and your heart a little lighter 🌱",
+        "The day is quieting down. Your thoughts deserve a home tonight ✨",
+        "Before sleep takes over — what was today's one thing worth remembering?",
+        "Even a rough day is worth noting. Your garden holds it without judgment 🌿",
+        "It's cozy in your garden tonight 🌙 What's on your heart before you sleep?",
+        "You made it through today. That's worth writing down, don't you think? 💛"
     ]
-    
-    static let treeProgress = [
-        "Your %@ has grown %d%% 🌱 One more watering to keep it healthy!",
-        "Your %@ is %d%% grown. A little care tonight?",
-        "The %@ in your garden is %d%% of the way there! 🌳",
-        "Almost there! Your %@ is at %d%% growth 💚",
-        "Your %@ needs just a bit more love — currently %d%% grown!"
+
+    // Streak-aware additions
+    static let streakEarly: [String] = [
+        "🔥 %d days in a row — your garden is glowing. Keep it going tonight?",
+        "Day %d of showing up for yourself. That's something to be proud of 💚",
+        "%d days strong! A quick check-in keeps that beautiful streak alive 🌱"
     ]
-    
-    static func randomMessage(streak: Int, treeType: String?, treeProgress: Double?) -> String {
-        var pool: [String] = general
-        
-        // Add streak-at-risk messages if streak > 3
-        if streak > 3 {
-            let riskMsg = streakAtRisk.randomElement()!
-            pool.append(String(format: riskMsg, streak))
+
+    static let streakLate: [String] = [
+        "Your %d-day streak ends at midnight — just a few words to keep it alive 🌙",
+        "Day %d is almost done. Don't let it slip away without a little note 💫",
+        "Almost midnight and your %d-day streak is still on the line 🔥 You've got this."
+    ]
+
+    // Tree-aware additions
+    static let treeEarly: [String] = [
+        "Your %@ has been soaking up the evening light. Ready to give it some love? 🌳",
+        "The %@ in your garden is growing beautifully — let's keep it that way 🌿"
+    ]
+
+    static let treeLate: [String] = [
+        "Your %@ is settling in for the night — one quick entry before you do too? 🌙",
+        "Almost time to sleep, and your %@ is %d%% of the way there. Just a little more 💚"
+    ]
+
+    static func randomMessage(
+        isFirstReminder: Bool,
+        streak: Int,
+        treeType: String?,
+        treeProgress: Double?
+    ) -> String {
+        var pool = isFirstReminder ? earlyEvening : lateEvening
+
+        // Weave in streak messages with 40% probability when streak > 3
+        if streak > 3, Bool.random() || Bool.random() {
+            let templates = isFirstReminder ? streakEarly : streakLate
+            if let template = templates.randomElement() {
+                pool.append(String(format: template, streak))
+            }
         }
-        
-        // Add tree progress messages if there's an active tree with progress
-        if let tree = treeType, let progress = treeProgress, progress > 0 && progress < 1 {
+
+        // Weave in tree messages when there's an active tree
+        if let tree = treeType {
             let treeName = TreeType(rawValue: tree)?.name ?? "tree"
-            let progressPercent = Int(progress * 100)
-            let progressMsg = self.treeProgress.randomElement()!
-            pool.append(String(format: progressMsg, treeName, progressPercent))
+            let templates = isFirstReminder ? treeEarly : treeLate
+
+            if let template = templates.randomElement() {
+                if template.contains("%d") {
+                    let pct = Int((treeProgress ?? 0) * 100)
+                    pool.append(String(format: template, treeName, pct))
+                } else {
+                    pool.append(String(format: template, treeName))
+                }
+            }
         }
-        
-        return pool.randomElement() ?? general[0]
+
+        return pool.randomElement() ?? pool[0]
+    }
+}
+
+// MARK: - Snooze Messages
+
+private enum SnoozeMessages {
+    static let messages = [
+        "Still here, still rooting for you 🌿 Ready when you are.",
+        "No rush — your garden waits patiently 🍃",
+        "Whenever you're ready, your thoughts have a home here 💚",
+        "Take your time. Your garden isn't going anywhere 🌱",
+        "Just a gentle reminder — your garden is here for you ✨"
+    ]
+
+    static func random() -> String {
+        messages.randomElement() ?? messages[0]
     }
 }
 
@@ -391,18 +378,17 @@ private enum EveningMessages {
 
 class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationDelegate()
-    
+
     var onNotificationTapped: (() -> Void)?
-    
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         willPresent notification: UNNotification,
         withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
     ) {
-        // Show notification even when app is in foreground
         completionHandler([.banner, .sound])
     }
-    
+
     func userNotificationCenter(
         _ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
@@ -410,19 +396,14 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     ) {
         switch response.actionIdentifier {
         case "JOURNAL_NOW", UNNotificationDefaultActionIdentifier:
-            // User tapped notification or "Journal Now" action
             onNotificationTapped?()
-            
         case "SNOOZE":
-            // Snooze for 30 minutes
             Task { @MainActor in
                 await NotificationService.shared.snoozeNotification(minutes: 30)
             }
-            
         default:
             break
         }
-        
         completionHandler()
     }
 }

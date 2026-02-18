@@ -14,6 +14,7 @@ struct GroundingTechniqueView: View {
     @State private var showIntro = true
     @State private var showContent = false
     @State private var showInfoSheet = false
+    @State private var isActive = true
     @Environment(\.dismiss) private var dismiss
     
     // Cohesive teal/cyan grounding theme
@@ -265,6 +266,9 @@ struct GroundingTechniqueView: View {
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                 showContent = true
             }
+        }
+        .onDisappear {
+            isActive = false
         }
         .sheet(isPresented: $showInfoSheet) {
             groundingInfoSheet
@@ -595,9 +599,10 @@ struct GroundingTechniqueView: View {
                     bubbleScales[index] = 1.3
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                    guard self.isActive else { return }
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                        if bubbleScales.indices.contains(index) {
-                            bubbleScales[index] = 1.0
+                        if self.bubbleScales.indices.contains(index) {
+                            self.bubbleScales[index] = 1.0
                         }
                     }
                 }
@@ -608,7 +613,8 @@ struct GroundingTechniqueView: View {
             if itemsCompletedForStep >= step.count {
                 // Delay before moving to next step for visual feedback
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-                    nextStep()
+                    guard self.isActive else { return }
+                    self.nextStep()
                 }
             }
         }
