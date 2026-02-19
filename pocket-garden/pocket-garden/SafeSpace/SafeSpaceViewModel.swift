@@ -21,6 +21,10 @@ class SafeSpaceViewModel {
     // Model context for persistence
     private var modelContext: ModelContext?
 
+    // Tracks which sound was playing before the app became inactive,
+    // so the icon state and audio can be restored when returning.
+    private var soundBeforeInactive: AmbientSoundType? = nil
+
     init(modelContext: ModelContext? = nil) {
         self.modelContext = modelContext
         
@@ -78,19 +82,39 @@ class SafeSpaceViewModel {
         endSession()
     }
 
+    /// Called when the user switches away from the Sanctuary tab.
+    /// Stops audio immediately and clears the icon state so sound buttons
+    /// don't appear active (green) while audio is not playing.
+    /// Unlike handleScenePhaseChange(.inactive), this does NOT save the sound
+    /// for restoration — switching tabs is a deliberate action, not an interruption.
+    func handleTabDeselected() {
+        ambientSoundService.stop()
+        selectedAmbientSound = nil
+        // Also clear the restoration slot so a future app-resume doesn't
+        // unexpectedly restart music the user has already left behind.
+        soundBeforeInactive = nil
+    }
+
     // Handle app lifecycle changes
     func handleScenePhaseChange(_ phase: ScenePhase) {
         switch phase {
         case .background:
-            // Immediately stop audio when app goes to background (no fade)
+            // Immediately stop audio — clear icon state so it reflects reality
             ambientSoundService.stopImmediate()
+            soundBeforeInactive = nil
+            selectedAmbientSound = nil
         case .inactive:
-            // Immediately stop when app becomes inactive (smooth transitions)
+            // Save which sound was on so we can restore it when the app comes back,
+            // then clear the icon immediately so it shows as off while audio is stopped.
+            soundBeforeInactive = selectedAmbientSound
+            selectedAmbientSound = nil
             ambientSoundService.stopImmediate()
         case .active:
-            // Resume with fade-in if a sound was selected and we're in a session
-            if let sound = selectedAmbientSound, currentSession != nil {
+            // Resume the sound that was playing before the app became inactive
+            if let sound = soundBeforeInactive, currentSession != nil {
+                selectedAmbientSound = sound
                 ambientSoundService.play(sound) // Already fades in
+                soundBeforeInactive = nil
             }
         @unknown default:
             break

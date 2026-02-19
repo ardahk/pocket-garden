@@ -1,9 +1,13 @@
 import SwiftUI
 import UserNotifications
+import Inject
 
 struct OnboardingView: View {
+    @ObserveInjection var inject
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("userFirstName") private var userFirstName = ""
     @State private var currentPage = 0
+    @State private var enteredFirstName = ""
 
     // Feature Pages
     private let features: [OnboardingFeature] = [
@@ -48,6 +52,13 @@ struct OnboardingView: View {
             description: "Everything stays on your iPhone. No accounts, no cloud, no internet needed. Not even Apple can see your data.",
             color: Color(red: 0.55, green: 0.65, blue: 0.85), // Soft blue for trust
             mascotImage: "panda_supportive"
+        ),
+        OnboardingFeature(
+            type: .name,
+            title: "What should I call you?",
+            description: "Before we begin, share your first name so Bumblebee can keep feedback personal.",
+            color: .accentGold,
+            mascotImage: "panda_supportive"
         )
     ]
 
@@ -66,7 +77,7 @@ struct OnboardingView: View {
                 // Pages
                 TabView(selection: $currentPage) {
                     ForEach(0..<features.count, id: \.self) { index in
-                        OnboardingPageView(feature: features[index])
+                        OnboardingPageView(feature: features[index], enteredFirstName: $enteredFirstName)
                             .tag(index)
                     }
                 }
@@ -88,6 +99,13 @@ struct OnboardingView: View {
                     // Buttons
                     VStack(spacing: 16) {
                         Button {
+                            if features[currentPage].type == .name {
+                                let trimmedName = sanitizeName(enteredFirstName)
+                                guard !trimmedName.isEmpty else { return }
+                                enteredFirstName = trimmedName
+                                userFirstName = trimmedName
+                            }
+
                             withAnimation {
                                 if currentPage < features.count - 1 {
                                     currentPage += 1
@@ -108,6 +126,8 @@ struct OnboardingView: View {
                                 )
                         }
                         .buttonStyle(.plain) // flat button, no extra shadow
+                        .opacity(isCurrentStepValid ? 1.0 : 0.55)
+                        .disabled(!isCurrentStepValid)
 
                     }
                     .padding(.horizontal, 24)
@@ -115,6 +135,25 @@ struct OnboardingView: View {
                 .padding(.bottom, 20)
             }
         }
+        .onAppear {
+            enteredFirstName = userFirstName
+        }
+        .enableInjection()
+    }
+
+    private var isCurrentStepValid: Bool {
+        if features[currentPage].type == .name {
+            return !sanitizeName(enteredFirstName).isEmpty
+        }
+        return true
+    }
+
+    private func sanitizeName(_ raw: String) -> String {
+        raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
 
     private func completeOnboarding() {
@@ -130,6 +169,7 @@ struct OnboardingView: View {
 
 enum FeatureType {
     case welcome
+    case name
     case journal
     case sanctuary
     case forest
@@ -148,7 +188,13 @@ struct OnboardingFeature {
 // MARK: - Page View
 
 struct OnboardingPageView: View {
+    @ObserveInjection var inject
     let feature: OnboardingFeature
+    @Binding var enteredFirstName: String
+
+    private var isNameStep: Bool {
+        feature.type == .name
+    }
     
     // Mascot positioning varies by feature type
     private var mascotOffset: CGSize {
@@ -165,25 +211,98 @@ struct OnboardingPageView: View {
         switch feature.type {
         case .privacy:
             return 120 // Slightly smaller for privacy screen
+        case .name:
+            return 0
         default:
             return 140
         }
     }
 
     var body: some View {
+        if isNameStep {
+            nameStepBody
+        } else {
+            regularStepBody
+        }
+    }
+
+    // MARK: Name Step — matches other pages' visual language
+    private var nameStepBody: some View {
+        GeometryReader { geo in
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+
+                // Bee visual — same role as the phone frame on other pages
+                NameBeeVisual()
+                    .frame(height: min(geo.size.height * 0.38, 300))
+
+                Spacer(minLength: 0)
+
+                // Title + description + input
+                VStack(spacing: 12) {
+                    Text(feature.title)
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+
+                    Text(feature.description)
+                        .font(.body)
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .padding(.horizontal, 32)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("First name")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Color.textSecondary)
+
+                        TextField("e.g. Arda", text: $enteredFirstName)
+                            .textInputAutocapitalization(.words)
+                            .disableAutocorrection(true)
+                            .submitLabel(.done)
+                            .font(.system(size: 17, weight: .medium, design: .rounded))
+                            .foregroundStyle(Color.textPrimary)
+                            .padding(.horizontal, 16)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.cardBackground)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .stroke(feature.color.opacity(0.3), lineWidth: 1.5)
+                                    )
+                            )
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 24)
+                    .padding(.top, 4)
+                }
+
+                Spacer(minLength: 0)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+        }
+        .enableInjection()
+    }
+
+    // MARK: Regular Step — unchanged layout
+    private var regularStepBody: some View {
         VStack(spacing: 24) {
             Spacer()
 
-            // Feature preview card + mascot
             ZStack(alignment: .bottom) {
                 if feature.type == .welcome {
-                    // Welcome page has a special layout without phone frame
                     WelcomeMockView()
                 } else {
                     MockPhoneFrame {
                         switch feature.type {
                         case .welcome:
-                            EmptyView() // Handled above
+                            EmptyView()
+                        case .name:
+                            EmptyView()
                         case .journal:
                             JournalMockView()
                         case .sanctuary:
@@ -197,8 +316,7 @@ struct OnboardingPageView: View {
                         }
                     }
                     .padding(.bottom, 40)
-                    
-                    // Mascot overlay (not shown for welcome - it has its own)
+
                     Image(feature.mascotImage)
                         .resizable()
                         .scaledToFit()
@@ -208,7 +326,6 @@ struct OnboardingPageView: View {
             }
             .frame(height: 420)
 
-            // Text content
             VStack(spacing: 12) {
                 Text(feature.title)
                     .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -227,6 +344,7 @@ struct OnboardingPageView: View {
             Spacer()
         }
         .padding(.top, 20)
+        .enableInjection()
     }
 }
 
@@ -375,6 +493,53 @@ struct WelcomeMockView: View {
                 floatOffset = -10
             }
         }
+    }
+}
+
+struct NameBeeVisual: View {
+    @ObserveInjection var inject
+    @State private var floatOffset: CGFloat = 0
+    @State private var glowScale: CGFloat = 1.0
+
+    var body: some View {
+        ZStack {
+            // Outer soft glow — matches WelcomeMockView's radial gradient style
+            Circle()
+                .fill(
+                    RadialGradient(
+                        colors: [
+                            Color.accentGold.opacity(0.22),
+                            Color.accentGold.opacity(0.08),
+                            Color.clear
+                        ],
+                        center: .center,
+                        startRadius: 40,
+                        endRadius: 160
+                    )
+                )
+                .frame(width: 320, height: 320)
+                .scaleEffect(glowScale)
+                .animation(.easeInOut(duration: 2.5).repeatForever(autoreverses: true), value: glowScale)
+
+            // Inner circle background
+            Circle()
+                .fill(Color.accentGold.opacity(0.14))
+                .frame(width: 180, height: 180)
+
+            // Bee mascot
+            Image("panda_supportive")
+                .resizable()
+                .scaledToFit()
+                .frame(height: 150)
+                .offset(y: floatOffset)
+        }
+        .onAppear {
+            glowScale = 1.15
+            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) {
+                floatOffset = -10
+            }
+        }
+        .enableInjection()
     }
 }
 

@@ -13,6 +13,7 @@ import FoundationModels
 
 class QuoteService {
     private var allQuotes: [QuoteData] = []
+    private let maxQuoteWordCount = 40
     
     init() {
         loadQuotes()
@@ -39,7 +40,9 @@ class QuoteService {
             let components = parseCSVLine(line)
             guard components.count >= 2 else { continue }
             
-            let quote = QuoteData(category: components[0], quote: components[1])
+            let quoteText = components[1]
+            guard wordCount(in: quoteText) <= maxQuoteWordCount else { continue }
+            let quote = QuoteData(category: components[0], quote: quoteText)
             allQuotes.append(quote)
         }
         
@@ -67,6 +70,12 @@ class QuoteService {
         }
         
         return result
+    }
+
+    private func wordCount(in text: String) -> Int {
+        text
+            .split { $0.isWhitespace }
+            .count
     }
     
     // MARK: - Daily Quote Selection

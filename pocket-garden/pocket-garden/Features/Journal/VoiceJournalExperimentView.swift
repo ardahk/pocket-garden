@@ -68,6 +68,10 @@ struct VoiceJournalExperimentView: View {
     @State private var isGeneratingFeedback = false
     @State private var showMascotFeedback = false
     @State private var savedEntry: EmotionEntry?
+    /// True when the entry being saved is the first one for today.
+    /// Used to decide whether to show a watering animation (first entry)
+    /// or a bee celebration animation (second+ entry) in the feedback screen.
+    @State private var isFirstEntryToday = true
     @State private var previousTranscription: String = "" // For appending mode
     @State private var saveAudioAsFavorite: Bool = false
     
@@ -249,9 +253,9 @@ struct VoiceJournalExperimentView: View {
         }
         .fullScreenCover(isPresented: $showMascotFeedback) {
             if let entry = savedEntry {
-                MascotFeedbackView(entry: entry) {
+                MascotFeedbackView(entry: entry, isFirstEntryToday: isFirstEntryToday) {
                     showMascotFeedback = false
-                    
+
                     // If no tree exists (or all fully grown), show tree selection before completing
                     if !hasGrowingTree && PendingTreePlanting.shared.pendingTreeType == nil {
                         // Small delay to let the cover dismiss
@@ -262,6 +266,13 @@ struct VoiceJournalExperimentView: View {
                         dismiss()
                         // Call completion callback to switch to garden tab
                         onComplete?()
+                        // For 2nd+ entries, post bee animation notification after a short
+                        // delay so the tab-switch animation completes before bees appear.
+                        if !isFirstEntryToday {
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                                NotificationCenter.default.post(name: .showBeeAnimationInGarden, object: nil)
+                            }
+                        }
                     }
                 }
             }
@@ -1344,13 +1355,21 @@ struct VoiceJournalExperimentView: View {
         let shouldFavorite = saveAudioAsFavorite
         let shouldSaveAudio = saveAudioAsFavorite && recordingSeconds <= 300
 
+        // Determine before inserting whether this is the first entry today.
+        // allEntries is sorted newest-first; if any existing entry is from today,
+        // this will be a second+ entry and the tree is already watered.
+        let hasExistingEntryToday = allEntries.contains {
+            Calendar.current.isDateInToday($0.date)
+        }
+        isFirstEntryToday = !hasExistingEntryToday
+
         let entry = EmotionEntry(
             emotionRating: emotionRating,
             date: Date(),
             transcription: transcription().isEmpty ? nil : transcription()
         )
         entry.isFavorite = shouldFavorite
-        
+
         modelContext.insert(entry)
         
         do {

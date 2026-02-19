@@ -141,6 +141,14 @@ final class DataImportService {
     func importData(_ exportData: ExportData, to context: ModelContext) throws {
         // First, clear all existing data
         try clearAllData(from: context)
+
+        // Restore Bumblebee personalization if present in export
+        if let exportedName = exportData.userFirstName {
+            let trimmedName = sanitizeName(exportedName)
+            if !trimmedName.isEmpty {
+                UserDefaults.standard.set(trimmedName, forKey: "userFirstName")
+            }
+        }
         
         // Import Emotion Entries
         for exportEntry in exportData.entries {
@@ -270,7 +278,7 @@ final class DataImportService {
             modelContext: context
         )
     }
-    
+
     private func calculateStreak(entries: [EmotionEntry]) -> Int {
         var streak = 0
         let calendar = Calendar.current
@@ -278,7 +286,7 @@ final class DataImportService {
         let hasEntryToday = entries.contains { calendar.isDate($0.date, inSameDayAs: today) }
         let startDay = hasEntryToday ? 0 : 1
         let maxDaysToCheck = entries.count + 1
-        
+
         for i in startDay..<maxDaysToCheck {
             guard let expectedDate = calendar.date(byAdding: .day, value: -i, to: today) else { break }
             if entries.first(where: { calendar.isDate($0.date, inSameDayAs: expectedDate) }) != nil {
@@ -287,8 +295,15 @@ final class DataImportService {
                 break
             }
         }
-        
+
         return streak
     }
-}
 
+    private func sanitizeName(_ raw: String) -> String {
+        raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+}

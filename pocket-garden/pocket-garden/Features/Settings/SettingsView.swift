@@ -8,12 +8,16 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import Inject
 
 struct SettingsView: View {
+    @ObserveInjection var inject
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
     @StateObject private var notificationService = NotificationService.shared
+    @AppStorage("userFirstName") private var userFirstName = ""
+    @State private var editableFirstName = ""
     
     @State private var showExportSheet = false
     @State private var isExporting = false
@@ -43,6 +47,9 @@ struct SettingsView: View {
                 
                 ScrollView {
                     VStack(spacing: Spacing.xl) {
+                        // Bumblebee personalization
+                        personalizationSection
+
                         // Notifications Section
                         notificationsSection
                         
@@ -193,14 +200,16 @@ struct SettingsView: View {
             }
         }
         .onAppear {
-            // Sync notification toggle with actual authorization status
+            editableFirstName = userFirstName
             Task {
                 await notificationService.checkAuthorizationStatus()
-                if notificationService.authorizationStatus == .denied {
-                    notificationService.preferences.notificationsEnabled = false
-                }
+                syncNotificationToggleWithSystemStatus()
             }
         }
+        .onChange(of: notificationService.authorizationStatus) { _, _ in
+            syncNotificationToggleWithSystemStatus()
+        }
+        .enableInjection()
     }
     
     // MARK: - Delete Warning Overlay
@@ -425,6 +434,66 @@ struct SettingsView: View {
     
     // MARK: - Notifications Section
 
+    private var personalizationSection: some View {
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Label("Name", systemImage: "person.fill")
+                .font(Typography.headline)
+                .foregroundColor(.textPrimary)
+
+            Card {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    Text("What should Bumblebee call you?")
+                        .font(Typography.body)
+                        .foregroundColor(.textPrimary)
+
+                    TextField("First name", text: $editableFirstName)
+                        .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
+                        .submitLabel(.done)
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                        .padding(.horizontal, 14)
+                        .frame(height: 50)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.backgroundCream)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(Color.primaryGreen.opacity(0.2), lineWidth: 1)
+                                )
+                        )
+
+                    if hasNameChanges {
+                        Button(action: {
+                            let trimmed = sanitizeName(editableFirstName)
+                            guard !trimmed.isEmpty else { return }
+                            editableFirstName = trimmed
+                            userFirstName = trimmed
+                            Theme.Haptics.success()
+                        }) {
+                            Text("Save Name")
+                                .font(Typography.buttonSmall)
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 48)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.primaryGreen)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!isNameInputValid)
+                        .opacity(isNameInputValid ? 1 : 0.55)
+                    }
+
+                    Text("Used only on this device to personalize Bumblebee feedback.")
+                        .font(Typography.caption)
+                        .foregroundColor(.textSecondary)
+                }
+            }
+        }
+    }
+
     private var notificationsSection: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             Label("Reminders", systemImage: "bell.fill")
@@ -434,7 +503,9 @@ struct SettingsView: View {
             Card {
                 VStack(spacing: Spacing.lg) {
                     Toggle(isOn: Binding(
-                        get: { notificationService.preferences.notificationsEnabled },
+                        get: {
+                            notificationService.preferences.notificationsEnabled && canDeliverNotifications
+                        },
                         set: { newValue in
                             if newValue {
                                 Task {
@@ -442,12 +513,20 @@ struct SettingsView: View {
 
                                     if notificationService.authorizationStatus == .denied {
                                         await MainActor.run {
+                                            notificationService.preferences.notificationsEnabled = false
                                             showNotificationSettingsAlert = true
                                         }
                                     } else {
                                         let granted = await notificationService.requestAuthorization()
+                                        await notificationService.checkAuthorizationStatus()
                                         await MainActor.run {
                                             notificationService.preferences.notificationsEnabled = granted
+                                            if !granted {
+                                                notificationService.cancelAllNotifications()
+                                                if notificationService.authorizationStatus == .denied {
+                                                    showNotificationSettingsAlert = true
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -479,20 +558,6 @@ struct SettingsView: View {
                     }
                     .tint(.primaryGreen)
 
-                    if notificationService.preferences.notificationsEnabled {
-                        Divider()
-
-                        HStack(alignment: .top, spacing: Spacing.sm) {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 12))
-                                .foregroundColor(.textSecondary)
-                                .padding(.top, 1)
-                            Text("Two gentle reminders — around 6 PM and 9 PM — on any day you haven't checked in yet. No reminder on days you've already journaled.")
-                                .font(Typography.caption)
-                                .foregroundColor(.textSecondary)
-                        }
-                        .padding(.top, Spacing.xs)
-                    }
                 }
             }
         }
@@ -573,18 +638,6 @@ struct SettingsView: View {
                 .foregroundColor(.textPrimary)
             
             VStack(spacing: Spacing.md) {
-                // Access
-                SettingsRow(
-                    icon: "eye.fill",
-                    iconColor: .primaryGreen,
-                    title: "Access Your Data",
-                    description: "View all your journal entries in the History tab"
-                ) {
-                    // Just informational - dismiss and user can go to History
-                    Theme.Haptics.light()
-                    dismiss()
-                }
-                
                 // Export
                 SettingsRow(
                     icon: "square.and.arrow.up.fill",
@@ -638,6 +691,39 @@ struct SettingsView: View {
             return "\(formatter.string(from: oldest)) - \(formatter.string(from: newest))"
         }
         return "No entries"
+    }
+
+    private var isNameInputValid: Bool {
+        !sanitizeName(editableFirstName).isEmpty
+    }
+
+    private var hasNameChanges: Bool {
+        sanitizeName(editableFirstName) != sanitizeName(userFirstName)
+    }
+
+    private var canDeliverNotifications: Bool {
+        switch notificationService.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            return true
+        case .denied, .notDetermined:
+            return false
+        @unknown default:
+            return false
+        }
+    }
+
+    private func syncNotificationToggleWithSystemStatus() {
+        if !canDeliverNotifications {
+            notificationService.preferences.notificationsEnabled = false
+        }
+    }
+
+    private func sanitizeName(_ raw: String) -> String {
+        raw
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .whitespacesAndNewlines)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
     }
     
     private func exportData() {
@@ -709,10 +795,12 @@ struct SettingsView: View {
             if Task.isCancelled { return }
 
             // Create export with placeholder signature
+            let trimmedName = sanitizeName(userFirstName)
             var export = ExportData(
                 exportDate: Date(),
                 appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
                 signature: "", // Placeholder
+                userFirstName: trimmedName.isEmpty ? nil : trimmedName,
                 entries: exportEntries,
                 trees: exportTrees,
                 worryTreeEntries: exportWorryEntries
@@ -855,11 +943,11 @@ struct SettingsView: View {
             } catch let error as DataImportService.ImportError {
                 switch error {
                 case .signatureValidationFailed:
-                    importErrorMessage = "This file was not exported from Pocket Forest or has been modified."
+                    importErrorMessage = "This file doesn't appear to be a valid Pocket Forest export. You can only import files that were exported directly from this app."
                 case .invalidFile:
-                    importErrorMessage = "Unable to read this file. Please ensure it's a valid Pocket Forest export."
+                    importErrorMessage = "Couldn't read this file. Make sure you're importing a file that was exported from Pocket Forest."
                 case .corruptedData:
-                    importErrorMessage = "The export file appears to be corrupted or contains invalid data."
+                    importErrorMessage = "This export file appears to be corrupted. Please try exporting again from the original device."
                 case .incompatibleVersion:
                     importErrorMessage = "This export was created with an incompatible version of Pocket Forest."
                 case .importFailed(let message):
@@ -867,7 +955,7 @@ struct SettingsView: View {
                 }
                 showImportError = true
             } catch {
-                importErrorMessage = "Unable to read this file. Please ensure it's a valid Pocket Forest export."
+                importErrorMessage = "Couldn't import this file. Only files exported from Pocket Forest can be imported."
                 showImportError = true
             }
             
@@ -968,7 +1056,6 @@ struct SettingsRow: View {
             .cornerRadius(CornerRadius.md)
         }
         .buttonStyle(.plain)
-        .pressAnimation()
     }
 }
 
@@ -978,6 +1065,7 @@ struct ExportData: Codable {
     let exportDate: Date
     let appVersion: String
     var signature: String // HMAC-SHA256 signature (mutable for signing process)
+    let userFirstName: String?
     let entries: [ExportEntry]
     let trees: [ExportTree]
     // NOTE: Achievements are NOT exported/imported because they:

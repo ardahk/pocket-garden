@@ -19,6 +19,7 @@ struct ForestGardenViewRedesigned: View {
     @State private var currentTree: GrowingTree?
     @State private var showPlantingAnimation = false
     @State private var showWateringAnimation = false
+    @State private var showBeeAnimation = false
     @State private var showTreeSelection = false
     @State private var selectedTreeType: TreeType = .oak
     @State private var showTreeInfo = false
@@ -57,7 +58,12 @@ struct ForestGardenViewRedesigned: View {
                 WateringAnimationView()
                     .transition(.opacity)
             }
-            
+
+            if showBeeAnimation {
+                BeeTransitionOverlay()
+                    .transition(.opacity)
+            }
+
             // Stats overlay
             statsOverlay
         }
@@ -96,6 +102,14 @@ struct ForestGardenViewRedesigned: View {
             loadCurrentTree()
             checkForWatering()
             checkForPendingPlanting()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showBeeAnimationInGarden)) { _ in
+            // No deepLink — just celebrate
+            showBeeAnimationBriefly()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToGardenThenSanctuary)) { _ in
+            // DeepLink was stored in PendingDeepLink.shared before this notification was posted
+            showBeeAnimationBriefly()
         }
         .onChange(of: pendingPlanting.pendingTreeType) { _, newType in
             // When pending tree type changes while view is visible
@@ -377,6 +391,22 @@ struct ForestGardenViewRedesigned: View {
         }
     }
     
+    /// Shows the bee celebration animation on the Garden screen for ~4.5 seconds.
+    /// If `PendingDeepLink.shared.pendingLink` is set when the animation ends,
+    /// posts `.navigateToSanctuaryActivity` to switch tabs — SafeSpaceView will
+    /// react to the @Published pendingLink and open the correct activity sheet.
+    private func showBeeAnimationBriefly() {
+        withAnimation(.easeIn(duration: 0.35)) { showBeeAnimation = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+            withAnimation(.easeOut(duration: 1.2)) { showBeeAnimation = false }
+            // Only switch tabs if there is a deep-link waiting
+            guard PendingDeepLink.shared.pendingLink != nil else { return }
+            // Switch to Sanctuary tab — SafeSpaceView observes pendingLink and
+            // will open the activity sheet once the tab is active.
+            NotificationCenter.default.post(name: .navigateToSanctuaryActivity, object: nil)
+        }
+    }
+
     private func plantNewTree(type: TreeType) {
         // Check if user has journaled today before allowing planting
         guard hasJournaledToday else {
@@ -446,6 +476,11 @@ struct ForestGardenViewRedesigned: View {
             // user dismisses their first achievement popup
             if isFirstTree && !self.hasRequestedNotifications {
                 AchievementManager.shared.onAchievementDismissed = {
+                    if PendingDeepLink.shared.pendingLink != nil {
+                        NotificationPromptCoordinator.shared.deferRequestUntilSanctuaryCompletion()
+                        return
+                    }
+
                     // Wait 5 seconds after user dismisses achievement before showing notification request
                     DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
                         Task {
@@ -837,6 +872,15 @@ extension Notification.Name {
 class PendingTreePlanting: ObservableObject {
     static let shared = PendingTreePlanting()
     @Published var pendingTreeType: TreeType?
+}
+
+// MARK: - Pending Deep Link Storage
+/// Holds a SanctuaryDeepLink to open once the Sanctuary tab becomes active.
+/// ObservableObject so SafeSpaceView can react to changes without polling or timers.
+class PendingDeepLink: ObservableObject {
+    static let shared = PendingDeepLink()
+    @Published var pendingLink: SanctuaryDeepLink? = nil
+    private init() {}
 }
 
 struct TreeTypeCard: View {

@@ -115,14 +115,23 @@ extension CalmActivity {
         type: .nameAndSoothe
     )
 
-    static let allActivities: [CalmActivity] = [
+    /// The only practices currently active in Sanctuary and recommended by Bumblebee.
+    static let activeActivities: [CalmActivity] = [
         breathingExercise,
         groundingTechnique,
         bodyScan,
         gentleAffirmations,
         worryTree,
-        butterflyHug,
-        visualization,
         nameAndSoothe
     ]
+
+    /// Legacy practices kept for potential future reactivation.
+    /// They are currently inactive and should not be surfaced by Bumblebee.
+    static let inactiveActivities: [CalmActivity] = [
+        butterflyHug,
+        visualization
+    ]
+
+    /// Full internal catalog (active + inactive).
+    static let allActivities: [CalmActivity] = activeActivities + inactiveActivities
 }

@@ -11,76 +11,67 @@ struct SafeSpaceView: View {
 
     @State private var viewModel: SafeSpaceViewModel
     @State private var selectedActivity: CalmActivity?
-    
-    private let isEmbedded: Bool
+    /// Breathing pattern to use when a deep-link launches a breathing activity.
+    @State private var deepLinkBreathingPattern: BreathingPattern? = nil
+    @ObservedObject private var pendingDeepLink = PendingDeepLink.shared
+    /// The currently selected tab in MainTabView.
+    @Binding private var selectedTab: Int
 
-    init(modelContext: ModelContext? = nil, isEmbedded: Bool = false) {
+    private let isEmbedded: Bool
+    private static let sanctuaryTabIndex = 2
+
+    init(modelContext: ModelContext? = nil, isEmbedded: Bool = false,
+         selectedTab: Binding<Int> = .constant(SafeSpaceView.sanctuaryTabIndex)) {
         _viewModel = State(initialValue: SafeSpaceViewModel(modelContext: modelContext))
         self.isEmbedded = isEmbedded
+        self._selectedTab = selectedTab
     }
 
     var body: some View {
         NavigationStack {
-            GeometryReader { proxy in
-                let screenHeight = proxy.size.height
-                let isCompactHeight = screenHeight < 700
-                let isTallScreen = screenHeight > 850
-                
-                // Dynamic spacing based on screen size
-                let sectionSpacing: CGFloat = isCompactHeight ? 14 : (isTallScreen ? 24 : 18)
-                
-                ZStack {
-                    // Background stays fixed while content slides
-                    LinearGradient(
-                        colors: [
-                            Color.backgroundCream,
-                            Color.emotionCalm.opacity(0.15)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .ignoresSafeArea()
-                    
-                    // Single-page content (no scroll)
-                    VStack(spacing: sectionSpacing) {
+            ZStack {
+                // Background
+                LinearGradient(
+                    colors: [
+                        Color.backgroundCream,
+                        Color.emotionCalm.opacity(0.15)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 20) {
                         // Drag indicator (only for sheet presentation)
                         if !isEmbedded {
                             Capsule()
                                 .fill(Color.textSecondary.opacity(0.35))
                                 .frame(width: 40, height: 5)
-                                .padding(.top, 6)
+                                .padding(.top, 8)
                         }
-                        
+
                         // Header
                         VStack(spacing: 6) {
                             Text("Sanctuary")
-                                .font(.system(size: isCompactHeight ? 24 : 28, weight: .bold))
+                                .font(.system(size: 28, weight: .bold))
                                 .foregroundStyle(Color.textPrimary)
-                            
+
                             Text("A quiet place to pause and reset")
                                 .font(.subheadline)
                                 .foregroundStyle(Color.textSecondary)
                         }
-                        
-                        // Main content
-                        VStack(spacing: sectionSpacing) {
-                            // Ambient sounds
-                            ambientSoundsSection
-                            
-                            // Quick practices Grid
-                            quickPracticesSection
-                        }
-                        
-                        Spacer(minLength: 0)
+                        .padding(.top, isEmbedded ? 16 : 8)
+
+                        // Ambient sounds
+                        ambientSoundsSection
+
+                        // Quick practices Grid
+                        quickPracticesSection
                     }
                     .padding(.horizontal, 20)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .clipped() // Prevent content from overflowing and causing scroll glitches
-                    .onAppear {
-                        // Disable scroll bounce and overscroll to prevent glitches
-                        UIScrollView.appearance().bounces = false
-                        UIScrollView.appearance().alwaysBounceVertical = false
-                    }
+                    .padding(.bottom, 32)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .toolbar {
@@ -100,12 +91,28 @@ struct SafeSpaceView: View {
             }
             .onAppear {
                 viewModel.startSession(fromEmergency: true)
+                consumePendingDeepLinkIfNeeded(for: selectedTab)
             }
             .onDisappear {
                 viewModel.cleanup()
             }
             .onChange(of: scenePhase) { _, newPhase in
                 viewModel.handleScenePhaseChange(newPhase)
+            }
+            // Handle tab switches for audio state.
+            .onChange(of: selectedTab) { _, newTab in
+                if newTab != SafeSpaceView.sanctuaryTabIndex {
+                    viewModel.handleTabDeselected()
+                    if NotificationPromptCoordinator.shared.hasDeferredRequest,
+                       selectedActivity == nil {
+                        NotificationPromptCoordinator.shared.cancelDeferredRequest()
+                    }
+                } else {
+                    consumePendingDeepLinkIfNeeded(for: newTab)
+                }
+            }
+            .onChange(of: pendingDeepLink.pendingLink) { _, _ in
+                consumePendingDeepLinkIfNeeded(for: selectedTab)
             }
             .sheet(item: $selectedActivity) { activity in
                 activitySheet(for: activity)
@@ -147,10 +154,7 @@ struct SafeSpaceView: View {
                 .foregroundStyle(Color.textPrimary)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 16) {
-                // Hide Butterfly Hug and Safe Place from the Sanctuary quick practices
-                ForEach(CalmActivity.allActivities.filter { activity in
-                    activity.type != .butterflyHug && activity.type != .visualization
-                }) { activity in
+                ForEach(CalmActivity.activeActivities) { activity in
                     PracticeGridCard(activity: activity) {
                         selectedActivity = activity
                         viewModel.startActivity(activity)
@@ -161,66 +165,103 @@ struct SafeSpaceView: View {
     }
 
     // MARK: - Activity Sheet
+    //
+    // ⚠️  When adding a new Sanctuary activity:
+    //   1. Add its ActivityType case in CalmActivity.swift.
+    //   2. Add a `case .yourType:` here that presents the correct view.
+    //   3. Add matching entries in `allSanctuaryDeepLinks` in GardenMascot.swift.
+    //   4. Add the activity name + description to `sanctuaryItems` in GardenMascot.swift.
+    //   See the full checklist at the top of `allSanctuaryDeepLinks`.
 
     @ViewBuilder
     private func activitySheet(for activity: CalmActivity) -> some View {
         switch activity.type {
         case .breathing:
             BreathingExerciseView(
-                pattern: .boxBreathing,
+                pattern: deepLinkBreathingPattern ?? .boxBreathing,
                 duration: activity.duration
             ) {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity, shouldResetBreathingPattern: true)
             }
 
         case .grounding:
             GroundingTechniqueView {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity, shouldResetBreathingPattern: true)
             }
 
         case .bodyScan:
             BodyScanView {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity)
             }
 
         case .affirmations:
             AffirmationsView(duration: activity.duration) {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity)
             }
             
         case .worryTree:
             WorryTreeView {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity)
             }
             
         case .butterflyHug:
             ButterflyHugView(duration: activity.duration) {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity)
             }
             
         case .visualization:
             SafePlaceView(duration: activity.duration) {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity)
             }
         
         case .nameAndSoothe:
             ThreeGoodMomentsView(duration: activity.duration) {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity)
             }
 
         case .lovingKindness:
             PlaceholderActivityView(activity: activity) {
-                viewModel.completeActivity(activity)
-                selectedActivity = nil
+                completeActivityAndHandleDeferredNotification(activity)
             }
+        }
+    }
+
+    private func consumePendingDeepLinkIfNeeded(for tab: Int) {
+        guard tab == SafeSpaceView.sanctuaryTabIndex else { return }
+        guard selectedActivity == nil else { return }
+        guard let deepLink = pendingDeepLink.pendingLink else { return }
+        guard let activity = CalmActivity.activeActivities.first(where: { $0.type == deepLink.activityType }) else {
+            pendingDeepLink.pendingLink = nil
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            guard self.selectedTab == SafeSpaceView.sanctuaryTabIndex else { return }
+            guard self.selectedActivity == nil else { return }
+            guard self.pendingDeepLink.pendingLink == deepLink else { return }
+
+            self.pendingDeepLink.pendingLink = nil
+            self.deepLinkBreathingPattern = deepLink.breathingPattern
+            withAnimation(.easeInOut(duration: 0.25)) {
+                self.selectedActivity = activity
+            }
+            self.viewModel.startActivity(activity)
+        }
+    }
+
+    private func completeActivityAndHandleDeferredNotification(
+        _ activity: CalmActivity,
+        shouldResetBreathingPattern: Bool = false
+    ) {
+        if shouldResetBreathingPattern {
+            deepLinkBreathingPattern = nil
+        }
+
+        viewModel.completeActivity(activity)
+        selectedActivity = nil
+
+        Task { @MainActor in
+            await NotificationPromptCoordinator.shared.requestIfDeferredAfterSanctuaryCompletion()
         }
     }
 }

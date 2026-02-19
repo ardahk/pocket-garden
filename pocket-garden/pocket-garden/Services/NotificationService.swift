@@ -148,13 +148,11 @@ class NotificationService: ObservableObject {
             let pending = await center.pendingNotificationRequests()
             if pending.contains(where: { $0.identifier == identifier }) { continue }
 
-            // Add ±15 min jitter so the time never feels robotic
-            let jitter = Int.random(in: -15...15)
-            let fireHour   = baseHour
-            let fireMinute = 0 + jitter  // may go negative or > 59; Calendar handles that
+            // Add ±30 min jitter so the time never feels robotic
+            let jitter = Int.random(in: -30...30)
 
             guard let fireDate = calendar.date(
-                bySettingHour: fireHour,
+                bySettingHour: baseHour,
                 minute: 0,
                 second: 0,
                 of: today
@@ -371,6 +369,38 @@ private enum SnoozeMessages {
 
     static func random() -> String {
         messages.randomElement() ?? messages[0]
+    }
+}
+
+// MARK: - Deferred Notification Prompt Coordinator
+
+@MainActor
+final class NotificationPromptCoordinator {
+    static let shared = NotificationPromptCoordinator()
+
+    private let firstTreePromptKey = "hasRequestedNotificationsAfterFirstTree"
+    private var shouldRequestAfterSanctuaryCompletion = false
+
+    private init() {}
+
+    func deferRequestUntilSanctuaryCompletion() {
+        shouldRequestAfterSanctuaryCompletion = true
+    }
+
+    func cancelDeferredRequest() {
+        shouldRequestAfterSanctuaryCompletion = false
+    }
+
+    var hasDeferredRequest: Bool {
+        shouldRequestAfterSanctuaryCompletion
+    }
+
+    func requestIfDeferredAfterSanctuaryCompletion() async {
+        guard shouldRequestAfterSanctuaryCompletion else { return }
+        shouldRequestAfterSanctuaryCompletion = false
+
+        _ = await NotificationService.shared.requestAuthorization()
+        UserDefaults.standard.set(true, forKey: firstTreePromptKey)
     }
 }
 
