@@ -309,11 +309,7 @@ struct MascotFeedbackView: View {
     }
 
     private func sanitizeName(_ raw: String) -> String {
-        raw
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
+        sanitizeUserName(raw)
     }
 }
 
@@ -937,6 +933,27 @@ fileprivate func sanctuaryItemNames() -> String {
     sanctuaryItems.keys.sorted().joined(separator: ", ")
 }
 
+/// Trims and normalises a raw name string (collapses whitespace, removes empty parts).
+fileprivate func sanitizeUserName(_ raw: String) -> String {
+    raw.trimmingCharacters(in: .whitespacesAndNewlines)
+       .components(separatedBy: .whitespacesAndNewlines)
+       .filter { !$0.isEmpty }
+       .joined(separator: " ")
+}
+
+/// Returns prompt lines that inject the user's preferred name (or a guard against guessing).
+/// Call `lines.append(contentsOf: namePromptLines())` in every buildPrompt function.
+fileprivate func namePromptLines() -> [String] {
+    let name = sanitizeUserName(UserDefaults.standard.string(forKey: "userFirstName") ?? "")
+    if !name.isEmpty {
+        return [
+            "User's preferred first name: \(name)",
+            "IMPORTANT: Use this name naturally when addressing the user. Never infer or invent names from journal content."
+        ]
+    }
+    return ["IMPORTANT: Do not guess the user's name from journal content."]
+}
+
 fileprivate final class PandaFeedbackService {
     static let shared = PandaFeedbackService()
     private init() {}
@@ -946,16 +963,33 @@ fileprivate final class PandaFeedbackService {
         "want to die", "kill myself", "end it all", "end my life",
         "no reason to live", "better off dead", "suicide",
         "don't want to be here", "can't go on", "give up on life",
-        "hurt myself", "self harm", "cutting myself"
+        "hurt myself", "self harm", "cutting myself",
+        "take my own life", "suicidal", "not worth living",
+        "want to disappear", "can't take it anymore", "rather be dead",
+        "planning to end", "goodbye letter", "final goodbye",
+        "harming myself", "self-harm", "overdose",
+        "no one would miss me", "world without me",
+        "done with life", "ending things"
     ]
-    
+
     private func detectCrisis(in text: String?) -> Bool {
         guard let text = text?.lowercased() else { return false }
         return crisisIndicators.contains { text.contains($0) }
     }
-    
+
     private func crisisResponse() -> String {
-        return "I hear you, and I'm really glad you're sharing this with me. What you're feeling is real and valid, and you don't have to carry it alone. Please consider reaching out to someone you trust - a friend, family member, or a professional who can support you right now. You matter, and there are people who want to help. If you're in crisis, please contact a crisis helpline in your area 💙"
+        let name = sanitizeUserName(UserDefaults.standard.string(forKey: "userFirstName") ?? "")
+        let greeting = name.isEmpty ? "I hear you" : "I hear you, \(name)"
+        return """
+        \(greeting), and I'm really glad you shared this with me. What you're feeling \
+        is real and valid, and you don't have to carry it alone.\n\n\
+        Please reach out to someone who can help:\n\n\
+        \u{1F4DE} 988 Suicide & Crisis Lifeline \u{2014} Call or text 988 (US)\n\
+        \u{1F4AC} Crisis Text Line \u{2014} Text HOME to 741741\n\
+        \u{1F30D} International Crisis Lines \u{2014} findahelpline.com\n\n\
+        You matter, and there are people who want to help. If you're in immediate danger, \
+        please call your local emergency services \u{1F499}
+        """
     }
 
     func generate(for entry: EmotionEntry, recentHints: [String]) async -> (text: String, emotion: MascotEmotion, usedAFM: Bool) {
@@ -1005,28 +1039,10 @@ fileprivate final class PandaFeedbackService {
         return out.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var preferredFirstName: String {
-        sanitizeName(UserDefaults.standard.string(forKey: "userFirstName") ?? "")
-    }
-
-    private func sanitizeName(_ raw: String) -> String {
-        raw
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
-
     private func buildPrompt(entry: EmotionEntry, recentHints: [String]) -> String {
         var lines: [String] = []
         lines.append("User's emotion rating: \(entry.emotionRating)/10")
-        let preferredName = preferredFirstName
-        if !preferredName.isEmpty {
-            lines.append("User's preferred first name: \(preferredName)")
-            lines.append("IMPORTANT: Use this preferred name only if you address the user. Never infer or invent names from journal content.")
-        } else {
-            lines.append("IMPORTANT: Do not guess the user's name from journal content.")
-        }
+        lines.append(contentsOf: namePromptLines())
         if let t = entry.transcription, !t.isEmpty {
             lines.append("\nUser's journal entry:")
             lines.append("\"\(t.prefix(1200))\"")
@@ -1038,7 +1054,18 @@ fileprivate final class PandaFeedbackService {
         }
         if !recentHints.isEmpty {
             lines.append("\nYour recent replies (vary your wording and avoid repeating these):")
-            recentHints.prefix(3).forEach { lines.append("- \($0.prefix(150))") }
+            recentHints.prefix(5).forEach { lines.append("- \($0.prefix(200))") }
+
+            // Collect recent sanctuary suggestions so the AI picks a different one
+            let recentPractices = recentHints.compactMap { hint -> String? in
+                for item in sanctuaryItems.keys {
+                    if hint.lowercased().contains(item.lowercased()) { return item }
+                }
+                return nil
+            }
+            if !recentPractices.isEmpty {
+                lines.append("\nSanctuary practices you recently suggested (try a different one): \(recentPractices.joined(separator: ", "))")
+            }
         }
         lines.append("\nRespond with valid JSON: {\"text\": \"...\", \"emotionHint\": \"...\", \"tags\": [...]}")
         return lines.joined(separator: "\n")
@@ -1046,7 +1073,7 @@ fileprivate final class PandaFeedbackService {
 
     private func instructionsText() -> String {
         let practices = sanctuaryItemNames()
-        return "You are Bumblebee, a warm and thoughtful emotional wellness companion. Read the user's emotion rating and journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Always take the emotion rating into account together with the text.\n2. If the rating is 8, 9, or 10 out of 10, the overall tone MUST be clearly celebratory and proud. You may briefly acknowledge remaining stress, but focus mainly on what went well and why the user feels capable or hopeful.\n3. If the rating is 4–7, use a balanced, supportive tone that recognizes both difficulties and strengths.\n4. If the rating is 1–3, use a very gentle, compassionate tone and avoid minimizing their experience.\n5. Acknowledge at least one concrete detail they mentioned so it feels specific.\n6. Offer exactly one gentle, actionable suggestion (no long lists).\n7. When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (available practices: \(practices)). Mention \"in Sanctuary\" so they know where to go.\n8. If you suggest a Sanctuary practice, name exactly one practice only. Never offer alternatives, lists, slash options, or \"X or Y\" wording.\n9. Use warm, conversational language and vary your phrasing each time.\n10. Never diagnose, give medical advice, or repeat recent responses.\n\nMake it feel personal and genuine, not scripted."
+        return "You are Bumblebee, a warm and thoughtful emotional wellness companion. Read the user's emotion rating and journal entry carefully. In your response (3–5 sentences, max 75 words):\n1. Always take the emotion rating into account together with the text.\n2. If the rating is 8, 9, or 10 out of 10, the overall tone MUST be clearly celebratory and proud. You may briefly acknowledge remaining stress, but focus mainly on what went well and why the user feels capable or hopeful.\n3. If the rating is 4–7, use a balanced, supportive tone that recognizes both difficulties and strengths.\n4. If the rating is 1–3, use a very gentle, compassionate tone and avoid minimizing their experience.\n5. Acknowledge at least one concrete detail they mentioned so it feels specific.\n6. Offer exactly one gentle, actionable suggestion (no long lists).\n7. When it fits, let that suggestion be one specific practice from the user's Sanctuary space in the app (available practices: \(practices)). Mention \"in Sanctuary\" so they know where to go.\n8. If you suggest a Sanctuary practice, name exactly one practice only. Never offer alternatives, lists, slash options, or \"X or Y\" wording.\n9. Use warm, conversational language and vary your phrasing each time.\n10. Never diagnose, give medical advice, or repeat recent responses.\n11. If the user expresses thoughts of self-harm or suicide, respond with deep compassion and include crisis resources: 988 Lifeline (call/text 988), Crisis Text Line (text HOME to 741741), findahelpline.com for international help.\n\nMake it feel personal and genuine, not scripted."
     }
 
     @MainActor
@@ -1299,6 +1326,7 @@ final class PandaWeeklyFeedbackService {
         let langInstruction = languageInstruction(for: allText)
 
         lines.append("You are Bumblebee, a warm and thoughtful emotional wellness companion.")
+        lines.append(contentsOf: namePromptLines())
         lines.append("You are reading the user's journal entries for this week so far (from the start of the week up to today). In your response:")
         lines.append("- Write 3–6 sentences, maximum 120 words.")
         lines.append("- Clearly refer to 'this week' or 'this week so far'.")
@@ -1466,6 +1494,7 @@ final class PandaSavoringService {
         let langInstruction = languageInstruction(for: allText)
         
         lines.append("You are Bumblebee, a warm and thoughtful emotional wellness companion.")
+        lines.append(contentsOf: namePromptLines())
         lines.append("The user has just completed a 'Three Good Moments' savoring exercise in a wellbeing app.")
         lines.append("")
         lines.append("Their moments:")
@@ -1664,6 +1693,7 @@ final class PandaWorryTreeService {
         let langInstruction = languageInstruction(for: allText)
         
         lines.append("You are Bumblebee, a warm, practical emotional support companion.")
+        lines.append(contentsOf: namePromptLines())
         lines.append("The user has just completed a 'Worry Tree' exercise in a wellbeing app.")
         lines.append("")
         lines.append("Your goals in this context:")
@@ -2201,7 +2231,7 @@ fileprivate final class PandaOutputValidator {
 fileprivate final class PandaSessionManager {
     static let shared = PandaSessionManager()
     private var session: LanguageModelSession?
-    private static let instructionsVersion = 7 // Increment to force session refresh
+    private static let instructionsVersion = 8 // Increment to force session refresh
     private var sessionVersion: Int = 0
     private init() {}
     
@@ -2242,9 +2272,12 @@ fileprivate final class PandaSessionManager {
         
         STAYING FRESH (You can see your previous responses - use this!):
         - Never start two responses the same way
+        - Never begin with "I can see", "It sounds like", "I hear", or "I notice" two responses in a row
+        - Vary your opening: sometimes start with a question, a metaphor, a warm observation, or a direct feeling
         - If you notice you've been using similar phrases, consciously choose different ones
         - Each response should feel like it was written just for this moment
         - Vary your sentence rhythm - short punchy sentences, then flowing ones
+        - If recent replies suggested the same Sanctuary practice, pick a different one this time
         
         \(sanctuaryList)
         
@@ -2253,7 +2286,7 @@ fileprivate final class PandaSessionManager {
         - NEVER be dismissive, condescending, judgmental, or cruel
         - NEVER minimize their pain with toxic positivity ("just think positive!")
         - NEVER use insults, put-downs, or language that could hurt
-        - If they express very dark thoughts, respond with extra gentleness and suggest reaching out to someone they trust or a professional
+        - If they express thoughts of self-harm, suicide, or ending their life, respond with extra warmth and compassion. Gently encourage them to reach out for support: 988 Suicide & Crisis Lifeline (call or text 988), Crisis Text Line (text HOME to 741741), or findahelpline.com for international resources. Always include these resources when detecting distress about self-harm or suicide.
         - Always maintain hope and dignity, even in the darkest moments
         - Be real and honest, but always compassionate
         - You can acknowledge hard truths while still being supportive

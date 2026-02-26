@@ -392,17 +392,34 @@ struct ForestGardenViewRedesigned: View {
     }
     
     /// Shows the bee celebration animation on the Garden screen for ~4.5 seconds.
+    /// Waits for any achievement popup to be acknowledged first, so the achievement
+    /// is never shown on the Sanctuary screen.
     /// If `PendingDeepLink.shared.pendingLink` is set when the animation ends,
-    /// posts `.navigateToSanctuaryActivity` to switch tabs — SafeSpaceView will
-    /// react to the @Published pendingLink and open the correct activity sheet.
+    /// posts `.navigateToSanctuaryActivity` to switch tabs.
     private func showBeeAnimationBriefly() {
-        withAnimation(.easeIn(duration: 0.35)) { showBeeAnimation = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 4.5) {
+        Task { @MainActor in
+            // Brief pause to let achievement checks fire (watering is immediate,
+            // planting triggers at 0.3s + 2.5s delay).
+            try? await Task.sleep(for: .milliseconds(800))
+
+            // If an achievement popup is showing, wait for the user to dismiss it.
+            var waitedForAchievement = false
+            while AchievementManager.shared.showUnlockAnimation {
+                waitedForAchievement = true
+                try? await Task.sleep(for: .milliseconds(250))
+            }
+            // Smooth pause after achievement dismissal before bees appear.
+            if waitedForAchievement {
+                try? await Task.sleep(for: .seconds(1.5))
+            }
+
+            // Show bee animation
+            withAnimation(.easeIn(duration: 0.35)) { showBeeAnimation = true }
+            try? await Task.sleep(for: .seconds(4.5))
             withAnimation(.easeOut(duration: 1.2)) { showBeeAnimation = false }
+
             // Only switch tabs if there is a deep-link waiting
             guard PendingDeepLink.shared.pendingLink != nil else { return }
-            // Switch to Sanctuary tab — SafeSpaceView observes pendingLink and
-            // will open the activity sheet once the tab is active.
             NotificationCenter.default.post(name: .navigateToSanctuaryActivity, object: nil)
         }
     }

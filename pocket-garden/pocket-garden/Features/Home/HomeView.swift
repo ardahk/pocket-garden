@@ -18,6 +18,10 @@ struct HomeView: View {
     @ObservedObject private var achievementManager = AchievementManager.shared
 
     @Binding var selectedTab: Int
+    @AppStorage("userFirstName") private var userFirstName = ""
+    @AppStorage("hasPromptedForName") private var hasPromptedForName = false
+    @State private var showNamePrompt = false
+    @State private var enteredNameText = ""
     @State private var todayRating: Int = 7
     @State private var journalRating: JournalRating? = nil  // Use item-based sheet for reliable rating passing
     @State private var showExperimentalJournalSheet = false
@@ -161,6 +165,25 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showAchievementsOverview) {
             AchievementsOverviewView()
+        }
+        .sheet(isPresented: $showNamePrompt) {
+            NamePromptSheet(enteredName: $enteredNameText) { savedName in
+                userFirstName = savedName
+                hasPromptedForName = true
+                showNamePrompt = false
+            } onSkip: {
+                hasPromptedForName = true
+                showNamePrompt = false
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
+        .onAppear {
+            if userFirstName.isEmpty && !hasPromptedForName {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    showNamePrompt = true
+                }
+            }
         }
         .enableInjection()
     }
@@ -869,6 +892,81 @@ struct QuickActionButton: View {
             .cardShadow()
         }
         .pressAnimation()
+    }
+}
+
+// MARK: - Name Prompt Sheet
+
+/// Friendly sheet shown to existing users who haven't provided their name yet.
+struct NamePromptSheet: View {
+    @Binding var enteredName: String
+    let onSave: (String) -> Void
+    let onSkip: () -> Void
+
+    @FocusState private var isNameFieldFocused: Bool
+
+    var body: some View {
+        VStack(spacing: Spacing.xl) {
+            Spacer()
+
+            Image("panda_supportive")
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 100, height: 100)
+
+            VStack(spacing: Spacing.md) {
+                Text("Hey there!")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(.textPrimary)
+
+                Text("Bumblebee here! I'd love to know your name so I can make my feedback feel more personal.")
+                    .font(Typography.body)
+                    .foregroundColor(.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, Spacing.lg)
+            }
+
+            TextField("Your first name", text: $enteredName)
+                .font(.system(size: 18))
+                .padding()
+                .background(Color.cardBackground)
+                .cornerRadius(CornerRadius.md)
+                .overlay(
+                    RoundedRectangle(cornerRadius: CornerRadius.md)
+                        .stroke(Color.primaryGreen.opacity(0.3), lineWidth: 1)
+                )
+                .padding(.horizontal, Spacing.xl)
+                .focused($isNameFieldFocused)
+
+            VStack(spacing: Spacing.md) {
+                PrimaryButton("Save", icon: "checkmark") {
+                    let trimmed = enteredName
+                        .trimmingCharacters(in: .whitespacesAndNewlines)
+                        .components(separatedBy: .whitespacesAndNewlines)
+                        .filter { !$0.isEmpty }
+                        .joined(separator: " ")
+                    guard !trimmed.isEmpty else { return }
+                    Theme.Haptics.success()
+                    onSave(trimmed)
+                }
+                .opacity(enteredName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.55 : 1.0)
+                .disabled(enteredName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .padding(.horizontal, Spacing.xl)
+
+                Button("Maybe Later") {
+                    onSkip()
+                }
+                .font(Typography.callout)
+                .foregroundColor(.textSecondary)
+            }
+
+            Spacer()
+        }
+        .padding(.vertical, Spacing.xl)
+        .background(Color.backgroundCream.ignoresSafeArea())
+        .onAppear {
+            isNameFieldFocused = true
+        }
     }
 }
 

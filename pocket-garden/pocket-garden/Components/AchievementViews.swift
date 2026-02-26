@@ -162,7 +162,7 @@ struct AchievementUnlockView: View {
                         .multilineTextAlignment(.center)
                         .offset(y: titleOffset)
 
-                    Text(achievement.achievementDescription)
+                    Text(unlockMessage)
                         .font(Typography.body)
                         .foregroundColor(.textSecondary)
                         .multilineTextAlignment(.center)
@@ -305,6 +305,33 @@ struct AchievementUnlockView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
             onDismiss()
         }
+    }
+
+    private var unlockMessage: String {
+        let raw = achievement.achievementDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return "You unlocked this achievement." }
+
+        let words = raw.split(separator: " ", maxSplits: 1, omittingEmptySubsequences: true)
+        guard let firstWord = words.first else { return "You unlocked this achievement." }
+
+        let remainder = words.count > 1 ? " " + words[1] : ""
+        let normalizedFirstWord = firstWord.lowercased()
+
+        let pastTenseLead: String
+        switch normalizedFirstWord {
+        case "create": pastTenseLead = "created"
+        case "maintain": pastTenseLead = "maintained"
+        case "grow": pastTenseLead = "grown"
+        case "log": pastTenseLead = "logged"
+        case "improve": pastTenseLead = "improved"
+        case "journal": pastTenseLead = "journaled"
+        case "write": pastTenseLead = "written"
+        case "trigger": pastTenseLead = "triggered"
+        case "restart": pastTenseLead = "restarted"
+        default: pastTenseLead = normalizedFirstWord
+        }
+
+        return "You have \(pastTenseLead)\(remainder)."
     }
 }
 
