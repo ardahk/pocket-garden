@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct NameAndSootheView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
 
     let duration: Int
     let onComplete: () -> Void
@@ -85,7 +84,7 @@ struct NameAndSootheView: View {
                     .padding(.bottom, 40)
             }
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 
     @ViewBuilder

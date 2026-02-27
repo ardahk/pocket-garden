@@ -134,17 +134,6 @@ struct TreeEntryCard: View {
                             }
                         }
                         
-                        if entry.hasAIFeedback {
-                            HStack(spacing: 4) {
-                                Image(systemName: "sparkles")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.primaryGreen)
-                                Text("Has feedback")
-                                    .font(.system(size: 10))
-                                    .foregroundColor(.textSecondary)
-                            }
-                        }
-                        
                         Spacer()
                         
                         // View details indicator

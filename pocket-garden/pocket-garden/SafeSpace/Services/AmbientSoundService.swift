@@ -69,7 +69,6 @@ class AmbientSoundService {
             try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try AVAudioSession.sharedInstance().setActive(true)
         } catch {
-            print("Failed to set up audio session: \(error)")
         }
     }
 
@@ -80,7 +79,6 @@ class AmbientSoundService {
         stop(immediate: true)
 
         guard let soundURL = nextURL(for: soundType) else {
-            print("Sound file not found for \(soundType.rawValue)")
             currentSound = soundType
             return
         }
@@ -98,7 +96,6 @@ class AmbientSoundService {
             // Gentle fade-in to target volume
             fade(to: volume, duration: 1.5)
         } catch {
-            print("Failed to play sound: \(error)")
         }
     }
 

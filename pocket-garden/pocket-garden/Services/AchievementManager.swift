@@ -69,7 +69,6 @@ class AchievementManager: ObservableObject {
             // Remove achievements that are no longer in defaults
             for existing in existingAchievements {
                 if !defaultIds.contains(existing.id) {
-                    print("🗑️ Removing obsolete achievement: \(existing.title) (id: \(existing.id))")
                     modelContext.delete(existing)
                     removed += 1
                 }
@@ -79,9 +78,7 @@ class AchievementManager: ObservableObject {
                 try modelContext.save()
             }
 
-            print("✅ Achievements initialized. Existing: \(existingAchievements.count), inserted: \(inserted), updatedFields: \(updated), removed: \(removed), totalNow: \(existingAchievements.count + inserted - removed)")
         } catch {
-            print("❌ Failed to initialize achievements: \(error)")
         }
     }
     
@@ -108,7 +105,6 @@ class AchievementManager: ObservableObject {
             
             try modelContext.save()
         } catch {
-            print("❌ Failed to check achievements: \(error)")
         }
     }
     
@@ -302,7 +298,6 @@ class AchievementManager: ObservableObject {
                 try modelContext.save()
             }
         } catch {
-            print("❌ Failed to increment shake celebration: \(error)")
         }
     }
     
@@ -339,8 +334,7 @@ class AchievementManager: ObservableObject {
         showUnlockAnimation = true
         hasUnseenUnlock = true
         
-        print("🏆 Achievement unlocked: \(achievement.title)")
-    }
+}
     
     // MARK: - Helpers
     

@@ -7,9 +7,8 @@
 
 import SwiftUI
 import SwiftData
-import Inject
 struct HomeView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
     @Query private var allTrees: [GrowingTree]
@@ -185,7 +184,7 @@ struct HomeView: View {
                 }
             }
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 
     // MARK: - Header Section
@@ -923,6 +922,9 @@ struct NamePromptSheet: View {
                     .font(Typography.body)
                     .foregroundColor(.textSecondary)
                     .multilineTextAlignment(.center)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity)
                     .padding(.horizontal, Spacing.lg)
             }
 

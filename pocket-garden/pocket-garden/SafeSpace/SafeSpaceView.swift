@@ -1,9 +1,8 @@
 import SwiftUI
 import SwiftData
-import Inject
 
 struct SafeSpaceView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -118,7 +117,7 @@ struct SafeSpaceView: View {
                 activitySheet(for: activity)
             }
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 
     // MARK: - Ambient Sounds Section

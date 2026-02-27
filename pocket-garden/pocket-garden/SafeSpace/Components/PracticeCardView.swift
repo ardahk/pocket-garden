@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct PracticeCardView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
 
     let activity: CalmActivity
     let action: () -> Void
@@ -48,7 +47,7 @@ struct PracticeCardView: View {
             )
         }
         .buttonStyle(ScaleButtonStyle())
-        .enableInjection()
+        .devEnableInjection()
     }
 }
 

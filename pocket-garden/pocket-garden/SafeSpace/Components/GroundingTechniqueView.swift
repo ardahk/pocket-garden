@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct GroundingTechniqueView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
 
     let onComplete: () -> Void
 
@@ -273,7 +272,7 @@ struct GroundingTechniqueView: View {
         .sheet(isPresented: $showInfoSheet) {
             groundingInfoSheet
         }
-        .enableInjection()
+        .devEnableInjection()
     }
     
     // MARK: - Intro View

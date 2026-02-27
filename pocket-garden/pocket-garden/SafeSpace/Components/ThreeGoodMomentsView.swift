@@ -1,5 +1,4 @@
 import SwiftUI
-import Inject
 
 // MARK: - Step Enum
 
@@ -14,7 +13,7 @@ enum ThreeGoodMomentsStep: Int, CaseIterable {
 }
 
 struct ThreeGoodMomentsView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
 
     let duration: Int
     let onComplete: () -> Void
@@ -95,7 +94,7 @@ struct ThreeGoodMomentsView: View {
         .sheet(isPresented: $showInfoSheet) {
             threeGoodMomentsInfoSheet
         }
-        .enableInjection()
+        .devEnableInjection()
     }
     
     // MARK: - Progress Bar

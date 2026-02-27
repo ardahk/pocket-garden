@@ -86,7 +86,6 @@ class NotificationService: ObservableObject {
             }
             return granted
         } catch {
-            print("❌ Notification authorization error: \(error)")
             return false
         }
     }
@@ -180,11 +179,7 @@ class NotificationService: ObservableObject {
 
             do {
                 try await center.add(request)
-                let formatter = DateFormatter()
-                formatter.timeStyle = .short
-                print("✅ Reminder scheduled: \(formatter.string(from: fireDate))")
             } catch {
-                print("❌ Failed to schedule reminder: \(error)")
             }
         }
     }
@@ -193,7 +188,6 @@ class NotificationService: ObservableObject {
 
     func cancelAllNotifications() {
         center.removeAllPendingNotificationRequests()
-        print("🔕 All notifications cancelled")
     }
 
     func cancelEveningNotification() {
@@ -246,9 +240,7 @@ class NotificationService: ObservableObject {
 
         do {
             try await center.add(request)
-            print("✅ Snooze notification scheduled for \(minutes) minutes")
         } catch {
-            print("❌ Failed to schedule snooze notification: \(error)")
         }
     }
 

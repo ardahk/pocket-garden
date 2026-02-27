@@ -38,14 +38,8 @@ class WhisperService {
         // Uses base.bin model for better transcription quality
         self.modelURL = Bundle.main.url(forResource: "base", withExtension: "bin")
         
-        if modelURL == nil {
-            print("⚠️ Whisper model not found. Please add a model file to the app bundle.")
-            print("📥 Download models from: https://huggingface.co/ggerganov/whisper.cpp")
-        } else {
-            print("✅ Whisper model found at: \(modelURL!.path)")
-            self.whisper = Whisper(fromFileURL: modelURL!)
-            print("✅ Whisper initialized successfully")
-            
+        if let url = modelURL {
+            self.whisper = Whisper(fromFileURL: url)
         }
     }
     
@@ -119,8 +113,6 @@ class WhisperService {
         isRecording = true
         error = nil
         
-        print("🎤 Whisper recording started")
-
         // Start updating audio level for UI animations
         startLevelMetering()
     }
@@ -137,12 +129,8 @@ class WhisperService {
         // Deactivate audio session
         do {
             try AVAudioSession.sharedInstance().setActive(false)
-        } catch {
-            print("⚠️ Failed to deactivate audio session: \(error)")
-        }
-        
-        print("⏹️ Whisper recording stopped")
-        
+        } catch { }
+
         // Transcribe the recorded audio
         await transcribeRecording()
     }
@@ -162,9 +150,7 @@ class WhisperService {
         // Deactivate audio session
         do {
             try AVAudioSession.sharedInstance().setActive(false)
-        } catch {
-            print("⚠️ Failed to deactivate audio session: \(error)")
-        }
+        } catch { }
     }
     
     // MARK: - Transcription
@@ -215,14 +201,15 @@ class WhisperService {
                 self.transcriptionProgress = 1.0
             }
             
-            print("✅ Whisper transcription complete: \(transcription)")
+            #if DEBUG
+            print("✅ Whisper transcription complete (\(self.transcription.count) chars)")
+            #endif
             
         } catch {
             await MainActor.run {
                 self.error = .transcriptionFailed(error.localizedDescription)
                 self.isTranscribing = false
             }
-            print("❌ Whisper transcription failed: \(error)")
         }
     }
     
@@ -363,7 +350,6 @@ class WhisperService {
                         try track.insertTimeRange(timeRange, of: assetTrack, at: currentTime)
                         currentTime = CMTimeAdd(currentTime, duration)
                     } catch {
-                        print("Failed to append segment: \(error)")
                     }
                 }
             }
@@ -418,7 +404,6 @@ class WhisperService {
             .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication
         ]
         try FileManager.default.setAttributes(attributes, ofItemAtPath: url.path)
-        print("🔒 Applied file protection to: \(url.lastPathComponent)")
     }
     
     /// Apply protection to a directory containing sensitive files
@@ -427,7 +412,6 @@ class WhisperService {
             .protectionKey: FileProtectionType.completeUntilFirstUserAuthentication
         ]
         try FileManager.default.setAttributes(attributes, ofItemAtPath: url.path)
-        print("🔒 Applied directory protection to: \(url.lastPathComponent)")
     }
 
     // MARK: - Audio Level Metering

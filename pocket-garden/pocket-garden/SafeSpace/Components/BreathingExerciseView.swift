@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct BreathingExerciseView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
 
     let pattern: BreathingPattern
     let duration: Int // Total duration in minutes
@@ -266,7 +265,7 @@ struct BreathingExerciseView: View {
         .sheet(isPresented: $showInfoSheet) {
             breathingInfoSheet
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 
     // MARK: - Computed Properties

@@ -1,10 +1,9 @@
 import SwiftUI
-import Inject
 
 // MARK: - Tour Prompt (Bumblebee asks if user wants a tour)
 
 struct AppTourPromptView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     
     let onAccept: () -> Void
     let onDecline: () -> Void
@@ -107,14 +106,14 @@ struct AppTourPromptView: View {
                 cardScale = 1.0
             }
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 }
 
 // MARK: - Interactive Tour Overlay (sits on top of real app)
 
 struct AppTourOverlay: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     
     @Binding var tourSelectedTab: Int?
     let onComplete: () -> Void
@@ -331,7 +330,7 @@ struct AppTourOverlay: View {
                 mascotFloat = -8
             }
         }
-        .enableInjection()
+        .devEnableInjection()
     }
     
     // MARK: - Helpers

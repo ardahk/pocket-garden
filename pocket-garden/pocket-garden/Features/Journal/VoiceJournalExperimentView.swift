@@ -7,7 +7,6 @@
 
 import SwiftUI
 import SwiftData
-import Inject
 
 // MARK: - Animated Loading Dots
 
@@ -42,7 +41,7 @@ struct LoadingDotsView: View {
 }
 
 struct VoiceJournalExperimentView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
@@ -295,7 +294,7 @@ struct VoiceJournalExperimentView: View {
             }
         }
         .interactiveDismissDisabled(!transcription().isEmpty && !isRecording())
-        .enableInjection()
+        .devEnableInjection()
     }
     
     // MARK: - Service Toggle (Commented out - Whisper only)
@@ -1403,7 +1402,6 @@ struct VoiceJournalExperimentView: View {
                         }
                     } catch {
                         whisperService.discardRecordingFile()
-                        print("Failed to export audio: \(error)")
                     }
                 }
             } else {
@@ -1428,7 +1426,6 @@ struct VoiceJournalExperimentView: View {
                 isTypingMode = false
             }
         } catch {
-            print("Failed to save entry: \(error)")
             showingError = true
             isGeneratingFeedback = false
         }
@@ -1453,7 +1450,6 @@ struct VoiceJournalExperimentView: View {
                     }
                     return
                 } catch {
-                    print("AFM classification failed: \(error)")
                 }
             }
         }

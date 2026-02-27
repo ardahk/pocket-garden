@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct ButterflyHugView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     
     let duration: Int
     let onComplete: () -> Void
@@ -113,7 +112,7 @@ struct ButterflyHugView: View {
         .onDisappear {
             cancelHug()
         }
-        .enableInjection()
+        .devEnableInjection()
     }
     
     private var infoSheet: some View {

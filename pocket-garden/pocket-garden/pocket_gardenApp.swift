@@ -72,66 +72,67 @@ struct pocket_gardenApp: App {
     @State private var shouldOpenJournal = false
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var achievementManager = AchievementManager.shared
-    
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([EmotionEntry.self, GrowingTree.self, Quote.self, Achievement.self, CalmSession.self, WorryTreeEntry.self])
-        // Use default SwiftData location to preserve existing user data
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    private let sharedModelContainer: ModelContainer?
+    private let modelContainerBootstrapError: String?
+
+    init() {
+        let bootstrap = Self.bootstrapModelContainer()
+        self.sharedModelContainer = bootstrap.container
+        self.modelContainerBootstrapError = bootstrap.errorMessage
+    }
     
     var body: some Scene {
         WindowGroup {
-            ZStack {
-                if hasCompletedOnboarding {
-                    MainTabView(openJournalFromNotification: $shouldOpenJournal)
-                        .transition(.move(edge: .trailing).combined(with: .opacity))
-                    
-                    // TODO: Interactive tour - disabled for now, may revisit later
-                    // To re-enable: uncomment tour state vars above, add tourSelectedTab binding
-                    // to MainTabView, and uncomment the tour prompt + overlay blocks below.
-                    //
-                    // if showTourPrompt {
-                    //     AppTourPromptView(onAccept: { ... }, onDecline: { ... })
-                    // }
-                    // if showTour {
-                    //     AppTourOverlay(tourSelectedTab: $tourSelectedTab) { ... }
-                    // }
-                } else {
-                    OnboardingView()
-                        .transition(.move(edge: .leading).combined(with: .opacity))
-                }
-                
-                // Global achievement unlock overlay
-                if achievementManager.showUnlockAnimation,
-                   let achievement = achievementManager.recentlyUnlockedAchievement {
-                    AchievementUnlockView(achievement: achievement) {
-                        achievementManager.dismissUnlockAnimation()
+            if let container = sharedModelContainer {
+                ZStack {
+                    if hasCompletedOnboarding {
+                        MainTabView(openJournalFromNotification: $shouldOpenJournal)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                        
+                        // TODO: Interactive tour - disabled for now, may revisit later
+                        // To re-enable: uncomment tour state vars above, add tourSelectedTab binding
+                        // to MainTabView, and uncomment the tour prompt + overlay blocks below.
+                        //
+                        // if showTourPrompt {
+                        //     AppTourPromptView(onAccept: { ... }, onDecline: { ... })
+                        // }
+                        // if showTour {
+                        //     AppTourOverlay(tourSelectedTab: $tourSelectedTab) { ... }
+                        // }
+                    } else {
+                        OnboardingView()
+                            .transition(.move(edge: .leading).combined(with: .opacity))
                     }
-                    .transition(.opacity)
-                    .zIndex(1000)
+                    
+                    // Global achievement unlock overlay
+                    if achievementManager.showUnlockAnimation,
+                       let achievement = achievementManager.recentlyUnlockedAchievement {
+                        AchievementUnlockView(achievement: achievement) {
+                            achievementManager.dismissUnlockAnimation()
+                        }
+                        .transition(.opacity)
+                        .zIndex(1000)
+                    }
                 }
-            }
-            .floatingCoinOverlay() // Floating achievement coin after dismissal
-            .animation(.spring(response: 0.6, dampingFraction: 0.85), value: hasCompletedOnboarding)
-            .onAppear {
-                setupNotificationHandler()
-                initializeAndBackfillAchievements()
-            }
-            .onChange(of: scenePhase) { _, newPhase in
-                // Handle global app lifecycle for ambient music
-                AppLifecycleManager.shared.handleScenePhase(newPhase)
-                
-                if newPhase == .active {
-                    rescheduleNotificationsOnLaunch()
+                .modelContainer(container)
+                .floatingCoinOverlay() // Floating achievement coin after dismissal
+                .animation(.spring(response: 0.6, dampingFraction: 0.85), value: hasCompletedOnboarding)
+                .onAppear {
+                    setupNotificationHandler()
+                    initializeAndBackfillAchievements()
                 }
+                .onChange(of: scenePhase) { _, newPhase in
+                    // Handle global app lifecycle for ambient music
+                    AppLifecycleManager.shared.handleScenePhase(newPhase)
+                    
+                    if newPhase == .active {
+                        rescheduleNotificationsOnLaunch()
+                    }
+                }
+            } else {
+                modelContainerUnavailableView
             }
         }
-        .modelContainer(sharedModelContainer)
     }
     
     private func setupNotificationHandler() {
@@ -143,7 +144,7 @@ struct pocket_gardenApp: App {
     
     @MainActor
     private func initializeAndBackfillAchievements() {
-        let context = sharedModelContainer.mainContext
+        guard let context = sharedModelContainer?.mainContext else { return }
         AchievementManager.shared.initializeAchievements(modelContext: context)
         
         // Backfill progress for existing users - runs after initialization
@@ -176,7 +177,7 @@ struct pocket_gardenApp: App {
     
     @MainActor
     private func rescheduleNotificationsOnLaunch() {
-        let context = sharedModelContainer.mainContext
+        guard let context = sharedModelContainer?.mainContext else { return }
         
         // Check for today's entry
         let today = Calendar.current.startOfDay(for: Date())
@@ -213,18 +214,20 @@ struct pocket_gardenApp: App {
     private func calculateCurrentStreak(context: ModelContext) -> Int {
         var streak = 0
         let calendar = Calendar.current
-        let today = Date()
+        let today = calendar.startOfDay(for: Date())
         
         let descriptor = FetchDescriptor<EmotionEntry>(sortBy: [SortDescriptor(\.date, order: .reverse)])
         guard let entries = try? context.fetch(descriptor) else { return 0 }
+        guard !entries.isEmpty else { return 0 }
         
-        let hasEntryToday = entries.contains { calendar.isDate($0.date, inSameDayAs: today) }
+        let entryDays = Set(entries.map { calendar.startOfDay(for: $0.date) })
+        let hasEntryToday = entryDays.contains(today)
         let startDay = hasEntryToday ? 0 : 1
-        let maxDaysToCheck = entries.count + 1
+        let maxDaysToCheck = entryDays.count + 1
         
         for i in startDay..<maxDaysToCheck {
             guard let expectedDate = calendar.date(byAdding: .day, value: -i, to: today) else { break }
-            if entries.first(where: { calendar.isDate($0.date, inSameDayAs: expectedDate) }) != nil {
+            if entryDays.contains(expectedDate) {
                 streak += 1
             } else {
                 break
@@ -232,5 +235,42 @@ struct pocket_gardenApp: App {
         }
         
         return streak
+    }
+
+    private var modelContainerUnavailableView: some View {
+        VStack(spacing: 12) {
+            Text("Pocket Forest can't access your local data.")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+
+            Text("Please restart the app. If this keeps happening, update iOS and reinstall the app.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            if let message = modelContainerBootstrapError {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 4)
+            }
+        }
+        .padding(24)
+    }
+
+    private static func bootstrapModelContainer() -> (container: ModelContainer?, errorMessage: String?) {
+        let schema = Schema([EmotionEntry.self, GrowingTree.self, Quote.self, Achievement.self, CalmSession.self, WorryTreeEntry.self])
+        let persistentConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+
+        do {
+            return (try ModelContainer(for: schema, configurations: [persistentConfig]), nil)
+        } catch {
+            let fallbackConfig = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            if let fallback = try? ModelContainer(for: schema, configurations: [fallbackConfig]) {
+                return (fallback, "Using temporary in-memory storage after a local database issue.")
+            }
+            return (nil, "Failed to initialize local storage: \(error.localizedDescription)")
+        }
     }
 }

@@ -39,7 +39,7 @@ final class DataImportService {
             case .invalidFile:
                 return "The file is not a valid Pocket Forest export."
             case .signatureValidationFailed:
-                return "This file was not exported from Pocket GaForestrden or has been modified."
+                return "This file was not exported from Pocket Forest or has been modified."
             case .corruptedData:
                 return "The export file appears to be corrupted."
             case .incompatibleVersion:
@@ -282,14 +282,15 @@ final class DataImportService {
     private func calculateStreak(entries: [EmotionEntry]) -> Int {
         var streak = 0
         let calendar = Calendar.current
-        let today = Date()
-        let hasEntryToday = entries.contains { calendar.isDate($0.date, inSameDayAs: today) }
+        let today = calendar.startOfDay(for: Date())
+        let entryDays = Set(entries.map { calendar.startOfDay(for: $0.date) })
+        let hasEntryToday = entryDays.contains(today)
         let startDay = hasEntryToday ? 0 : 1
-        let maxDaysToCheck = entries.count + 1
+        let maxDaysToCheck = entryDays.count + 1
 
         for i in startDay..<maxDaysToCheck {
             guard let expectedDate = calendar.date(byAdding: .day, value: -i, to: today) else { break }
-            if entries.first(where: { calendar.isDate($0.date, inSameDayAs: expectedDate) }) != nil {
+            if entryDays.contains(expectedDate) {
                 streak += 1
             } else {
                 break

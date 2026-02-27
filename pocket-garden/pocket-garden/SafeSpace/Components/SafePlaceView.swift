@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct SafePlaceView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     
     let duration: Int
     let onComplete: () -> Void
@@ -190,7 +189,7 @@ struct SafePlaceView: View {
             isPlaying = false
             breathScale = 1.0
         }
-        .enableInjection()
+        .devEnableInjection()
     }
     
     private var completionView: some View {

@@ -25,7 +25,6 @@ class QuoteService {
         guard let url = Bundle.main.url(forResource: "quotes", withExtension: "csv"),
               let data = try? Data(contentsOf: url),
               let content = String(data: data, encoding: .utf8) else {
-            print("Failed to load quotes.csv")
             return
         }
         
@@ -46,7 +45,6 @@ class QuoteService {
             allQuotes.append(quote)
         }
         
-        print("Loaded \(allQuotes.count) quotes")
     }
     
     private func parseCSVLine(_ line: String) -> [String] {
@@ -136,7 +134,8 @@ class QuoteService {
     ) async -> Quote? {
         // Check if we already have this week's quote
         let calendar = Calendar.current
-        let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date()))!
+        let weekComponents = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())
+        let weekStart = calendar.date(from: weekComponents) ?? calendar.startOfDay(for: Date())
         
         let descriptor = FetchDescriptor<Quote>(
             predicate: #Predicate<Quote> { quote in
@@ -275,14 +274,11 @@ class QuoteService {
             
             // If AFM returns empty or just whitespace, use fallback
             if emoji.isEmpty {
-                print("⚠️ AFM returned empty emoji, using fallback")
                 return getFallbackEmoji(forCategory: category, entries: fallbackEntries)
             }
             
-            print("✅ AFM emoji: \(emoji)")
             return emoji
         } catch {
-            print("❌ AFM emoji generation failed: \(error), using fallback")
             return getFallbackEmoji(forCategory: category, entries: fallbackEntries)
         }
     }
@@ -325,7 +321,10 @@ class QuoteService {
         }
         
         // Select random quote from category
-        return categoryQuotes.randomElement()!
+        return categoryQuotes.randomElement()
+            ?? categoryQuotes.first
+            ?? allQuotes.randomElement()
+            ?? QuoteData(category: "OPTIMISM", quote: "Every day is a new beginning.")
     }
     
     // MARK: - Fallback Emoji Selection
@@ -367,14 +366,14 @@ class QuoteService {
         if averageRating >= 7.0 {
             // Pick from first half (more positive)
             let positiveEmojis = Array(emojiPool.prefix(3))
-            return positiveEmojis.randomElement() ?? emojiPool.first!
+            return positiveEmojis.randomElement() ?? emojiPool.first ?? "✨"
         } else if averageRating >= 4.0 {
             // Pick from middle
             return emojiPool.randomElement() ?? "✨"
         } else {
             // Pick supportive emojis for lower ratings
             let supportiveEmojis = Array(emojiPool.suffix(3))
-            return supportiveEmojis.randomElement() ?? emojiPool.last!
+            return supportiveEmojis.randomElement() ?? emojiPool.last ?? "✨"
         }
     }
 }

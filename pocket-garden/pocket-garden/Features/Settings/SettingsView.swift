@@ -8,10 +8,9 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
-import Inject
 
 struct SettingsView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \EmotionEntry.date, order: .reverse) private var entries: [EmotionEntry]
@@ -209,7 +208,7 @@ struct SettingsView: View {
         .onChange(of: notificationService.authorizationStatus) { _, _ in
             syncNotificationToggleWithSystemStatus()
         }
-        .enableInjection()
+        .devEnableInjection()
     }
     
     // MARK: - Delete Warning Overlay
@@ -856,7 +855,6 @@ struct SettingsView: View {
                         isExporting = false
                     }
                 }
-                print("Export failed: \(error)")
             }
         }
     }
@@ -920,7 +918,6 @@ struct SettingsView: View {
             
             showDeleteSuccess = true
         } catch {
-            print("Delete failed: \(error)")
         }
     }
     
@@ -960,7 +957,6 @@ struct SettingsView: View {
             }
             
         case .failure(let error):
-            print("File picker error: \(error)")
             importErrorMessage = "Could not access the selected file."
             showImportError = true
         }

@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct BodyScanView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
 
     let onComplete: () -> Void
 
@@ -207,7 +206,7 @@ struct BodyScanView: View {
         .onDisappear {
             stopBodyScan()
         }
-        .enableInjection()
+        .devEnableInjection()
     }
     
     private func startPulseAnimation() {

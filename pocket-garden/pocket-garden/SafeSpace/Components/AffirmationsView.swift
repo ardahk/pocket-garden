@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct AffirmationsView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
 
     let duration: Int // minutes
     let onComplete: () -> Void
@@ -167,7 +166,7 @@ struct AffirmationsView: View {
         .sheet(isPresented: $showInfoSheet) {
             affirmationsInfoSheet
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 
     // MARK: - Intro & Setup

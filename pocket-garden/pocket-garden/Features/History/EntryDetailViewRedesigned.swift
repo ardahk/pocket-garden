@@ -270,7 +270,6 @@ struct EntryDetailViewRedesigned: View {
 
         // Ensure file still exists
         guard FileManager.default.fileExists(atPath: url.path) else {
-            print("Audio file not found at path: \(url.path)")
             return
         }
 
@@ -280,7 +279,6 @@ struct EntryDetailViewRedesigned: View {
             try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try session.setActive(true)
         } catch {
-            print("Failed to configure audio session: \(error)")
         }
 
         // Lazily create the player
@@ -302,7 +300,6 @@ struct EntryDetailViewRedesigned: View {
 
                 audioPlayer = player
             } catch {
-                print("Failed to load audio: \(error)")
                 return
             }
         }
@@ -347,7 +344,6 @@ struct EntryDetailViewRedesigned: View {
         do {
             try session.setActive(false, options: [.notifyOthersOnDeactivation])
         } catch {
-            print("Failed to deactivate audio session: \(error)")
         }
     }
 }

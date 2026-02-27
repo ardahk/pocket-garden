@@ -1,9 +1,8 @@
 import SwiftUI
 import UserNotifications
-import Inject
 
 struct OnboardingView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @AppStorage("userFirstName") private var userFirstName = ""
     @State private var currentPage = 0
@@ -138,7 +137,7 @@ struct OnboardingView: View {
         .onAppear {
             enteredFirstName = userFirstName
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 
     private var isCurrentStepValid: Bool {
@@ -188,7 +187,7 @@ struct OnboardingFeature {
 // MARK: - Page View
 
 struct OnboardingPageView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     let feature: OnboardingFeature
     @Binding var enteredFirstName: String
 
@@ -285,7 +284,7 @@ struct OnboardingPageView: View {
             }
             .frame(width: geo.size.width, height: geo.size.height)
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 
     // MARK: Regular Step — unchanged layout
@@ -344,7 +343,7 @@ struct OnboardingPageView: View {
             Spacer()
         }
         .padding(.top, 20)
-        .enableInjection()
+        .devEnableInjection()
     }
 }
 
@@ -497,7 +496,7 @@ struct WelcomeMockView: View {
 }
 
 struct NameBeeVisual: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     @State private var floatOffset: CGFloat = 0
     @State private var glowScale: CGFloat = 1.0
 
@@ -539,7 +538,7 @@ struct NameBeeVisual: View {
                 floatOffset = -10
             }
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 }
 

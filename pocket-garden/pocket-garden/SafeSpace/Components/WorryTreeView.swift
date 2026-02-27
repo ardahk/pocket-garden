@@ -1,9 +1,8 @@
 import SwiftUI
 import SwiftData
-import Inject
 
 struct WorryTreeView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     
     let onComplete: () -> Void
     
@@ -113,7 +112,7 @@ struct WorryTreeView: View {
         .sheet(isPresented: $showInfoSheet) {
             worryTreeInfoSheet
         }
-        .enableInjection()
+        .devEnableInjection()
     }
     
     // MARK: - Intro View

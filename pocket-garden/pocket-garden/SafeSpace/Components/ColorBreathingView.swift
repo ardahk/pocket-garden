@@ -1,8 +1,7 @@
 import SwiftUI
-import Inject
 
 struct ColorBreathingView: View {
-    @ObserveInjection var inject
+    @DevObserveInjection var inject: DevInjectionToken
     
     let duration: Int
     let onComplete: () -> Void
@@ -177,7 +176,7 @@ struct ColorBreathingView: View {
         .onDisappear {
             cancelBreathing()
         }
-        .enableInjection()
+        .devEnableInjection()
     }
 
     private var circleSize: CGFloat {
