@@ -5,6 +5,18 @@ import Observation
 
 @Observable
 class SafeSpaceViewModel {
+    struct SanctuaryProgressSnapshot {
+        var completedThisWeek: Int
+        var completedToday: Int
+        var mostUsedActivityRaw: String?
+    }
+
+    private enum ProgressKeys {
+        static let weeklyCounts = "sanctuaryWeeklyActivityCounts"
+        static let dailyCounts = "sanctuaryDailyActivityCounts"
+        static let activityTotals = "sanctuaryActivityTotals"
+    }
+
     // Services
     let ambientSoundService = AmbientSoundService()
 
@@ -17,6 +29,11 @@ class SafeSpaceViewModel {
     var selectedActivity: CalmActivity?
     var isActivityActive: Bool = false
     var selectedAmbientSound: AmbientSoundType? = nil
+    var progressSnapshot = SanctuaryProgressSnapshot(
+        completedThisWeek: 0,
+        completedToday: 0,
+        mostUsedActivityRaw: nil
+    )
 
     // Model context for persistence
     private var modelContext: ModelContext?
@@ -27,6 +44,7 @@ class SafeSpaceViewModel {
 
     init(modelContext: ModelContext? = nil) {
         self.modelContext = modelContext
+        refreshProgressSnapshot()
         
         // Register this service as the active one for app lifecycle management
         AppLifecycleManager.shared.activeAmbientService = ambientSoundService
@@ -135,6 +153,7 @@ class SafeSpaceViewModel {
 
     func completeActivity(_ activity: CalmActivity) {
         completedActivities.append(activity.type.rawValue)
+        trackLocalProgress(for: activity.type.rawValue)
         isActivityActive = false
         selectedActivity = nil
     }
@@ -186,5 +205,84 @@ class SafeSpaceViewModel {
         }
 
         return activityCounts.max(by: { $0.value < $1.value })?.key
+    }
+
+    // MARK: - Local Progress Tracking
+
+    private func weekKey(for date: Date) -> String {
+        let calendar = Calendar.current
+        let weekStart = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)) ?? date
+        return dateKey(for: weekStart)
+    }
+
+    private func dateKey(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar.current
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone.current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    private func loadIntDictionary(forKey key: String) -> [String: Int] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: Int] ?? [:]
+    }
+
+    private func loadNestedIntDictionary(forKey key: String) -> [String: [String: Int]] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: [String: Int]] ?? [:]
+    }
+
+    private func saveIntDictionary(_ dictionary: [String: Int], forKey key: String) {
+        UserDefaults.standard.set(dictionary, forKey: key)
+    }
+
+    private func saveNestedIntDictionary(_ dictionary: [String: [String: Int]], forKey key: String) {
+        UserDefaults.standard.set(dictionary, forKey: key)
+    }
+
+    private func trackLocalProgress(for activityRaw: String) {
+        let now = Date()
+        let todayKey = dateKey(for: now)
+        let currentWeekKey = weekKey(for: now)
+
+        var daily = loadNestedIntDictionary(forKey: ProgressKeys.dailyCounts)
+        var weekly = loadNestedIntDictionary(forKey: ProgressKeys.weeklyCounts)
+        var totals = loadIntDictionary(forKey: ProgressKeys.activityTotals)
+
+        var dailyForToday = daily[todayKey] ?? [:]
+        dailyForToday[activityRaw, default: 0] += 1
+        daily[todayKey] = dailyForToday
+
+        var weeklyForCurrent = weekly[currentWeekKey] ?? [:]
+        weeklyForCurrent[activityRaw, default: 0] += 1
+        weekly[currentWeekKey] = weeklyForCurrent
+
+        totals[activityRaw, default: 0] += 1
+
+        saveNestedIntDictionary(daily, forKey: ProgressKeys.dailyCounts)
+        saveNestedIntDictionary(weekly, forKey: ProgressKeys.weeklyCounts)
+        saveIntDictionary(totals, forKey: ProgressKeys.activityTotals)
+
+        refreshProgressSnapshot()
+    }
+
+    func refreshProgressSnapshot() {
+        let now = Date()
+        let todayKey = dateKey(for: now)
+        let currentWeekKey = weekKey(for: now)
+
+        let daily = loadNestedIntDictionary(forKey: ProgressKeys.dailyCounts)
+        let weekly = loadNestedIntDictionary(forKey: ProgressKeys.weeklyCounts)
+        let totals = loadIntDictionary(forKey: ProgressKeys.activityTotals)
+
+        let completedToday = (daily[todayKey] ?? [:]).values.reduce(0, +)
+        let completedThisWeek = (weekly[currentWeekKey] ?? [:]).values.reduce(0, +)
+        let mostUsedRaw = totals.max(by: { $0.value < $1.value })?.key
+
+        progressSnapshot = SanctuaryProgressSnapshot(
+            completedThisWeek: completedThisWeek,
+            completedToday: completedToday,
+            mostUsedActivityRaw: mostUsedRaw
+        )
     }
 }

@@ -156,7 +156,6 @@ let sanctuaryItems: [String: String] = [
 /// Legacy Sanctuary practices kept here only as explicit "inactive" metadata.
 let inactiveSanctuaryItems: [String] = [
     "Safe Place Visualization",
-    "Butterfly Hug",
     "Box Breathing",
     "4-7-8 Breath",
     "Coherent Breathing",

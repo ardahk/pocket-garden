@@ -36,13 +36,25 @@ enum ActivityType: String, Codable, CaseIterable {
     case affirmations = "Affirmations"
     case visualization = "Visualization"
     case worryTree = "Worry Tree"
-    case butterflyHug = "Butterfly Hug"
     case nameAndSoothe = "Name & Soothe"
     case lovingKindness = "Loving Kindness"
 }
 
 // Predefined activities for Phase 1
 extension CalmActivity {
+    var shortDisplayTitle: String {
+        switch type {
+        case .breathing: return "Breathing"
+        case .grounding: return "Grounding"
+        case .bodyScan: return "Relaxation"
+        case .affirmations: return "Affirmations"
+        case .visualization: return "Safe Place"
+        case .worryTree: return "Worry Tree"
+        case .nameAndSoothe: return "Moments"
+        case .lovingKindness: return "Kindness"
+        }
+    }
+
     static let breathingExercise = CalmActivity(
         title: "Breathing Exercise",
         icon: "wind",
@@ -88,15 +100,6 @@ extension CalmActivity {
         type: .worryTree
     )
 
-    static let butterflyHug = CalmActivity(
-        title: "Butterfly Hug",
-        icon: "hands.clap.fill",
-        duration: 2,
-        description: "Bilateral stimulation for calm",
-        color: .indigo.opacity(0.7),
-        type: .butterflyHug
-    )
-
     static let visualization = CalmActivity(
         title: "Safe Place",
         icon: "mountain.2.fill",
@@ -128,7 +131,6 @@ extension CalmActivity {
     /// Legacy practices kept for potential future reactivation.
     /// They are currently inactive and should not be surfaced by Bumblebee.
     static let inactiveActivities: [CalmActivity] = [
-        butterflyHug,
         visualization
     ]
 

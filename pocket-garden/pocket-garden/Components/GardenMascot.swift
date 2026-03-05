@@ -49,6 +49,8 @@ struct GardenMascot: View {
                 bounce = true
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel)
     }
 
     private var mascotBody: some View {
@@ -74,6 +76,25 @@ struct GardenMascot: View {
             return "panda_sleep"
         case .neutral:
             return "panda_welcome"
+        }
+    }
+
+    private var accessibilityLabel: String {
+        switch emotion {
+        case .happy:
+            return "Happy panda mascot"
+        case .supportive:
+            return "Supportive panda mascot"
+        case .concerned:
+            return "Concerned panda mascot"
+        case .proud:
+            return "Proud panda mascot"
+        case .thinking:
+            return "Thinking panda mascot"
+        case .sleeping:
+            return "Sleeping panda mascot"
+        case .neutral:
+            return "Panda mascot"
         }
     }
 

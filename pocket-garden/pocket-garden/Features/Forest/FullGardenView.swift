@@ -210,7 +210,7 @@ struct FullGardenView: View {
         
         // Use viewport center in canvas coordinates
         let viewportCenter = CGPoint(x: canvasSize.width / 2, y: canvasSize.height / 2)
-        var closest = positions.first!
+        var closest = positions[0]
         var minDist = CGFloat.greatestFiniteMagnitude
         
         for p in positions {

@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 struct AffirmationsView: View {
     @DevObserveInjection var inject: DevInjectionToken
@@ -16,6 +17,8 @@ struct AffirmationsView: View {
     @State private var showInfoSheet: Bool = false
     @State private var showIntroContent: Bool = false
     @State private var heartScale: CGFloat = 1.0
+    @AppStorage("userFirstName") private var userFirstName = ""
+    @Query(sort: \EmotionEntry.date, order: .reverse) private var recentEntries: [EmotionEntry]
     
     // Soft rose accent for affirmations theme
     private let affirmationAccent = Color(red: 0.94, green: 0.54, blue: 0.60)
@@ -242,7 +245,7 @@ struct AffirmationsView: View {
                                 .font(.headline)
                                 .foregroundStyle(Color.textPrimary)
 
-                            Text("Here are 10 kind thoughts picked for you today. Swipe slowly and let each one sink in.")
+                            Text(introSubtitleText)
                                 .font(.subheadline)
                                 .foregroundStyle(Color.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
@@ -390,9 +393,8 @@ struct AffirmationsView: View {
             maxViewedIndex = defaults.integer(forKey: "affirmationMaxViewedIndex")
             showDailyIntro = false
         } else {
-            // New day - shuffle and pick 10 affirmations
-            let shuffled = allAffirmations.shuffled()
-            affirmations = Array(shuffled.prefix(10))
+            // New day: pick 10 affirmations with light mood-aware prioritization.
+            affirmations = selectAffirmationsForToday()
             currentIndex = 0
             maxViewedIndex = 0
             showDailyIntro = true
@@ -421,6 +423,61 @@ struct AffirmationsView: View {
             maxViewedIndex = currentIndex
             UserDefaults.standard.set(maxViewedIndex, forKey: "affirmationMaxViewedIndex")
         }
+    }
+
+    private var introSubtitleText: String {
+        let trimmedName = userFirstName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmedName.isEmpty {
+            return "Here are 10 kind thoughts picked for you today. Swipe slowly and let each one sink in."
+        }
+        return "Here are 10 kind thoughts picked for you today, \(trimmedName). Swipe slowly and let each one sink in."
+    }
+
+    private var recentMoodAverage: Double? {
+        let ratings = recentEntries.prefix(3).map(\.emotionRating)
+        guard !ratings.isEmpty else { return nil }
+        let total = ratings.reduce(0, +)
+        return Double(total) / Double(ratings.count)
+    }
+
+    private func selectAffirmationsForToday() -> [Affirmation] {
+        let targetCount = min(10, allAffirmations.count)
+        guard targetCount > 0 else { return [] }
+
+        let prioritizedCategories = prioritizedCategoriesForToday()
+        let prioritizedSet = Set(prioritizedCategories)
+        let prioritizedPool = allAffirmations.filter { prioritizedSet.contains($0.category) }.shuffled()
+        let fallbackPool = allAffirmations.filter { !prioritizedSet.contains($0.category) }.shuffled()
+
+        var selected: [Affirmation] = []
+        let prioritizedTarget = min(targetCount, max(6, targetCount - 2))
+        selected.append(contentsOf: prioritizedPool.prefix(prioritizedTarget))
+
+        if selected.count < targetCount {
+            selected.append(contentsOf: fallbackPool.prefix(targetCount - selected.count))
+        }
+        if selected.count < targetCount {
+            selected.append(contentsOf: allAffirmations.shuffled().prefix(targetCount - selected.count))
+        }
+
+        return Array(selected.prefix(targetCount)).shuffled()
+    }
+
+    private func prioritizedCategoriesForToday() -> [AffirmationCategory] {
+        guard let average = recentMoodAverage else {
+            return [.selfCompassion, .peace, .present, .strength]
+        }
+
+        if average <= 4.0 {
+            // Crisis-safe mode: bias toward safety and regulation first.
+            return [.safety, .selfCompassion, .present, .peace]
+        }
+
+        if average <= 6.5 {
+            return [.peace, .selfCompassion, .present, .strength]
+        }
+
+        return [.strength, .resilience, .peace, .present]
     }
 
     // MARK: - Swipe Handling

@@ -61,13 +61,13 @@ final class BumblebeeLocalFeedbackEngine {
 
         switch emotion {
         case .happy:
-            let opening = variations[0].randomElement()!
+            let opening = variations[0].randomElement() ?? variations[0].first ?? ""
             return "\(opening)It's clear something positive happened today. Consider jotting down what made this moment special\u{2014}it helps us recreate these feelings. What small thing brought you joy? If you'd like to keep the glow going, you could also spend a few minutes with Three Good Moments in Sanctuary. \u{1F31F}"
         case .supportive:
-            let opening = variations[1].randomElement()!
+            let opening = variations[1].randomElement() ?? variations[1].first ?? ""
             return "\(opening)Your feelings are completely valid. When things feel uncertain, try this: take three slow breaths, then name one thing you can control right now. Sometimes the smallest step forward is enough. If you want a bit more support, you might try the Grounding Technique in Sanctuary. \u{1F49A}"
         case .concerned:
-            let opening = variations[2].randomElement()!
+            let opening = variations[2].randomElement() ?? variations[2].first ?? ""
             return "\(opening)I'm right here with you. When everything feels heavy, let's ground together: place your feet flat, take a slow breath, and name five things you can see. You don't have to carry this alone. If it feels okay, you could also spend a few minutes with Muscle Relaxation in Sanctuary. \u{1F917}"
         default:
             return "Thanks for sharing your thoughts with me. Taking time to check in with yourself matters, and I'm here for every step of your journey."

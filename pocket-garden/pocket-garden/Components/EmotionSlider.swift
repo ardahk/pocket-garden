@@ -130,6 +130,20 @@ struct EmotionSlider: View {
             }
         }
         .frame(height: 44)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Emotion rating")
+        .accessibilityValue("\(rating) out of 10, \(Theme.emotionLabel(for: rating))")
+        .accessibilityHint("Swipe up or down with one finger to adjust your rating.")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment:
+                if rating < 10 { rating += 1 }
+            case .decrement:
+                if rating > 1 { rating -= 1 }
+            default:
+                break
+            }
+        }
     }
 
     // MARK: - Rating Labels

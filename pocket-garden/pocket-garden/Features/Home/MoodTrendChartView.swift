@@ -22,12 +22,12 @@ struct MoodTrendChartView: View {
         let today = calendar.startOfDay(for: Date())
         let weekday = calendar.component(.weekday, from: today)
         let daysFromSunday = weekday - 1
-        let weekStart = calendar.date(byAdding: .day, value: -daysFromSunday, to: today)!
-        return calendar.date(byAdding: .weekOfYear, value: -weekOffset, to: weekStart)!
+        let weekStart = calendar.date(byAdding: .day, value: -daysFromSunday, to: today) ?? today
+        return calendar.date(byAdding: .weekOfYear, value: -weekOffset, to: weekStart) ?? weekStart
     }
     
     private var currentWeekEnd: Date {
-        calendar.date(byAdding: .day, value: 6, to: currentWeekStart)!
+        calendar.date(byAdding: .day, value: 6, to: currentWeekStart) ?? currentWeekStart
     }
     
     private var weekDateRange: String {

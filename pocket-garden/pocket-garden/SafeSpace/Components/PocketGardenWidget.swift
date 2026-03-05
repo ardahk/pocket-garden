@@ -45,7 +45,7 @@ struct Provider: TimelineProvider {
             
             // Check if journaled today
             let today = Calendar.current.startOfDay(for: Date())
-            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today)!
+            let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today.addingTimeInterval(86_400)
             let entryPredicate = #Predicate<EmotionEntry> { entry in
                 entry.date >= today && entry.date < tomorrow
             }

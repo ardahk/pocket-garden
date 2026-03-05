@@ -30,6 +30,7 @@ struct MainTabView: View {
             }
             .tabItem {
                 Label("Home", systemImage: "house.fill")
+                    .accessibilityLabel("Home tab")
             }
             .tag(0)
 
@@ -39,12 +40,14 @@ struct MainTabView: View {
             }
             .tabItem {
                 Label("Garden", systemImage: "leaf.fill")
+                    .accessibilityLabel("Garden tab")
             }
             .tag(1)
 
             SafeSpaceView(modelContext: nil, isEmbedded: true, selectedTab: $selectedTab)
             .tabItem {
                 Label("Sanctuary", systemImage: "moon.stars.fill")
+                    .accessibilityLabel("Sanctuary tab")
             }
             .tag(2)
         }

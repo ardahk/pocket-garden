@@ -65,6 +65,9 @@ struct RecordingButton: View {
                 }
             }
         }
+        .accessibilityLabel(accessibilityButtonLabel)
+        .accessibilityHint(accessibilityButtonHint)
+        .accessibilityValue(accessibilityButtonValue)
         .disabled(isTranscribing && !isRecording)
         .onChange(of: isRecording) { _, newValue in
             pulseAnimation = newValue
@@ -119,6 +122,24 @@ struct RecordingButton: View {
                 Image(systemName: "mic.fill")
             }
         }
+    }
+
+    private var accessibilityButtonLabel: String {
+        if isRecording { return "Stop recording" }
+        if isTranscribing { return "Transcribing journal entry" }
+        return "Start voice recording"
+    }
+
+    private var accessibilityButtonHint: String {
+        if isRecording { return "Double tap to stop recording." }
+        if isTranscribing { return "Please wait while your audio is transcribed." }
+        return "Double tap to begin recording your journal entry."
+    }
+
+    private var accessibilityButtonValue: String {
+        if isRecording { return "Recording" }
+        if isTranscribing { return "Busy" }
+        return "Ready"
     }
 }
 

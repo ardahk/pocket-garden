@@ -10,6 +10,7 @@ struct BodyScanView: View {
     @State private var progress: CGFloat = 0
     @State private var countdown: Int = 7 // Live countdown timer
     @State private var phaseColor: Color = Color(red: 0.60, green: 0.52, blue: 0.92)
+    @State private var isQuickStartMode = false
     
     // Lavender accent color for body scan theme
     private let lavenderAccent = Color(red: 0.60, green: 0.52, blue: 0.92)
@@ -39,12 +40,25 @@ struct BodyScanView: View {
         BodyPart(name: "Face", icon: "face.smiling", position: .top, highlightY: 0.26)
     ]
 
+    private var activeBodyParts: [BodyPart] {
+        if !isQuickStartMode {
+            return bodyParts
+        }
+        let quickTargets: Set<String> = ["Feet & Toes", "Hands & Arms", "Shoulders", "Face"]
+        let quick = bodyParts.filter { quickTargets.contains($0.name) }
+        return quick.isEmpty ? bodyParts : quick
+    }
+
+    private var phaseDuration: Int {
+        isQuickStartMode ? 4 : 7
+    }
+
     var body: some View {
         ZStack {
             // Animated gradient background
             AnimatedGradientBackground(
                 phase: isInstructionPhase ? .tense : .release,
-                progress: CGFloat(countdown) / 7.0
+                progress: CGFloat(countdown) / CGFloat(max(1, phaseDuration))
             )
             .ignoresSafeArea()
 
@@ -52,7 +66,23 @@ struct BodyScanView: View {
                 // Header with title and info button
                 VStack(spacing: 8) {
                     HStack(alignment: .center, spacing: 8) {
-                        Spacer()
+                        if hasStarted && currentStep < activeBodyParts.count {
+                            Button(action: {
+                                stopBodyScan()
+                                dismiss()
+                            }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 17, weight: .medium))
+                                    .foregroundStyle(Color(.tertiaryLabel))
+                                    .frame(width: 32, height: 32)
+                                    .background(Color(.tertiarySystemFill))
+                                    .clipShape(Circle())
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Spacer()
+                                .frame(width: 44)
+                        }
                         
                         Text("Muscle Relaxation")
                             .font(.system(size: 28, weight: .semibold, design: .rounded))
@@ -68,19 +98,20 @@ struct BodyScanView: View {
                                     .foregroundStyle(lavenderAccent.opacity(0.9))
                             }
                             .buttonStyle(.plain)
+                        } else {
+                            Spacer()
+                                .frame(width: 44)
                         }
-
-                        Spacer()
                     }
 
                     Text("Progressive muscle relaxation")
                         .font(.subheadline)
                         .foregroundStyle(Color.textSecondary)
                     
-                    if hasStarted && currentStep < bodyParts.count {
+                    if hasStarted && currentStep < activeBodyParts.count {
                         // Animated step indicator
                         HStack(spacing: 4) {
-                            ForEach(0..<bodyParts.count, id: \.self) { index in
+                            ForEach(0..<activeBodyParts.count, id: \.self) { index in
                                 Capsule()
                                     .fill(index <= currentStep ? phaseColor : Color.textSecondary.opacity(0.2))
                                     .frame(width: index == currentStep ? 20 : 8, height: 4)
@@ -95,8 +126,8 @@ struct BodyScanView: View {
 
                 if !hasStarted {
                     introView
-                } else if currentStep < bodyParts.count {
-                    let bodyPart = bodyParts[currentStep]
+                } else if currentStep < activeBodyParts.count {
+                    let bodyPart = activeBodyParts[currentStep]
                     
                     // Main visualization area
                     ZStack {
@@ -137,7 +168,7 @@ struct BodyScanView: View {
                             .frame(width: 120, height: 120)
                         
                         Circle()
-                            .trim(from: 0, to: CGFloat(countdown) / 7.0)
+                            .trim(from: 0, to: CGFloat(countdown) / CGFloat(max(1, phaseDuration)))
                             .stroke(
                                 AngularGradient(
                                     colors: [phaseColor, phaseColor.opacity(0.5)],
@@ -232,10 +263,18 @@ struct BodyScanView: View {
     // MARK: - Intro View
 
     private var introView: some View {
-        IntroAnimatedView(onStart: {
-            hasStarted = true
-            startBodyScan()
-        })
+        IntroAnimatedView(
+            onStart: {
+                isQuickStartMode = false
+                hasStarted = true
+                startBodyScan()
+            },
+            onQuickStart: {
+                isQuickStartMode = true
+                hasStarted = true
+                startBodyScan()
+            }
+        )
     }
 
     // MARK: - Info Sheet
@@ -293,7 +332,7 @@ struct BodyScanView: View {
 
     private var currentInstructionBase: String {
         if isInstructionPhase {
-            return "Tense your \(bodyParts[currentStep].name.lowercased())..."
+            return "Tense your \(activeBodyParts[currentStep].name.lowercased())..."
         } else {
             return "Now release... let all the tension go"
         }
@@ -321,7 +360,7 @@ struct BodyScanView: View {
         generator.impactOccurred()
 
         // Reset countdown
-        countdown = 7
+        countdown = phaseDuration
         updatePhaseColor()
 
         // Start countdown timer
@@ -352,7 +391,7 @@ struct BodyScanView: View {
                         self.isInstructionPhase = true
                         self.currentStep += 1
 
-                        if self.currentStep < self.bodyParts.count {
+                        if self.currentStep < self.activeBodyParts.count {
                             self.performNextPhase()
                         } else {
                             // Complete
@@ -366,19 +405,22 @@ struct BodyScanView: View {
     }
 
     private func updatePhaseColor() {
-        // Smooth, calming color progression for 7-second countdown (lavender tones)
+        // Smooth, calming color progression that adapts to full vs quick mode duration.
+        let duration = max(1, phaseDuration)
+        let ratio = Double(countdown) / Double(duration)
+
         withAnimation(.easeInOut(duration: 1.2)) {
-            switch countdown {
-            case 7, 6:
+            switch ratio {
+            case 0.86...1.0:
                 // Deep lavender
                 phaseColor = Color(red: 0.60, green: 0.52, blue: 0.92)
-            case 5, 4:
+            case 0.58..<0.86:
                 // Softer violet
                 phaseColor = Color(red: 0.70, green: 0.58, blue: 0.96)
-            case 3, 2:
+            case 0.3..<0.58:
                 // Gentle lilac
                 phaseColor = Color(red: 0.78, green: 0.64, blue: 0.97)
-            case 1:
+            case 0.0..<0.3:
                 // Very soft pastel purple
                 phaseColor = Color(red: 0.86, green: 0.72, blue: 0.99)
             default:
@@ -601,6 +643,7 @@ struct Particle: Identifiable {
 
 struct IntroAnimatedView: View {
     let onStart: () -> Void
+    let onQuickStart: (() -> Void)?
     
     // Lavender accent for body scan
     private let lavenderAccent = Color(red: 0.60, green: 0.52, blue: 0.92)
@@ -753,6 +796,27 @@ struct IntroAnimatedView: View {
             .buttonStyle(.plain)
             .opacity(showContent ? 1 : 0)
             .scaleEffect(showContent ? 1 : 0.95)
+
+            if let onQuickStart {
+                Button(action: onQuickStart) {
+                    Text("Quick Start (about 90 sec)")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(lavenderAccent)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(lavenderAccent.opacity(0.35), lineWidth: 1)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(Color.cardBackground.opacity(0.4))
+                                )
+                        )
+                }
+                .padding(.horizontal, 24)
+                .buttonStyle(.plain)
+                .opacity(showContent ? 1 : 0)
+            }
 
             Spacer()
         }

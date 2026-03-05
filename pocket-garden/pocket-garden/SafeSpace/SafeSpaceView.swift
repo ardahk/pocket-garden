@@ -15,6 +15,9 @@ struct SafeSpaceView: View {
     @ObservedObject private var pendingDeepLink = PendingDeepLink.shared
     /// The currently selected tab in MainTabView.
     @Binding private var selectedTab: Int
+    @AppStorage("userFirstName") private var userFirstName = ""
+
+    @Query(sort: \EmotionEntry.date, order: .reverse) private var recentEntries: [EmotionEntry]
 
     private let isEmbedded: Bool
     private static let sanctuaryTabIndex = 2
@@ -41,26 +44,17 @@ struct SafeSpaceView: View {
                 .ignoresSafeArea()
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 20) {
+                        VStack(spacing: 16) {
                         // Drag indicator (only for sheet presentation)
                         if !isEmbedded {
                             Capsule()
                                 .fill(Color.textSecondary.opacity(0.35))
                                 .frame(width: 40, height: 5)
-                                .padding(.top, 8)
+                                .padding(.top, 4)
                         }
 
-                        // Header
-                        VStack(spacing: 6) {
-                            Text("Sanctuary")
-                                .font(.system(size: 28, weight: .bold))
-                                .foregroundStyle(Color.textPrimary)
-
-                            Text("A quiet place to pause and reset")
-                                .font(.subheadline)
-                                .foregroundStyle(Color.textSecondary)
-                        }
-                        .padding(.top, isEmbedded ? 16 : 8)
+                        // Compact top block: recommendation + progress in one card
+                        topInsightSection
 
                         // Ambient sounds
                         ambientSoundsSection
@@ -90,6 +84,7 @@ struct SafeSpaceView: View {
             }
             .onAppear {
                 viewModel.startSession(fromEmergency: true)
+                viewModel.refreshProgressSnapshot()
                 consumePendingDeepLinkIfNeeded(for: selectedTab)
             }
             .onDisappear {
@@ -121,6 +116,68 @@ struct SafeSpaceView: View {
     }
 
     // MARK: - Ambient Sounds Section
+
+    private var topInsightSection: some View {
+        let recommendation = recommendedCombo
+        let stats = sanctuaryStats
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Recommended For You")
+                .font(.headline)
+                .foregroundStyle(Color.textPrimary)
+
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "sparkles")
+                        .foregroundStyle(Color.primaryGreen)
+                        .font(.system(size: 16, weight: .semibold))
+                        .padding(.top, 2)
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(recommendation.title)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color.textPrimary)
+
+                        Text(recommendation.subtitle)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+                }
+                Button {
+                    launchCombo(activity: recommendation.activity, sound: recommendation.sound)
+                } label: {
+                    HStack(alignment: .center, spacing: 8) {
+                        Image(systemName: recommendation.sound.icon)
+                        Text("Start \(recommendation.sound.rawValue) + \(recommendation.activity.shortDisplayTitle)")
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: 44)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primaryGreen)
+                    )
+                }
+                .buttonStyle(.plain)
+
+                Divider()
+                    .padding(.vertical, 4)
+
+                HStack(spacing: 10) {
+                    ProgressChip(title: "This Week", value: "\(stats.sessionsThisWeek)")
+                    ProgressChip(title: "Most Used", value: stats.mostUsedActivity)
+                    ProgressChip(title: "Today", value: "\(stats.completedToday)")
+                }
+            }
+            .padding(14)
+            .background(Color.cardBackground)
+            .cornerRadius(16)
+        }
+        .padding(.top, isEmbedded ? 8 : 0)
+    }
 
     private var ambientSoundsSection: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -203,11 +260,6 @@ struct SafeSpaceView: View {
                 completeActivityAndHandleDeferredNotification(activity)
             }
             
-        case .butterflyHug:
-            ButterflyHugView(duration: activity.duration) {
-                completeActivityAndHandleDeferredNotification(activity)
-            }
-            
         case .visualization:
             SafePlaceView(duration: activity.duration) {
                 completeActivityAndHandleDeferredNotification(activity)
@@ -258,11 +310,82 @@ struct SafeSpaceView: View {
 
         viewModel.completeActivity(activity)
         selectedActivity = nil
-
         Task { @MainActor in
             await NotificationPromptCoordinator.shared.requestIfDeferredAfterSanctuaryCompletion()
         }
     }
+
+    private func launchCombo(activity: CalmActivity, sound: AmbientSoundType) {
+        viewModel.setAmbientSound(sound)
+        selectedActivity = activity
+        viewModel.startActivity(activity)
+    }
+
+    private var recommendedCombo: SanctuaryComboRecommendation {
+        let latestRating = recentEntries.first?.emotionRating ?? 6
+        let name = userFirstName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if latestRating <= 3 {
+            return SanctuaryComboRecommendation(
+                title: "Settle your nervous system first",
+                subtitle: name.isEmpty ? "Start with Grounding + Rain" : "\(name), try Grounding + Rain",
+                reason: "Recent check-ins look heavy. This combo is the fastest way to create safety and reduce overwhelm.",
+                activity: CalmActivity.groundingTechnique,
+                sound: .rain
+            )
+        }
+
+        if latestRating <= 6 {
+            return SanctuaryComboRecommendation(
+                title: "Release body tension",
+                subtitle: name.isEmpty ? "Try Muscle Relaxation + Nature" : "\(name), try Muscle Relaxation + Nature",
+                reason: "Mid-range stress often sits in the body. Pairing movement-based release with nature audio helps downshift.",
+                activity: CalmActivity.bodyScan,
+                sound: .nature
+            )
+        }
+
+        return SanctuaryComboRecommendation(
+            title: "Protect your momentum",
+            subtitle: name.isEmpty ? "Use Three Good Moments + Lofi" : "\(name), use Three Good Moments + Lofi",
+            reason: "Your recent mood trend is stronger. This combo helps lock in emotional gains and resilience.",
+            activity: CalmActivity.nameAndSoothe,
+            sound: .lofi
+        )
+    }
+
+    private var sanctuaryStats: SanctuaryProgressStats {
+        let activityNameByRaw = Dictionary(
+            uniqueKeysWithValues: CalmActivity.allActivities.map { ($0.type.rawValue, $0.title) }
+        )
+        let topRawActivity = viewModel.progressSnapshot.mostUsedActivityRaw
+        let mostUsedActivity = topRawActivity
+            .flatMap { raw in
+                activityNameByRaw[raw].flatMap { title in
+                    CalmActivity.allActivities.first(where: { $0.title == title })?.shortDisplayTitle
+                }
+            } ?? "Start"
+
+        return SanctuaryProgressStats(
+            sessionsThisWeek: viewModel.progressSnapshot.completedThisWeek,
+            mostUsedActivity: mostUsedActivity,
+            completedToday: viewModel.progressSnapshot.completedToday
+        )
+    }
+}
+
+private struct SanctuaryComboRecommendation {
+    let title: String
+    let subtitle: String
+    let reason: String
+    let activity: CalmActivity
+    let sound: AmbientSoundType
+}
+
+private struct SanctuaryProgressStats {
+    let sessionsThisWeek: Int
+    let mostUsedActivity: String
+    let completedToday: Int
 }
 
 // MARK: - Components
@@ -340,6 +463,29 @@ struct PracticeGridCard: View {
             .cornerRadius(20)
         }
         .buttonStyle(ScaleButtonStyle())
+    }
+}
+
+struct ProgressChip: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(Color.textSecondary)
+            Text(value)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.textPrimary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.9)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(Color.cardBackground)
+        .cornerRadius(12)
     }
 }
 
