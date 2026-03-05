@@ -8,6 +8,7 @@
 import SwiftUI
 import SwiftData
 import UniformTypeIdentifiers
+import UIKit
 
 struct SettingsView: View {
     @DevObserveInjection var inject: DevInjectionToken
@@ -27,6 +28,9 @@ struct SettingsView: View {
     @State private var exportURL: URL?
     @State private var exportTask: Task<Void, Never>? = nil
     @State private var showNotificationSettingsAlert = false
+    @State private var showFeedbackLaunchPrompt = false
+    @State private var showFeedbackErrorAlert = false
+    @State private var feedbackErrorMessage = ""
     
     // Import states
     @State private var showImportPicker = false
@@ -39,176 +43,196 @@ struct SettingsView: View {
     @State private var pendingImportData: ExportData?
     
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.backgroundCream
-                    .ignoresSafeArea()
-                
-                ScrollView {
-                    VStack(spacing: Spacing.xl) {
-                        // Bumblebee personalization
-                        personalizationSection
-
-                        // Notifications Section
-                        notificationsSection
-                        
-                        // Data Overview Section
-                        dataOverviewSection
-                        
-                        // Privacy & Data Section
-                        privacySection
-                    }
-                    .padding(Layout.screenPadding)
-                    .padding(.bottom, Spacing.xxxl)
-                }
-
-                // Export loading overlay
-                if isExporting {
-                    VStack(spacing: Spacing.lg) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: .primaryGreen))
-                            .scaleEffect(1.2)
-                        
-                        Text("Preparing your export...")
-                            .font(Typography.body)
+        settingsView
+            .overlay(alignment: .bottom) {
+                if showExportToast {
+                    HStack(spacing: Spacing.md) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.primaryGreen)
+                        Text("Export ready. You can save or share your file from the sheet you opened.")
+                            .font(Typography.caption)
                             .foregroundColor(.textPrimary)
-                            .multilineTextAlignment(.center)
-                        
-                        Button(action: {
-                            Theme.Haptics.light()
-                            exportTask?.cancel()
-                            exportTask = nil
-                            isExporting = false
-                        }) {
-                            Text("Cancel")
-                                .font(Typography.buttonSmall)
-                                .foregroundColor(.textSecondary)
-                                .padding(.horizontal, Spacing.lg)
-                                .padding(.vertical, Spacing.sm)
-                                .background(Color.cardBackground)
-                                .cornerRadius(CornerRadius.sm)
-                        }
                     }
-                    .padding(Spacing.xl)
-                    .background(Color.backgroundCream)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.vertical, Spacing.md)
+                    .background(Color.cardBackground)
                     .cornerRadius(CornerRadius.lg)
-                    .shadow(color: Color.black.opacity(0.15), radius: 16, x: 0, y: 8)
-                    .frame(maxWidth: 260)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .background(Color.black.opacity(0.2).ignoresSafeArea())
-                    .transition(.opacity)
+                    .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
+                    .padding(.bottom, Spacing.xl)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") {
-                        dismiss()
+            .overlay {
+                if showDeleteWarning {
+                    deleteWarningOverlay
+                }
+            }
+            .overlay {
+                if showImportWarning {
+                    importWarningOverlay
+                }
+            }
+            .overlay {
+                if isImporting {
+                    importLoadingOverlay
+                }
+            }
+            .overlay {
+                if showFeedbackLaunchPrompt {
+                    feedbackLaunchOverlay
+                }
+            }
+            .onAppear {
+                editableFirstName = UserNameSanitizer.filterForInput(userFirstName)
+                Task {
+                    await notificationService.checkAuthorizationStatus()
+                    syncNotificationToggleWithSystemStatus()
+                }
+            }
+            .onChange(of: editableFirstName) { _, newValue in
+                let filtered = UserNameSanitizer.filterForInput(newValue)
+                if filtered != newValue {
+                    editableFirstName = filtered
+                }
+            }
+            .onChange(of: notificationService.authorizationStatus) { _, _ in
+                syncNotificationToggleWithSystemStatus()
+            }
+            .devEnableInjection()
+    }
+
+    private var settingsView: some View {
+        NavigationStack {
+            settingsContent
+        }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Done") {
+                    dismiss()
+                }
+                .foregroundColor(.primaryGreen)
+            }
+        }
+        .sheet(isPresented: $showExportSheet) {
+            if let url = exportURL {
+                ShareSheet(activityItems: [url]) {
+                    withAnimation {
+                        showExportToast = true
                     }
-                    .foregroundColor(.primaryGreen)
-                }
-            }
-            .sheet(isPresented: $showExportSheet) {
-                if let url = exportURL {
-                    ShareSheet(activityItems: [url]) {
-                        withAnimation {
-                            showExportToast = true
-                        }
-                        Task {
-                            try? await Task.sleep(nanoseconds: 2_000_000_000)
-                            await MainActor.run {
-                                withAnimation {
-                                    showExportToast = false
-                                }
+                    Task {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        await MainActor.run {
+                            withAnimation {
+                                showExportToast = false
                             }
                         }
                     }
                 }
             }
-            .alert("Delete All Data", isPresented: $showDeleteConfirmation) {
-                Button("Cancel", role: .cancel) { }
-                Button("Delete", role: .destructive) {
-                    deleteAllData()
+        }
+        .alert("Delete All Data", isPresented: $showDeleteConfirmation) {
+            Button("Cancel", role: .cancel) { }
+            Button("Delete", role: .destructive) {
+                deleteAllData()
+            }
+        } message: {
+            Text("This will permanently delete all your journal entries from this device. This action cannot be undone.")
+        }
+        .alert("Data Deleted", isPresented: $showDeleteSuccess) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("All your data has been successfully deleted from this device.")
+        }
+        .alert("Notifications Permission Required", isPresented: $showNotificationSettingsAlert) {
+            Button("Open Settings") {
+                openAppSettings()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Notifications are currently disabled. To enable them, please go to Settings > Pocket Forest > Notifications and turn on \"Allow Notifications\".")
+        }
+        .alert("Import Successful", isPresented: $showImportSuccess) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text("All your data has been successfully imported. Your trees, entries, and progress have been restored.")
+        }
+        .alert("Import Failed", isPresented: $showImportError) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(importErrorMessage)
+        }
+        .alert("Couldn't Open Email", isPresented: $showFeedbackErrorAlert) {
+            Button("OK", role: .cancel) { }
+        } message: {
+            Text(feedbackErrorMessage)
+        }
+        .fileImporter(
+            isPresented: $showImportPicker,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            handleImportFile(result)
+        }
+    }
+
+    private var settingsContent: some View {
+        ZStack {
+            Color.backgroundCream
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: Spacing.xl) {
+                    personalizationSection
+                    notificationsSection
+                    dataOverviewSection
+                    privacySection
                 }
-            } message: {
-                Text("This will permanently delete all your journal entries from this device. This action cannot be undone.")
+                .padding(Layout.screenPadding)
+                .padding(.bottom, Spacing.xxxl)
             }
-            .alert("Data Deleted", isPresented: $showDeleteSuccess) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("All your data has been successfully deleted from this device.")
-            }
-            .alert("Notifications Permission Required", isPresented: $showNotificationSettingsAlert) {
-                Button("Open Settings") {
-                    openAppSettings()
-                }
-                Button("Cancel", role: .cancel) { }
-            } message: {
-                Text("Notifications are currently disabled. To enable them, please go to Settings > Pocket Forest > Notifications and turn on \"Allow Notifications\".")
-            }
-            .alert("Import Successful", isPresented: $showImportSuccess) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("All your data has been successfully imported. Your trees, entries, and progress have been restored.")
-            }
-            .alert("Import Failed", isPresented: $showImportError) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text(importErrorMessage)
-            }
-            .fileImporter(
-                isPresented: $showImportPicker,
-                allowedContentTypes: [.json],
-                allowsMultipleSelection: false
-            ) { result in
-                handleImportFile(result)
+
+            if isExporting {
+                exportLoadingOverlayCard
             }
         }
-        .overlay(alignment: .bottom) {
-            if showExportToast {
-                HStack(spacing: Spacing.md) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.primaryGreen)
-                    Text("Export ready. You can save or share your file from the sheet you opened.")
-                        .font(Typography.caption)
-                        .foregroundColor(.textPrimary)
-                }
-                .padding(.horizontal, Spacing.lg)
-                .padding(.vertical, Spacing.md)
-                .background(Color.cardBackground)
-                .cornerRadius(CornerRadius.lg)
-                .shadow(color: Color.black.opacity(0.15), radius: 12, x: 0, y: 6)
-                .padding(.bottom, Spacing.xl)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
+
+    private var exportLoadingOverlayCard: some View {
+        VStack(spacing: Spacing.lg) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .primaryGreen))
+                .scaleEffect(1.2)
+
+            Text("Preparing your export...")
+                .font(Typography.body)
+                .foregroundColor(.textPrimary)
+                .multilineTextAlignment(.center)
+
+            Button(action: {
+                Theme.Haptics.light()
+                exportTask?.cancel()
+                exportTask = nil
+                isExporting = false
+            }) {
+                Text("Cancel")
+                    .font(Typography.buttonSmall)
+                    .foregroundColor(.textSecondary)
+                    .padding(.horizontal, Spacing.lg)
+                    .padding(.vertical, Spacing.sm)
+                    .background(Color.cardBackground)
+                    .cornerRadius(CornerRadius.sm)
             }
         }
-        .overlay {
-            if showDeleteWarning {
-                deleteWarningOverlay
-            }
-        }
-        .overlay {
-            if showImportWarning {
-                importWarningOverlay
-            }
-        }
-        .overlay {
-            if isImporting {
-                importLoadingOverlay
-            }
-        }
-        .onAppear {
-            editableFirstName = userFirstName
-            Task {
-                await notificationService.checkAuthorizationStatus()
-                syncNotificationToggleWithSystemStatus()
-            }
-        }
-        .onChange(of: notificationService.authorizationStatus) { _, _ in
-            syncNotificationToggleWithSystemStatus()
-        }
-        .devEnableInjection()
+        .padding(Spacing.xl)
+        .background(Color.backgroundCream)
+        .cornerRadius(CornerRadius.lg)
+        .shadow(color: Color.black.opacity(0.15), radius: 16, x: 0, y: 8)
+        .frame(maxWidth: 260)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black.opacity(0.2).ignoresSafeArea())
+        .transition(.opacity)
     }
     
     // MARK: - Delete Warning Overlay
@@ -430,6 +454,91 @@ struct SettingsView: View {
         }
         .transition(.opacity)
     }
+
+    // MARK: - Feedback Launch Overlay
+
+    private var feedbackLaunchOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.42)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        showFeedbackLaunchPrompt = false
+                    }
+                }
+
+            VStack(spacing: Spacing.lg) {
+                ZStack {
+                    Circle()
+                        .fill(Color.primaryGreen.opacity(0.14))
+                        .frame(width: 72, height: 72)
+
+                    Text("🐝")
+                        .font(.system(size: 34))
+                }
+
+                VStack(spacing: Spacing.sm) {
+                    Text("Send Feedback")
+                        .font(.system(size: 22, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+
+                    Text("Bumblebee is about to open your favorite mail app.")
+                        .font(Typography.body)
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(2)
+                }
+
+                VStack(spacing: Spacing.md) {
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                            showFeedbackLaunchPrompt = false
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                            openFeedbackEmail()
+                        }
+                    } label: {
+                        Text("Open")
+                            .font(Typography.button)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.primaryGreen)
+                            )
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                            showFeedbackLaunchPrompt = false
+                        }
+                    } label: {
+                        Text("Not Now")
+                            .font(Typography.buttonSmall)
+                            .foregroundColor(.textSecondary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .fill(Color.backgroundCream)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(Spacing.xl)
+            .background(
+                RoundedRectangle(cornerRadius: 24)
+                    .fill(Color.cardBackground)
+                    .shadow(color: Color.black.opacity(0.2), radius: 28, y: 10)
+            )
+            .padding(.horizontal, Spacing.xl)
+            .transition(.scale(scale: 0.92).combined(with: .opacity))
+        }
+        .animation(.spring(response: 0.3, dampingFraction: 0.82), value: showFeedbackLaunchPrompt)
+    }
     
     // MARK: - Notifications Section
 
@@ -464,7 +573,7 @@ struct SettingsView: View {
 
                     if hasNameChanges {
                         Button(action: {
-                            let trimmed = sanitizeName(editableFirstName)
+                            let trimmed = UserNameSanitizer.sanitize(editableFirstName)
                             guard !trimmed.isEmpty else { return }
                             editableFirstName = trimmed
                             userFirstName = trimmed
@@ -635,8 +744,24 @@ struct SettingsView: View {
             Label("Data & Privacy", systemImage: "hand.raised.fill")
                 .font(Typography.headline)
                 .foregroundColor(.textPrimary)
+
+            Text("Data stays on this device. To move devices, export then import.")
+                .font(Typography.caption)
+                .foregroundColor(.textSecondary)
             
             VStack(spacing: Spacing.md) {
+                SettingsRow(
+                    icon: "envelope.fill",
+                    iconColor: .primaryGreen,
+                    title: "Send Feedback",
+                    description: "We read every message, your thoughts shape the app"
+                ) {
+                    Theme.Haptics.light()
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        showFeedbackLaunchPrompt = true
+                    }
+                }
+
                 // Export
                 SettingsRow(
                     icon: "square.and.arrow.up.fill",
@@ -693,11 +818,11 @@ struct SettingsView: View {
     }
 
     private var isNameInputValid: Bool {
-        !sanitizeName(editableFirstName).isEmpty
+        !UserNameSanitizer.sanitize(editableFirstName).isEmpty
     }
 
     private var hasNameChanges: Bool {
-        sanitizeName(editableFirstName) != sanitizeName(userFirstName)
+        UserNameSanitizer.sanitize(editableFirstName) != UserNameSanitizer.sanitize(userFirstName)
     }
 
     private var canDeliverNotifications: Bool {
@@ -717,14 +842,6 @@ struct SettingsView: View {
         }
     }
 
-    private func sanitizeName(_ raw: String) -> String {
-        raw
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
-    }
-    
     private func exportData() {
         // Prevent multiple exports at the same time
         guard !isExporting else { return }
@@ -794,7 +911,7 @@ struct SettingsView: View {
             if Task.isCancelled { return }
 
             // Create export with placeholder signature
-            let trimmedName = sanitizeName(userFirstName)
+            let trimmedName = UserNameSanitizer.sanitize(userFirstName)
             var export = ExportData(
                 exportDate: Date(),
                 appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0",
@@ -863,6 +980,27 @@ struct SettingsView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: Date())
+    }
+
+    private var feedbackRecipient: String { "support@pocketforest.app" }
+    private var feedbackSubject: String {
+        let name = UserNameSanitizer.sanitize(userFirstName)
+        return name.isEmpty ? "Thank you" : "Thank you \(name)"
+    }
+    private var feedbackBody: String {
+        """
+        Thank you for sending us a feedback message. You can edit this email, and we are looking forward to responding within 24-48 hours.
+        """
+    }
+    
+    private func openFeedbackEmail() {
+        let url = FeedbackEmailClient.defaultMail.composeURL(to: feedbackRecipient, subject: feedbackSubject, body: feedbackBody)
+        guard UIApplication.shared.canOpenURL(url) else {
+            feedbackErrorMessage = "No compatible mail app was found. Please install a mail app and try again."
+            showFeedbackErrorAlert = true
+            return
+        }
+        UIApplication.shared.open(url)
     }
     
     private func openAppSettings() {
@@ -956,7 +1094,7 @@ struct SettingsView: View {
                 showImportError = true
             }
             
-        case .failure(let error):
+        case .failure:
             importErrorMessage = "Could not access the selected file."
             showImportError = true
         }
@@ -1143,6 +1281,21 @@ struct ShareSheet: UIViewControllerRepresentable {
     }
     
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+private enum FeedbackEmailClient {
+    case defaultMail
+
+    func composeURL(to recipient: String, subject: String, body: String) -> URL {
+        let encodedRecipient = recipient.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? recipient
+        let encodedSubject = subject.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? subject
+        let encodedBody = body.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? body
+
+        switch self {
+        case .defaultMail:
+            return URL(string: "mailto:\(encodedRecipient)?subject=\(encodedSubject)&body=\(encodedBody)")!
+        }
+    }
 }
 
 // MARK: - Preview

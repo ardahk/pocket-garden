@@ -77,7 +77,7 @@ final class GrowingTree {
 }
 
 /// Position in the 2D forest grid
-struct GrowingTreePosition: Codable, Sendable {
+struct GrowingTreePosition: Sendable {
     var x: Double
     var y: Double
     
@@ -86,6 +86,8 @@ struct GrowingTreePosition: Codable, Sendable {
         self.y = y
     }
 }
+
+nonisolated extension GrowingTreePosition: Codable {}
 
 /// Tree type with visual characteristics
 enum TreeType: String, CaseIterable {

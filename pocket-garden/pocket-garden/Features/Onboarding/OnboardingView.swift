@@ -99,7 +99,7 @@ struct OnboardingView: View {
                     VStack(spacing: 16) {
                         Button {
                             if features[currentPage].type == .name {
-                                let trimmedName = sanitizeName(enteredFirstName)
+                                let trimmedName = UserNameSanitizer.sanitize(enteredFirstName)
                                 guard !trimmedName.isEmpty else { return }
                                 enteredFirstName = trimmedName
                                 userFirstName = trimmedName
@@ -135,24 +135,22 @@ struct OnboardingView: View {
             }
         }
         .onAppear {
-            enteredFirstName = userFirstName
+            enteredFirstName = UserNameSanitizer.filterForInput(userFirstName)
+        }
+        .onChange(of: enteredFirstName) { _, newValue in
+            let filtered = UserNameSanitizer.filterForInput(newValue)
+            if filtered != newValue {
+                enteredFirstName = filtered
+            }
         }
         .devEnableInjection()
     }
 
     private var isCurrentStepValid: Bool {
         if features[currentPage].type == .name {
-            return !sanitizeName(enteredFirstName).isEmpty
+            return !UserNameSanitizer.sanitize(enteredFirstName).isEmpty
         }
         return true
-    }
-
-    private func sanitizeName(_ raw: String) -> String {
-        raw
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .whitespacesAndNewlines)
-            .filter { !$0.isEmpty }
-            .joined(separator: " ")
     }
 
     private func completeOnboarding() {
@@ -1224,4 +1222,3 @@ struct PrivacyRow: View {
 #Preview {
     OnboardingView()
 }
-

@@ -192,9 +192,15 @@ struct HomeView: View {
     private var headerSection: some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: Spacing.xs) {
-                Text(greeting)
-                    .font(.system(size: 28, weight: .semibold))
+                Text("\(greeting),")
+                    .font(.system(size: 24, weight: .semibold))
                     .foregroundColor(.textPrimary)
+
+                if !displayName.isEmpty {
+                    Text(displayName)
+                        .font(.system(size: 34, weight: .bold))
+                        .foregroundColor(.textPrimary)
+                }
 
                 Text(currentDate)
                     .font(Typography.body)
@@ -644,6 +650,10 @@ struct HomeView: View {
         return formatter.string(from: Date())
     }
 
+    private var displayName: String {
+        UserNameSanitizer.sanitize(userFirstName)
+    }
+
     private var currentStreak: Int {
         var streak = 0
         let calendar = Calendar.current
@@ -939,20 +949,22 @@ struct NamePromptSheet: View {
                 )
                 .padding(.horizontal, Spacing.xl)
                 .focused($isNameFieldFocused)
+                .onChange(of: enteredName) { _, newValue in
+                    let filtered = UserNameSanitizer.filterForInput(newValue)
+                    if filtered != newValue {
+                        enteredName = filtered
+                    }
+                }
 
             VStack(spacing: Spacing.md) {
                 PrimaryButton("Save", icon: "checkmark") {
-                    let trimmed = enteredName
-                        .trimmingCharacters(in: .whitespacesAndNewlines)
-                        .components(separatedBy: .whitespacesAndNewlines)
-                        .filter { !$0.isEmpty }
-                        .joined(separator: " ")
+                    let trimmed = UserNameSanitizer.sanitize(enteredName)
                     guard !trimmed.isEmpty else { return }
                     Theme.Haptics.success()
                     onSave(trimmed)
                 }
-                .opacity(enteredName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.55 : 1.0)
-                .disabled(enteredName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .opacity(UserNameSanitizer.sanitize(enteredName).isEmpty ? 0.55 : 1.0)
+                .disabled(UserNameSanitizer.sanitize(enteredName).isEmpty)
                 .padding(.horizontal, Spacing.xl)
 
                 Button("Maybe Later") {
@@ -967,6 +979,7 @@ struct NamePromptSheet: View {
         .padding(.vertical, Spacing.xl)
         .background(Color.backgroundCream.ignoresSafeArea())
         .onAppear {
+            enteredName = UserNameSanitizer.filterForInput(enteredName)
             isNameFieldFocused = true
         }
     }
