@@ -1,6 +1,12 @@
-### Pocket Garden 🌱
+### Pocket Forest 🌱
 
-Pocket Garden is a **privacy-first** iOS app for daily emotional wellness. All processing happens on-device using Apple Intelligence—your mood data, voice journals, and AI insights never leave your device. Track your emotional patterns, voice-journal your thoughts, and watch a virtual forest grow as you progress.
+Pocket Forest is a **privacy-first** iOS app for daily emotional wellness. All processing happens on-device using Apple Intelligence—your mood data, voice journals, and AI insights never leave your device. Track your emotional patterns, voice-journal your thoughts, and watch a virtual forest grow as you progress.
+
+<div align="center">
+  <a href="https://apps.apple.com/us/app/pocket-forest/id6756404017">
+    <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="72" />
+  </a>
+</div>
 
 #### What it does 📝
 - **Daily Check-in** - Log how you feel (1–10) and add a short note or voice journal
